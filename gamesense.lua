@@ -29,11 +29,17 @@ library.configs_folder = "Configs"
 
 local function render_object(render_type, properties)
     local instance = Instance.new(render_type)
+    local render_time = nil
     if properties then
         for property, value in pairs(properties) do
-            instance[property] = value
+            if property == "RenderTime" then
+                render_time = value
+            else
+                instance[property] = value
+            end
         end
     end
+    library.renders[#library.renders + 1] = {instance, properties or {}, false, render_time}
     return instance
 end
 
