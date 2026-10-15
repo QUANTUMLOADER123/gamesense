@@ -1,13 +1,10 @@
 local library = {}
 library.__index = library
-library.pages = {}
-library.pages.__index = library.pages
-library.sections = {}
-library.sections.__index = library.sections
 
 local tween_service = game:GetService("TweenService")
 local input_service = game:GetService("UserInputService")
 local core_gui = game:GetService("CoreGui")
+local run_service = game:GetService("RunService")
 
 local color_from_rgb = Color3.fromRGB
 local color_from_hsv = Color3.fromHSV
@@ -19,27 +16,28 @@ local number_sequence_keypoint_new = NumberSequenceKeypoint.new
 local color_sequence_keypoint_new = ColorSequenceKeypoint.new
 local tween_info_new = TweenInfo.new
 
-local accent_color = color_from_rgb(255, 120, 30)
+local icons = {
+    rage = "rbxassetid://8547236654",
+    aimbot = "rbxassetid://8547249956",
+    visuals = "rbxassetid://8547254518",
+    settings = "rbxassetid://8547256547",
+    skins = "rbxassetid://8547258459",
+    config = "rbxassetid://8547269749"
+}
 
+library.icons = icons
 library.renders = {}
 library.connections = {}
-library.folder_name = "PuppyWare"
-library.assets_folder = "Assets"
-library.configs_folder = "Configs"
+library.accent_objects = {}
 
 local function render_object(render_type, properties)
     local instance = Instance.new(render_type)
-    local render_time = nil
     if properties then
         for property, value in pairs(properties) do
-            if property == "RenderTime" then
-                render_time = value
-            else
-                instance[property] = value
-            end
+            instance[property] = value
         end
     end
-    library.renders[#library.renders + 1] = {instance, properties or {}, false, render_time}
+    library.renders[#library.renders + 1] = instance
     return instance
 end
 
@@ -49,8 +47,11 @@ local function create_connection(signal, callback)
     return connection
 end
 
+local function register_accent(object, property)
+    library.accent_objects[#library.accent_objects + 1] = {object, property}
+end
+
 local function make_draggable(frame, handle)
-    handle = handle or frame
     local dragging = false
     local drag_start = nil
     local start_position = nil
@@ -114,13 +115,24 @@ local function is_mouse_over_frame(frame)
     return mouse.X >= position.X and mouse.Y >= position.Y and mouse.X <= position.X + size.X and mouse.Y <= position.Y + size.Y
 end
 
+local function round_to_step(value, step)
+    return math.floor(value / step + 0.5) * step
+end
+
+function library:set_accent(color)
+    self.Accent = color
+    for _, entry in pairs(library.accent_objects) do
+        entry[1][entry[2]] = color
+    end
+end
+
 function library:CreateWindow(properties)
     properties = properties or {}
     local window = {
         Pages = {},
-        Accent = accent_color,
+        Accent = properties.accent or properties.Accent or color_from_rgb(255, 120, 30),
         Enabled = true,
-        Key = Enum.KeyCode.Insert
+        Key = properties.key or properties.Key or Enum.KeyCode.Insert
     }
 
     local screen_gui = render_object("ScreenGui", {
@@ -143,7 +155,7 @@ function library:CreateWindow(properties)
         Size = udim2_new(0, 660, 0, 560)
     })
 
-    local main_inner_border = render_object("Frame", {
+    render_object("Frame", {
         BackgroundColor3 = color_from_rgb(40, 40, 40),
         BorderSizePixel = 0,
         Parent = main_frame,
@@ -233,7 +245,6 @@ function library:CreateWindow(properties)
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = pages_inner_frame,
-        Position = udim2_new(0, 0, 0, 0),
         Size = udim2_new(1, 0, 1, 0),
         Image = "rbxassetid://8547666218",
         ImageColor3 = color_from_rgb(12, 12, 12),
@@ -255,37 +266,14 @@ function library:CreateWindow(properties)
     end
 
     function window:Fade(state)
-        for _, render in pairs(library.renders) do
-            if not render[3] then
-                local instance = render[1]
-                local props = render[2] or {}
-                local duration = render[4] or 0.25
-                local easing = state and Enum.EasingDirection.Out or Enum.EasingDirection.In
-                local info = tween_info_new(duration, Enum.EasingStyle.Linear, easing)
-                if instance.ClassName == "Frame" and (props.BackgroundTransparency or 0) ~= 1 then
-                    tween_service:Create(instance, info, {BackgroundTransparency = state and (props.BackgroundTransparency or 0) or 1}):Play()
-                elseif instance.ClassName == "ImageLabel" then
-                    if (props.BackgroundTransparency or 0) ~= 1 then
-                        tween_service:Create(instance, info, {BackgroundTransparency = state and (props.BackgroundTransparency or 0) or 1}):Play()
+        for _, instance in pairs(library.renders) do
+            if instance.ClassName == "Frame" or instance.ClassName == "ImageLabel" or instance.ClassName == "TextLabel" or instance.ClassName == "ScrollingFrame" then
+                pcall(function()
+                    local info = tween_info_new(0.25, Enum.EasingStyle.Linear, state and Enum.EasingDirection.Out or Enum.EasingDirection.In)
+                    if instance:FindFirstChildOfClass("UIGradient") == nil then
+                        tween_service:Create(instance, info, {BackgroundTransparency = state and 0 or 1}):Play()
                     end
-                    if (props.ImageTransparency or 0) ~= 1 then
-                        tween_service:Create(instance, info, {ImageTransparency = state and (props.ImageTransparency or 0) or 1}):Play()
-                    end
-                elseif instance.ClassName == "TextLabel" then
-                    if (props.BackgroundTransparency or 0) ~= 1 then
-                        tween_service:Create(instance, info, {BackgroundTransparency = state and (props.BackgroundTransparency or 0) or 1}):Play()
-                    end
-                    if (props.TextTransparency or 0) ~= 1 then
-                        tween_service:Create(instance, info, {TextTransparency = state and (props.TextTransparency or 0) or 1}):Play()
-                    end
-                elseif instance.ClassName == "ScrollingFrame" then
-                    if (props.BackgroundTransparency or 0) ~= 1 then
-                        tween_service:Create(instance, info, {BackgroundTransparency = state and (props.BackgroundTransparency or 0) or 1}):Play()
-                    end
-                    if (props.ScrollBarImageTransparency or 0) ~= 1 then
-                        tween_service:Create(instance, info, {ScrollBarImageTransparency = state and (props.ScrollBarImageTransparency or 0) or 1}):Play()
-                    end
-                end
+                end)
             end
         end
     end
@@ -297,6 +285,8 @@ function library:CreateWindow(properties)
         end
         library = nil
     end
+
+    window:set_accent(window.Accent)
 
     create_connection(input_service.InputBegan, function(input)
         if input.KeyCode == window.Key then
@@ -411,7 +401,7 @@ function library:CreatePage(properties)
     })
 
     render_object("UIListLayout", {
-        Padding = UDim.new(0, 18),
+        Padding = UDim.new(0, 12),
         Parent = page_left,
         FillDirection = "Vertical",
         HorizontalAlignment = "Left",
@@ -419,7 +409,7 @@ function library:CreatePage(properties)
     })
 
     render_object("UIListLayout", {
-        Padding = UDim.new(0, 18),
+        Padding = UDim.new(0, 12),
         Parent = page_right,
         FillDirection = "Vertical",
         HorizontalAlignment = "Left",
@@ -438,6 +428,10 @@ function library:CreatePage(properties)
         if state then
             page.Window:SetPage(page)
         end
+    end
+
+    function page:section(properties)
+        return page:_CreateSection(properties)
     end
 
     create_connection(tab_button.MouseButton1Click, function()
@@ -461,13 +455,15 @@ function library:CreatePage(properties)
     return setmetatable(page, library.pages)
 end
 
-function library.pages:CreateSection(properties)
+library.pages = {}
+library.pages.__index = library.pages
+
+function library.pages:_CreateSection(properties)
     properties = properties or {}
     local section = {
-        Name = properties.name or properties.Name or properties.title or properties.Title or "New Section",
-        Size = properties.size or properties.Size or 150,
+        Name = properties.name or properties.Name or "New Section",
         Side = properties.side or properties.Side or "Left",
-        Content = {},
+        Width = properties.width or properties.Width or 1,
         Window = self.Window,
         Page = self
     }
@@ -478,7 +474,8 @@ function library.pages:CreateSection(properties)
         BorderMode = "Inset",
         BorderSizePixel = 1,
         Parent = section.Page[section.Side],
-        Size = udim2_new(1, 0, 0, section.Size),
+        Size = udim2_new(section.Width, 0, 0, 100),
+        AutomaticSize = "Y",
         ZIndex = 2
     })
 
@@ -526,115 +523,23 @@ function library.pages:CreateSection(properties)
         TextXAlignment = "Left"
     })
 
-    local gradient_top = render_object("ImageLabel", {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = extra,
-        Position = udim2_new(0, 1, 0, 1),
-        Rotation = 180,
-        Size = udim2_new(1, -2, 0, 20),
-        Visible = false,
-        ZIndex = 4,
-        Image = "rbxassetid://7783533907",
-        ImageColor3 = color_from_rgb(23, 23, 23)
-    })
-
-    local gradient_bottom = render_object("ImageLabel", {
-        AnchorPoint = vector2_new(0, 1),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = extra,
-        Position = udim2_new(0, 0, 1, 0),
-        Size = udim2_new(1, -2, 0, 20),
-        Visible = false,
-        ZIndex = 4,
-        Image = "rbxassetid://7783533907",
-        ImageColor3 = color_from_rgb(23, 23, 23)
-    })
-
-    local arrow_up = render_object("TextButton", {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = extra,
-        Position = udim2_new(1, -21, 0, 0),
-        Size = udim2_new(0, 15, 0, 14),
-        Text = "",
-        Visible = false,
-        ZIndex = 4
-    })
-
-    local arrow_down = render_object("TextButton", {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = extra,
-        Position = udim2_new(1, -21, 1, -14),
-        Size = udim2_new(0, 15, 0, 14),
-        Text = "",
-        Visible = false,
-        ZIndex = 4
-    })
-
-    render_object("ImageLabel", {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = arrow_up,
-        Position = udim2_new(0, 4, 0, 4),
-        Size = udim2_new(0, 7, 0, 6),
-        ZIndex = 4,
-        Image = "rbxassetid://8548757311",
-        ImageColor3 = color_from_rgb(205, 205, 205)
-    })
-
-    render_object("ImageLabel", {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = arrow_down,
-        Position = udim2_new(0, 4, 0, 4),
-        Size = udim2_new(0, 7, 0, 6),
-        ZIndex = 4,
-        Image = "rbxassetid://8548723563",
-        ImageColor3 = color_from_rgb(205, 205, 205)
-    })
-
-    local scrollbar = render_object("Frame", {
-        AnchorPoint = vector2_new(1, 0),
-        BackgroundColor3 = color_from_rgb(45, 45, 45),
-        BorderSizePixel = 0,
-        Parent = extra,
-        Position = udim2_new(1, 0, 0, 0),
-        Size = udim2_new(0, 6, 1, 0),
-        Visible = false,
-        ZIndex = 4
-    })
-
-    render_object("Frame", {
-        BackgroundColor3 = color_from_rgb(45, 45, 45),
-        BorderSizePixel = 0,
-        Parent = extra,
-        Position = udim2_new(0, 0, 0, -1),
-        Size = udim2_new(1, 0, 0, 1),
-        ZIndex = 4
-    })
-
     local content_holder = render_object("ScrollingFrame", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = holder_frame,
-        Size = udim2_new(1, 0, 1, 0),
+        Position = udim2_new(0, 0, 0, 0),
+        Size = udim2_new(1, 0, 1, -2),
         ZIndex = 4,
         AutomaticCanvasSize = "Y",
-        BottomImage = "rbxassetid://7783554086",
         CanvasSize = udim2_new(0, 0, 0, 0),
-        MidImage = "rbxassetid://7783554086",
         ScrollBarImageColor3 = color_from_rgb(65, 65, 65),
         ScrollBarImageTransparency = 0,
         ScrollBarThickness = 5,
-        TopImage = "rbxassetid://7783554086",
         VerticalScrollBarInset = "None"
     })
 
     render_object("UIListLayout", {
-        Padding = UDim.new(0, 0),
+        Padding = UDim.new(0, 4),
         Parent = content_holder,
         FillDirection = "Vertical",
         HorizontalAlignment = "Center",
@@ -647,64 +552,41 @@ function library.pages:CreateSection(properties)
         PaddingBottom = UDim.new(0, 15)
     })
 
-    title_inline.Size = udim2_new(0, title.TextBounds.X + 6, 0, 2)
+    task.defer(function()
+        title_inline.Size = udim2_new(0, title.TextBounds.X + 6, 0, 2)
+    end)
 
     section["Holder"] = content_holder
     section["Extra"] = extra
 
     function section:CloseContent()
-        if section.Content.Open then
+        if section.Content and section.Content.Open then
             section.Content:Close()
             section.Content = {}
         end
     end
 
-    create_connection(content_holder:GetPropertyChangedSignal("AbsoluteCanvasSize"), function()
-        local needs_scroll = content_holder.AbsoluteCanvasSize.Y > content_holder.AbsoluteWindowSize.Y
-        gradient_top.Visible = needs_scroll
-        gradient_bottom.Visible = needs_scroll
-        scrollbar.Visible = needs_scroll
-        if needs_scroll then
-            arrow_up.Visible = content_holder.CanvasPosition.Y > 5
-            arrow_down.Visible = content_holder.CanvasPosition.Y + 5 < content_holder.AbsoluteCanvasSize.Y - content_holder.AbsoluteSize.Y
-        end
-    end)
-
-    create_connection(content_holder:GetPropertyChangedSignal("CanvasPosition"), function()
-        if section.Content.Open then
-            section.Content:Close()
-            section.Content = {}
-        end
-        arrow_up.Visible = content_holder.CanvasPosition.Y > 1
-        arrow_down.Visible = content_holder.CanvasPosition.Y + 1 < content_holder.AbsoluteCanvasSize.Y - content_holder.AbsoluteSize.Y
-    end)
-
-    create_connection(arrow_up.MouseButton1Click, function()
-        content_holder.CanvasPosition = Vector2.new(0, math.clamp(content_holder.CanvasPosition.Y - 10, 0, content_holder.AbsoluteCanvasSize.Y - content_holder.AbsoluteSize.Y))
-    end)
-
-    create_connection(arrow_down.MouseButton1Click, function()
-        content_holder.CanvasPosition = Vector2.new(0, math.clamp(content_holder.CanvasPosition.Y + 10, 0, content_holder.AbsoluteCanvasSize.Y - content_holder.AbsoluteSize.Y))
-    end)
-
     return setmetatable(section, library.sections)
 end
 
-function library.sections:CreateToggle(properties)
-    properties = properties or {}
-    local toggle = {
-        Name = properties.name or properties.Name or properties.title or properties.Title or "New Toggle",
-        State = properties.state or properties.State or properties.def or properties.Def or properties.default or properties.Default or false,
-        Callback = properties.callback or properties.Callback or properties.callBack or properties.CallBack or function() end,
-        Window = self.Window,
-        Page = self.Page,
-        Section = self
+library.sections = {}
+library.sections.__index = library.sections
+
+function library.sections:checkbox(properties)
+    if type(properties) == "string" then
+        properties = {name = properties, state = false, callback = function() end}
+    end
+    local checkbox = {
+        Name = properties.name or properties.Name or "New Checkbox",
+        State = properties.state or properties.State or false,
+        Callback = properties.callback or properties.Callback or function() end,
+        Window = self.Window
     }
 
     local holder = render_object("Frame", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Parent = toggle.Section.Holder,
+        Parent = self.Holder,
         Size = udim2_new(1, 0, 0, 18),
         ZIndex = 3
     })
@@ -726,28 +608,10 @@ function library.sections:CreateToggle(properties)
         Size = udim2_new(1, -41, 1, 0),
         ZIndex = 3,
         Font = "Code",
-        RichText = true,
-        Text = toggle.Name,
+        Text = checkbox.Name,
         TextColor3 = color_from_rgb(205, 205, 205),
         TextSize = 9,
         TextStrokeTransparency = 1,
-        TextXAlignment = "Left"
-    })
-
-    render_object("TextLabel", {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = holder,
-        Position = udim2_new(0, 41, 0, 0),
-        Size = udim2_new(1, -41, 1, 0),
-        ZIndex = 3,
-        Font = "Code",
-        RichText = true,
-        Text = toggle.Name,
-        TextColor3 = color_from_rgb(205, 205, 205),
-        TextSize = 9,
-        TextStrokeTransparency = 1,
-        TextTransparency = 0.5,
         TextXAlignment = "Left"
     })
 
@@ -768,59 +632,80 @@ function library.sections:CreateToggle(properties)
         ZIndex = 3
     })
 
-    local gradient = render_object("UIGradient", {
+    render_object("UIGradient", {
         Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(140, 140, 140)),
         Rotation = 90,
         Parent = outline_frame
     })
 
-    function toggle:Set(state)
-        toggle.State = state
-        outline_frame.BackgroundColor3 = state and toggle.Window.Accent or color_from_rgb(77, 77, 77)
-        toggle.Callback(toggle:Get())
+    register_accent(outline_frame, "BackgroundColor3")
+
+    function checkbox:set(state)
+        checkbox.State = state
+        outline_frame.BackgroundColor3 = state and checkbox.Window.Accent or color_from_rgb(77, 77, 77)
+        checkbox.Callback(checkbox.State)
     end
 
-    function toggle:Get()
-        return toggle.State
+    function checkbox:get()
+        return checkbox.State
     end
 
     create_connection(button.MouseButton1Click, function()
-        toggle:Set(not toggle:Get())
+        checkbox:set(not checkbox:get())
     end)
 
-    create_connection(button.MouseEnter, function()
-        gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(180, 180, 180))
-    end)
-
-    create_connection(button.MouseLeave, function()
-        gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(140, 140, 140))
-    end)
-
-    toggle:Set(toggle.State)
-    return toggle
+    checkbox:set(checkbox.State)
+    return checkbox
 end
 
-function library.sections:CreateSlider(properties)
-    properties = properties or {}
+function library.sections:slider(properties)
+    if type(properties) == "string" then
+        properties = {name = properties}
+    end
     local slider = {
-        Name = properties.name or properties.Name or properties.title or properties.Title or nil,
-        State = properties.state or properties.State or properties.def or properties.Def or properties.default or properties.Default or 0,
-        Min = properties.min or properties.Min or properties.minimum or properties.Minimum or 0,
-        Max = properties.max or properties.Max or properties.maximum or properties.Maximum or 100,
-        Ending = properties.ending or properties.Ending or properties.suffix or properties.Suffix or "",
-        Decimals = 1 / (properties.decimals or properties.Decimals or properties.tick or properties.Tick or 1),
-        Callback = properties.callback or properties.Callback or properties.callBack or properties.CallBack or function() end,
+        Name = properties.name or properties.Name or nil,
+        State = properties.state or properties.State or 0,
+        Min = properties.min or properties.Min or 0,
+        Max = properties.max or properties.Max or 100,
+        Suffix = properties.suffix or properties.Suffix or "",
+        Decimals = properties.decimals or properties.Decimals or 1,
+        Callback = properties.callback or properties.Callback or function() end,
         Holding = false,
-        Window = self.Window,
-        Page = self.Page,
-        Section = self
+        Window = self.Window
     }
+    slider.Step = 1 / slider.Decimals
 
     local holder = render_object("Frame", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Parent = slider.Section.Holder,
+        Parent = self.Holder,
         Size = udim2_new(1, 0, 0, (slider.Name and 24 or 13) + 5),
+        ZIndex = 3
+    })
+
+    local minus_button = render_object("TextButton", {
+        BackgroundColor3 = color_from_rgb(30, 30, 30),
+        BorderSizePixel = 0,
+        Parent = holder,
+        Position = udim2_new(0, 20, 0, slider.Name and 18 or 5),
+        Size = udim2_new(0, 14, 0, 10),
+        Text = "−",
+        TextColor3 = color_from_rgb(180, 180, 180),
+        TextSize = 12,
+        Font = "Code",
+        ZIndex = 3
+    })
+
+    local plus_button = render_object("TextButton", {
+        BackgroundColor3 = color_from_rgb(30, 30, 30),
+        BorderSizePixel = 0,
+        Parent = holder,
+        Position = udim2_new(1, -34, 0, slider.Name and 18 or 5),
+        Size = udim2_new(0, 14, 0, 10),
+        Text = "+",
+        TextColor3 = color_from_rgb(180, 180, 180),
+        TextSize = 12,
+        Font = "Code",
         ZIndex = 3
     })
 
@@ -829,7 +714,7 @@ function library.sections:CreateSlider(properties)
         BorderSizePixel = 0,
         Parent = holder,
         Position = udim2_new(0, 40, 0, slider.Name and 18 or 5),
-        Size = udim2_new(1, -99, 0, 7),
+        Size = udim2_new(1, -99, 0, 10),
         ZIndex = 3
     })
 
@@ -842,28 +727,10 @@ function library.sections:CreateSlider(properties)
             Size = udim2_new(1, -41, 0, 10),
             ZIndex = 3,
             Font = "Code",
-            RichText = true,
             Text = slider.Name,
             TextColor3 = color_from_rgb(205, 205, 205),
             TextSize = 9,
             TextStrokeTransparency = 1,
-            TextXAlignment = "Left"
-        })
-
-        render_object("TextLabel", {
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            Parent = holder,
-            Position = udim2_new(0, 41, 0, 4),
-            Size = udim2_new(1, -41, 0, 10),
-            ZIndex = 3,
-            Font = "Code",
-            RichText = true,
-            Text = slider.Name,
-            TextColor3 = color_from_rgb(205, 205, 205),
-            TextSize = 9,
-            TextStrokeTransparency = 1,
-            TextTransparency = 0.5,
             TextXAlignment = "Left"
         })
     end
@@ -893,17 +760,7 @@ function library.sections:CreateSlider(properties)
         ZIndex = 3
     })
 
-    local outline_gradient = render_object("UIGradient", {
-        Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(175, 175, 175)),
-        Rotation = 270,
-        Parent = outline_frame
-    })
-
-    local fill_gradient = render_object("UIGradient", {
-        Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(175, 175, 175)),
-        Rotation = 90,
-        Parent = fill
-    })
+    register_accent(fill, "BackgroundColor3")
 
     local value_label = render_object("TextLabel", {
         AnchorPoint = vector2_new(0.5, 0),
@@ -914,7 +771,6 @@ function library.sections:CreateSlider(properties)
         Size = udim2_new(0, 2, 1, 0),
         ZIndex = 3,
         Font = "Code",
-        RichText = true,
         Text = "",
         TextColor3 = color_from_rgb(255, 255, 255),
         TextSize = 11,
@@ -922,93 +778,70 @@ function library.sections:CreateSlider(properties)
         TextXAlignment = "Center"
     })
 
-    render_object("TextLabel", {
-        AnchorPoint = vector2_new(0.5, 0),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = fill,
-        Position = udim2_new(1, 0, 0.5, 1),
-        Size = udim2_new(0, 2, 1, 0),
-        ZIndex = 3,
-        Font = "Code",
-        RichText = true,
-        Text = "",
-        TextColor3 = color_from_rgb(255, 255, 255),
-        TextSize = 11,
-        TextStrokeTransparency = 0.5,
-        TextXAlignment = "Center"
-    })
-
-    function slider:Set(state)
-        slider.State = math.clamp(math.round(state * slider.Decimals) / slider.Decimals, slider.Min, slider.Max)
-        value_label.Text = "<b>" .. slider.State .. slider.Ending .. "</b>"
-        fill.Size = udim2_new(1 - ((slider.Max - slider.State) / (slider.Max - slider.Min)), 0, 1, 0)
-        slider.Callback(slider:Get())
+    function slider:set(state)
+        slider.State = math.clamp(round_to_step(state, slider.Step), slider.Min, slider.Max)
+        value_label.Text = tostring(slider.State) .. slider.Suffix
+        local ratio = (slider.State - slider.Min) / (slider.Max - slider.Min)
+        fill.Size = udim2_new(ratio, 0, 1, 0)
+        slider.Callback(slider.State)
     end
 
-    function slider:Refresh()
-        local mouse = mouse_location()
-        local relative_x = math.clamp(mouse.X - fill.AbsolutePosition.X, 0, outline_frame.AbsoluteSize.X) / outline_frame.AbsoluteSize.X
-        slider:Set(slider.Min + (slider.Max - slider.Min) * relative_x)
-    end
-
-    function slider:Get()
+    function slider:get()
         return slider.State
     end
 
+    function slider:refresh()
+        local mouse = mouse_location()
+        local relative_x = math.clamp(mouse.X - fill.AbsolutePosition.X, 0, outline_frame.AbsoluteSize.X) / outline_frame.AbsoluteSize.X
+        slider:set(slider.Min + (slider.Max - slider.Min) * relative_x)
+    end
+
+    create_connection(minus_button.MouseButton1Click, function()
+        slider:set(slider.State - slider.Step)
+    end)
+
+    create_connection(plus_button.MouseButton1Click, function()
+        slider:set(slider.State + slider.Step)
+    end)
+
     create_connection(button.MouseButton1Down, function()
-        slider:Refresh()
+        slider:refresh()
         slider.Holding = true
-        outline_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(215, 215, 215))
-        fill_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(215, 215, 215))
-    end)
-
-    create_connection(button.MouseEnter, function()
-        outline_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(215, 215, 215))
-        fill_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(215, 215, 215))
-    end)
-
-    create_connection(button.MouseLeave, function()
-        local end_color = slider.Holding and color_from_rgb(215, 215, 215) or color_from_rgb(175, 175, 175)
-        outline_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), end_color)
-        fill_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), end_color)
     end)
 
     create_connection(input_service.InputChanged, function(input)
-        if slider.Holding then
-            slider:Refresh()
+        if slider.Holding and input.UserInputType == Enum.UserInputType.MouseMovement then
+            slider:refresh()
         end
     end)
 
     create_connection(input_service.InputEnded, function(input)
         if slider.Holding and input.UserInputType == Enum.UserInputType.MouseButton1 then
             slider.Holding = false
-            outline_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(175, 175, 175))
-            fill_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(175, 175, 175))
         end
     end)
 
-    slider:Set(slider.State)
+    slider:set(slider.State)
     return slider
 end
 
-function library.sections:CreateDropdown(properties)
-    properties = properties or {}
+function library.sections:dropdown(properties)
+    if type(properties) == "string" then
+        properties = {name = properties}
+    end
     local dropdown = {
-        Name = properties.name or properties.Name or properties.title or properties.Title or "New Dropdown",
-        State = properties.state or properties.State or properties.def or properties.Def or properties.default or properties.Default or 1,
-        Options = properties.options or properties.Options or properties.list or properties.List or {1, 2, 3},
-        Callback = properties.callback or properties.Callback or properties.callBack or properties.CallBack or function() end,
+        Name = properties.name or properties.Name or "Dropdown",
+        State = properties.state or properties.State or 1,
+        Options = properties.options or properties.Options or {1, 2, 3},
+        Callback = properties.callback or properties.Callback or function() end,
         Content = {Open = false},
-        Window = self.Window,
-        Page = self.Page,
-        Section = self
+        Window = self.Window
     }
 
     local holder = render_object("Frame", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Parent = dropdown.Section.Holder,
+        Parent = self.Holder,
         Size = udim2_new(1, 0, 0, 39),
         ZIndex = 3
     })
@@ -1030,28 +863,10 @@ function library.sections:CreateDropdown(properties)
         Size = udim2_new(1, -41, 0, 10),
         ZIndex = 3,
         Font = "Code",
-        RichText = true,
         Text = dropdown.Name,
         TextColor3 = color_from_rgb(205, 205, 205),
         TextSize = 9,
         TextStrokeTransparency = 1,
-        TextXAlignment = "Left"
-    })
-
-    render_object("TextLabel", {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = holder,
-        Position = udim2_new(0, 41, 0, 4),
-        Size = udim2_new(1, -41, 0, 10),
-        ZIndex = 3,
-        Font = "Code",
-        RichText = true,
-        Text = dropdown.Name,
-        TextColor3 = color_from_rgb(205, 205, 205),
-        TextSize = 9,
-        TextStrokeTransparency = 1,
-        TextTransparency = 0.5,
         TextXAlignment = "Left"
     })
 
@@ -1072,12 +887,6 @@ function library.sections:CreateDropdown(properties)
         ZIndex = 3
     })
 
-    render_object("UIGradient", {
-        Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(220, 220, 220)),
-        Rotation = 270,
-        Parent = outline_frame
-    })
-
     local value_label = render_object("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -1086,7 +895,6 @@ function library.sections:CreateDropdown(properties)
         Size = udim2_new(1, 0, 1, 0),
         ZIndex = 3,
         Font = "Code",
-        RichText = true,
         Text = "",
         TextColor3 = color_from_rgb(155, 155, 155),
         TextSize = 9,
@@ -1105,29 +913,29 @@ function library.sections:CreateDropdown(properties)
         ZIndex = 3
     })
 
-    function dropdown:Set(state)
+    function dropdown:set(state)
         dropdown.State = state
         value_label.Text = tostring(dropdown.Options[state])
-        dropdown.Callback(dropdown:Get())
-        if dropdown.Content.Open then
-            dropdown.Content:Refresh()
-        end
+        dropdown.Callback(dropdown.State)
     end
 
-    function dropdown:Get()
+    function dropdown:get()
         return dropdown.State
     end
 
-    function dropdown:Open()
-        dropdown.Section:CloseContent()
-        local open_items = {}
-        local connections = {}
-        local input_check
+    function dropdown:open()
+        if self.Page then
+            self.Page:CloseContent()
+        end
+        if dropdown.Section then
+            dropdown.Section:CloseContent()
+        end
+
         local open_holder = render_object("Frame", {
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            Parent = dropdown.Section.Extra,
-            Position = udim2_new(0, outline.AbsolutePosition.X - dropdown.Section.Extra.AbsolutePosition.X, 0, outline.AbsolutePosition.Y - dropdown.Section.Extra.AbsolutePosition.Y + 21),
+            Parent = self.Extra,
+            Position = udim2_new(0, outline.AbsolutePosition.X - self.Extra.AbsolutePosition.X, 0, outline.AbsolutePosition.Y - self.Extra.AbsolutePosition.Y + 21),
             Size = udim2_new(1, -98, 0, (18 * #dropdown.Options) + 2),
             ZIndex = 6
         })
@@ -1149,13 +957,16 @@ function library.sections:CreateDropdown(properties)
             ZIndex = 6
         })
 
+        local open_items = {}
+        local connections = {}
+
         for index, option in pairs(dropdown.Options) do
             local option_frame = render_object("Frame", {
                 BackgroundColor3 = color_from_rgb(35, 35, 35),
                 BorderSizePixel = 0,
                 Parent = open_frame,
                 Position = udim2_new(0, 0, 0, 18 * (index - 1)),
-                Size = udim2_new(1, 0, 1 / #dropdown.Options, 0),
+                Size = udim2_new(1, 0, 0, 18),
                 ZIndex = 6
             })
 
@@ -1167,7 +978,6 @@ function library.sections:CreateDropdown(properties)
                 Size = udim2_new(1, 0, 1, 0),
                 ZIndex = 6,
                 Font = "Code",
-                RichText = true,
                 Text = tostring(option),
                 TextColor3 = index == dropdown.State and dropdown.Window.Accent or color_from_rgb(205, 205, 205),
                 TextSize = 9,
@@ -1185,11 +995,12 @@ function library.sections:CreateDropdown(properties)
             })
 
             connections[#connections + 1] = create_connection(option_button.MouseButton1Click, function()
-                dropdown:Set(index)
+                dropdown:set(index)
+                dropdown.Content:Close()
             end)
 
             connections[#connections + 1] = create_connection(option_button.MouseEnter, function()
-                option_frame.BackgroundColor3 = color_from_rgb(40, 40, 40)
+                option_frame.BackgroundColor3 = color_from_rgb(45, 45, 45)
             end)
 
             connections[#connections + 1] = create_connection(option_button.MouseLeave, function()
@@ -1201,95 +1012,50 @@ function library.sections:CreateDropdown(properties)
 
         function dropdown.Content:Close()
             dropdown.Content.Open = false
-            outline_frame.BackgroundColor3 = color_from_rgb(36, 36, 36)
             for _, connection in pairs(connections) do
                 connection:Disconnect()
             end
-            if input_check then
-                input_check:Disconnect()
-            end
             for _, item in pairs(open_items) do
-                item[2]:Remove()
                 item[3]:Remove()
-                item[4]:Remove()
             end
             open_holder:Remove()
-            open_outline:Remove()
-            open_frame:Remove()
-            input_check = nil
-            connections = nil
-            open_items = nil
-        end
-
-        function dropdown.Content:Refresh()
-            for _, item in pairs(open_items) do
-                item[2].TextColor3 = item[1] == dropdown.State and dropdown.Window.Accent or color_from_rgb(205, 205, 205)
-            end
         end
 
         dropdown.Content.Open = true
-        dropdown.Section.Content = dropdown.Content
-        outline_frame.BackgroundColor3 = color_from_rgb(46, 46, 46)
-
-        task.wait()
-
-        input_check = create_connection(input_service.InputBegan, function(input)
-            if dropdown.Content.Open and input.UserInputType == Enum.UserInputType.MouseButton1 then
-                local mouse = mouse_location()
-                local inside = false
-                for _, item in pairs(open_items) do
-                    local option_button = item[4]
-                    if mouse.X >= option_button.AbsolutePosition.X and mouse.Y >= option_button.AbsolutePosition.Y and mouse.X <= option_button.AbsolutePosition.X + option_button.AbsoluteSize.X and mouse.Y <= option_button.AbsolutePosition.Y + option_button.AbsoluteSize.Y then
-                        inside = true
-                        break
-                    end
-                end
-                if not inside then
-                    dropdown.Section:CloseContent()
-                end
-            end
-        end)
+        self.Content = dropdown.Content
     end
 
-    create_connection(button.MouseButton1Down, function()
+    create_connection(button.MouseButton1Click, function()
         if dropdown.Content.Open then
-            dropdown.Section:CloseContent()
+            dropdown.Content:Close()
         else
-            dropdown:Open()
+            dropdown:open()
         end
     end)
 
-    create_connection(button.MouseEnter, function()
-        outline_frame.BackgroundColor3 = color_from_rgb(46, 46, 46)
-    end)
-
-    create_connection(button.MouseLeave, function()
-        outline_frame.BackgroundColor3 = dropdown.Content.Open and color_from_rgb(46, 46, 46) or color_from_rgb(36, 36, 36)
-    end)
-
-    dropdown:Set(dropdown.State)
+    dropdown:set(dropdown.State)
     return dropdown
 end
 
-function library.sections:CreateMultibox(properties)
-    properties = properties or {}
+function library.sections:multibox(properties)
+    if type(properties) == "string" then
+        properties = {name = properties}
+    end
     local multibox = {
-        Name = properties.name or properties.Name or properties.title or properties.Title or "New Multibox",
-        State = properties.state or properties.State or properties.def or properties.Def or properties.default or properties.Default or {1},
-        Options = properties.options or properties.Options or properties.list or properties.List or {1, 2, 3},
-        Minimum = properties.min or properties.Min or properties.minimum or properties.Minimum or 0,
-        Maximum = properties.max or properties.Max or properties.maximum or properties.Maximum or 1000,
-        Callback = properties.callback or properties.Callback or properties.callBack or properties.CallBack or function() end,
+        Name = properties.name or properties.Name or "Multibox",
+        State = properties.state or properties.State or {1},
+        Options = properties.options or properties.Options or {1, 2, 3},
+        Minimum = properties.min or properties.Min or 0,
+        Maximum = properties.max or properties.Max or 1000,
+        Callback = properties.callback or properties.Callback or function() end,
         Content = {Open = false},
-        Window = self.Window,
-        Page = self.Page,
-        Section = self
+        Window = self.Window
     }
 
     local holder = render_object("Frame", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Parent = multibox.Section.Holder,
+        Parent = self.Holder,
         Size = udim2_new(1, 0, 0, 39),
         ZIndex = 3
     })
@@ -1311,28 +1077,10 @@ function library.sections:CreateMultibox(properties)
         Size = udim2_new(1, -41, 0, 10),
         ZIndex = 3,
         Font = "Code",
-        RichText = true,
         Text = multibox.Name,
         TextColor3 = color_from_rgb(205, 205, 205),
         TextSize = 9,
         TextStrokeTransparency = 1,
-        TextXAlignment = "Left"
-    })
-
-    render_object("TextLabel", {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = holder,
-        Position = udim2_new(0, 41, 0, 4),
-        Size = udim2_new(1, -41, 0, 10),
-        ZIndex = 3,
-        Font = "Code",
-        RichText = true,
-        Text = multibox.Name,
-        TextColor3 = color_from_rgb(205, 205, 205),
-        TextSize = 9,
-        TextStrokeTransparency = 1,
-        TextTransparency = 0.5,
         TextXAlignment = "Left"
     })
 
@@ -1353,12 +1101,6 @@ function library.sections:CreateMultibox(properties)
         ZIndex = 3
     })
 
-    render_object("UIGradient", {
-        Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(220, 220, 220)),
-        Rotation = 270,
-        Parent = outline_frame
-    })
-
     local value_label = render_object("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -1367,7 +1109,6 @@ function library.sections:CreateMultibox(properties)
         Size = udim2_new(1, 0, 1, 0),
         ZIndex = 3,
         Font = "Code",
-        RichText = true,
         Text = "",
         TextColor3 = color_from_rgb(155, 155, 155),
         TextSize = 9,
@@ -1386,31 +1127,28 @@ function library.sections:CreateMultibox(properties)
         ZIndex = 3
     })
 
-    function multibox:Set(state)
+    function multibox:set(state)
         table.sort(state)
         multibox.State = state
-        local serialised = serialise_list(sort_options(multibox:Get(), multibox.Options))
+        local serialised = serialise_list(sort_options(multibox.State, multibox.Options))
         value_label.Text = serialised == "" and "-" or serialised
-        multibox.Callback(multibox:Get())
-        if multibox.Content.Open then
-            multibox.Content:Refresh()
-        end
+        multibox.Callback(multibox.State)
     end
 
-    function multibox:Get()
+    function multibox:get()
         return multibox.State
     end
 
-    function multibox:Open()
-        multibox.Section:CloseContent()
-        local open_items = {}
-        local connections = {}
-        local input_check
+    function multibox:open()
+        if self.Section then
+            self.Section:CloseContent()
+        end
+
         local open_holder = render_object("Frame", {
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            Parent = multibox.Section.Extra,
-            Position = udim2_new(0, outline.AbsolutePosition.X - multibox.Section.Extra.AbsolutePosition.X, 0, outline.AbsolutePosition.Y - multibox.Section.Extra.AbsolutePosition.Y + 21),
+            Parent = self.Extra,
+            Position = udim2_new(0, outline.AbsolutePosition.X - self.Extra.AbsolutePosition.X, 0, outline.AbsolutePosition.Y - self.Extra.AbsolutePosition.Y + 21),
             Size = udim2_new(1, -98, 0, (18 * #multibox.Options) + 2),
             ZIndex = 6
         })
@@ -1432,13 +1170,16 @@ function library.sections:CreateMultibox(properties)
             ZIndex = 6
         })
 
+        local open_items = {}
+        local connections = {}
+
         for index, option in pairs(multibox.Options) do
             local option_frame = render_object("Frame", {
                 BackgroundColor3 = color_from_rgb(35, 35, 35),
                 BorderSizePixel = 0,
                 Parent = open_frame,
                 Position = udim2_new(0, 0, 0, 18 * (index - 1)),
-                Size = udim2_new(1, 0, 1 / #multibox.Options, 0),
+                Size = udim2_new(1, 0, 0, 18),
                 ZIndex = 6
             })
 
@@ -1450,7 +1191,6 @@ function library.sections:CreateMultibox(properties)
                 Size = udim2_new(1, 0, 1, 0),
                 ZIndex = 6,
                 Font = "Code",
-                RichText = true,
                 Text = tostring(option),
                 TextColor3 = table.find(multibox.State, index) and multibox.Window.Accent or color_from_rgb(205, 205, 205),
                 TextSize = 9,
@@ -1468,7 +1208,7 @@ function library.sections:CreateMultibox(properties)
             })
 
             connections[#connections + 1] = create_connection(option_button.MouseButton1Click, function()
-                local new_table = multibox:Get()
+                local new_table = table.clone(multibox.State)
                 if table.find(new_table, index) then
                     if #new_table - 1 >= multibox.Minimum then
                         table.remove(new_table, table.find(new_table, index))
@@ -1478,11 +1218,12 @@ function library.sections:CreateMultibox(properties)
                         table.insert(new_table, index)
                     end
                 end
-                multibox:Set(new_table)
+                multibox:set(new_table)
+                option_label.TextColor3 = table.find(multibox.State, index) and multibox.Window.Accent or color_from_rgb(205, 205, 205)
             end)
 
             connections[#connections + 1] = create_connection(option_button.MouseEnter, function()
-                option_frame.BackgroundColor3 = color_from_rgb(40, 40, 40)
+                option_frame.BackgroundColor3 = color_from_rgb(45, 45, 45)
             end)
 
             connections[#connections + 1] = create_connection(option_button.MouseLeave, function()
@@ -1494,88 +1235,43 @@ function library.sections:CreateMultibox(properties)
 
         function multibox.Content:Close()
             multibox.Content.Open = false
-            outline_frame.BackgroundColor3 = color_from_rgb(36, 36, 36)
             for _, connection in pairs(connections) do
                 connection:Disconnect()
             end
-            if input_check then
-                input_check:Disconnect()
-            end
             for _, item in pairs(open_items) do
-                item[2]:Remove()
                 item[3]:Remove()
-                item[4]:Remove()
             end
             open_holder:Remove()
-            open_outline:Remove()
-            open_frame:Remove()
-            input_check = nil
-            connections = nil
-            open_items = nil
-        end
-
-        function multibox.Content:Refresh()
-            for _, item in pairs(open_items) do
-                item[2].TextColor3 = table.find(multibox.State, item[1]) and multibox.Window.Accent or color_from_rgb(205, 205, 205)
-            end
         end
 
         multibox.Content.Open = true
-        multibox.Section.Content = multibox.Content
-        outline_frame.BackgroundColor3 = color_from_rgb(46, 46, 46)
-
-        task.wait()
-
-        input_check = create_connection(input_service.InputBegan, function(input)
-            if multibox.Content.Open and input.UserInputType == Enum.UserInputType.MouseButton1 then
-                local mouse = mouse_location()
-                local inside = false
-                for _, item in pairs(open_items) do
-                    local option_button = item[4]
-                    if mouse.X >= option_button.AbsolutePosition.X and mouse.Y >= option_button.AbsolutePosition.Y and mouse.X <= option_button.AbsolutePosition.X + option_button.AbsoluteSize.X and mouse.Y <= option_button.AbsolutePosition.Y + option_button.AbsoluteSize.Y then
-                        inside = true
-                        break
-                    end
-                end
-                if not inside then
-                    multibox.Section:CloseContent()
-                end
-            end
-        end)
+        self.Content = multibox.Content
     end
 
-    create_connection(button.MouseButton1Down, function()
+    create_connection(button.MouseButton1Click, function()
         if multibox.Content.Open then
-            multibox.Section:CloseContent()
+            multibox.Content:Close()
         else
-            multibox:Open()
+            multibox:open()
         end
     end)
 
-    create_connection(button.MouseEnter, function()
-        outline_frame.BackgroundColor3 = color_from_rgb(46, 46, 46)
-    end)
-
-    create_connection(button.MouseLeave, function()
-        outline_frame.BackgroundColor3 = multibox.Content.Open and color_from_rgb(46, 46, 46) or color_from_rgb(36, 36, 36)
-    end)
-
-    multibox:Set(multibox.State)
+    multibox:set(multibox.State)
     return multibox
 end
 
-function library.sections:CreateKeybind(properties)
-    properties = properties or {}
+function library.sections:keybind(properties)
+    if type(properties) == "string" then
+        properties = {name = properties}
+    end
     local keybind = {
-        Name = properties.name or properties.Name or properties.title or properties.Title or "New Keybind",
-        State = properties.state or properties.State or properties.def or properties.Def or properties.default or properties.Default or nil,
+        Name = properties.name or properties.Name or "Keybind",
+        State = properties.state or properties.State or nil,
         Mode = properties.mode or properties.Mode or "Hold",
-        Callback = properties.callback or properties.Callback or properties.callBack or properties.CallBack or function() end,
+        Callback = properties.callback or properties.Callback or function() end,
         Active = false,
         Holding = false,
-        Window = self.Window,
-        Page = self.Page,
-        Section = self
+        Window = self.Window
     }
 
     local valid_keys = {
@@ -1587,7 +1283,7 @@ function library.sections:CreateKeybind(properties)
     local holder = render_object("Frame", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Parent = keybind.Section.Holder,
+        Parent = self.Holder,
         Size = udim2_new(1, 0, 0, 18),
         ZIndex = 3
     })
@@ -1600,28 +1296,10 @@ function library.sections:CreateKeybind(properties)
         Size = udim2_new(1, -41, 1, 0),
         ZIndex = 3,
         Font = "Code",
-        RichText = true,
         Text = keybind.Name,
         TextColor3 = color_from_rgb(205, 205, 205),
         TextSize = 9,
         TextStrokeTransparency = 1,
-        TextXAlignment = "Left"
-    })
-
-    render_object("TextLabel", {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = holder,
-        Position = udim2_new(0, 41, 0, 0),
-        Size = udim2_new(1, -41, 1, 0),
-        ZIndex = 3,
-        Font = "Code",
-        RichText = true,
-        Text = keybind.Name,
-        TextColor3 = color_from_rgb(205, 205, 205),
-        TextSize = 9,
-        TextStrokeTransparency = 1,
-        TextTransparency = 0.5,
         TextXAlignment = "Left"
     })
 
@@ -1641,8 +1319,7 @@ function library.sections:CreateKeybind(properties)
         Size = udim2_new(1, -61, 1, 0),
         ZIndex = 3,
         Font = "Code",
-        RichText = true,
-        Text = "",
+        Text = "[ - ]",
         TextColor3 = color_from_rgb(114, 114, 114),
         TextStrokeColor3 = color_from_rgb(15, 15, 15),
         TextSize = 9,
@@ -1650,37 +1327,19 @@ function library.sections:CreateKeybind(properties)
         TextXAlignment = "Right"
     })
 
-    function keybind:Set(state)
+    function keybind:set(state)
         keybind.State = state or {}
         keybind.Active = false
-        local current = keybind:Get()
-        value_label.Text = "[" .. (#current > 0 and keybind:Shorten(current[2]) or "-") .. "]"
-        keybind.Callback(keybind:Get())
-    end
-
-    function keybind:Get()
-        return keybind.State
-    end
-
-    function keybind:Shorten(str)
+        local key = keybind.State[2] or "-"
         for index, value in pairs(valid_keys.Shortened) do
-            str = string.gsub(str, index, value)
+            key = string.gsub(key, index, value)
         end
-        return str
+        value_label.Text = "[ " .. key .. " ]"
+        keybind.Callback(keybind.State)
     end
 
-    function keybind:Change(key)
-        if not key.EnumType then
-            return false
-        end
-        if key.EnumType ~= Enum.KeyCode and key.EnumType ~= Enum.UserInputType then
-            return false
-        end
-        if not table.find(valid_keys.KeyCodes, key.Name) and not table.find(valid_keys.Inputs, key.Name) then
-            return false
-        end
-        keybind:Set({key.EnumType == Enum.KeyCode and "KeyCode" or "UserInputType", key.Name})
-        return true
+    function keybind:get()
+        return keybind.State
     end
 
     create_connection(button.MouseButton1Click, function()
@@ -1689,66 +1348,42 @@ function library.sections:CreateKeybind(properties)
     end)
 
     create_connection(button.MouseButton2Click, function()
-        keybind:Set()
-    end)
-
-    create_connection(button.MouseEnter, function()
-        value_label.TextColor3 = color_from_rgb(164, 164, 164)
-    end)
-
-    create_connection(button.MouseLeave, function()
-        value_label.TextColor3 = keybind.Holding and color_from_rgb(255, 0, 0) or color_from_rgb(114, 114, 114)
+        keybind:set()
     end)
 
     create_connection(input_service.InputBegan, function(input)
         if keybind.Holding then
             local key = input.KeyCode.Name ~= "Unknown" and input.KeyCode or input.UserInputType
-            if keybind:Change(key) then
+            if key.EnumType == Enum.KeyCode and table.find(valid_keys.KeyCodes, key.Name) then
+                keybind:set({"KeyCode", key.Name})
+                keybind.Holding = false
+                value_label.TextColor3 = color_from_rgb(114, 114, 114)
+            elseif key.EnumType == Enum.UserInputType and table.find(valid_keys.Inputs, key.Name) then
+                keybind:set({"UserInputType", key.Name})
                 keybind.Holding = false
                 value_label.TextColor3 = color_from_rgb(114, 114, 114)
             end
         end
-        local current = keybind:Get()
-        if current[1] and current[2] then
-            if input.KeyCode == Enum[current[1]][current[2]] or input.UserInputType == Enum[current[1]][current[2]] then
-                if keybind.Mode == "Hold" then
-                    keybind.Active = true
-                elseif keybind.Mode == "Toggle" then
-                    keybind.Active = not keybind.Active
-                end
-            end
-        end
     end)
 
-    create_connection(input_service.InputEnded, function(input)
-        local current = keybind:Get()
-        if current[1] and current[2] then
-            if input.KeyCode == Enum[current[1]][current[2]] or input.UserInputType == Enum[current[1]][current[2]] then
-                if keybind.Mode == "Hold" then
-                    keybind.Active = false
-                end
-            end
-        end
-    end)
-
-    keybind:Set(keybind.State)
+    keybind:set(keybind.State)
     return keybind
 end
 
-function library.sections:CreateButton(properties)
-    properties = properties or {}
+function library.sections:button(properties)
+    if type(properties) == "string" then
+        properties = {name = properties}
+    end
     local button = {
-        Name = properties.name or properties.Name or properties.text or properties.Text or "Button",
+        Name = properties.name or properties.Name or "Button",
         Callback = properties.callback or properties.Callback or function() end,
-        Window = self.Window,
-        Page = self.Page,
-        Section = self
+        Window = self.Window
     }
 
     local holder = render_object("Frame", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Parent = button.Section.Holder,
+        Parent = self.Holder,
         Size = udim2_new(1, 0, 0, 28),
         ZIndex = 3
     })
@@ -1771,12 +1406,6 @@ function library.sections:CreateButton(properties)
         ZIndex = 3
     })
 
-    render_object("UIGradient", {
-        Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(200, 200, 200)),
-        Rotation = 90,
-        Parent = frame
-    })
-
     render_object("TextLabel", {
         BackgroundTransparency = 1,
         Font = "Code",
@@ -1797,43 +1426,23 @@ function library.sections:CreateButton(properties)
         Parent = holder
     })
 
-    local tween_info = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local tween_press = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
-    function button:Set(text)
-        frame.TextLabel.Text = text or button.Name
-    end
-
-    create_connection(click.MouseEnter, function()
-        tween_service:Create(frame, tween_info, {BackgroundColor3 = color_from_rgb(46, 46, 46)}):Play()
-    end)
-
-    create_connection(click.MouseLeave, function()
-        tween_service:Create(frame, tween_info, {BackgroundColor3 = color_from_rgb(36, 36, 36)}):Play()
-    end)
-
-    create_connection(click.MouseButton1Down, function()
-        tween_service:Create(frame, tween_press, {BackgroundColor3 = color_from_rgb(26, 26, 26)}):Play()
-    end)
-
     create_connection(click.MouseButton1Click, function()
         button.Callback()
-        tween_service:Create(frame, tween_info, {BackgroundColor3 = color_from_rgb(46, 46, 46)}):Play()
     end)
 
     return button
 end
 
-function library.sections:CreateColorpicker(properties)
-    properties = properties or {}
+function library.sections:colorpicker(properties)
+    if type(properties) == "string" then
+        properties = {name = properties}
+    end
     local colorpicker = {
-        Name = properties.name or properties.Name or properties.title or properties.Title or "New Colorpicker",
-        State = properties.state or properties.State or properties.def or properties.Def or properties.default or properties.Default or color_from_rgb(255, 255, 255),
-        Callback = properties.callback or properties.Callback or properties.callBack or properties.CallBack or function() end,
+        Name = properties.name or properties.Name or "Colorpicker",
+        State = properties.state or properties.State or color_from_rgb(255, 255, 255),
+        Callback = properties.callback or properties.Callback or function() end,
         Content = {Open = false},
         Window = self.Window,
-        Page = self.Page,
-        Section = self,
         Hue = 0,
         Saturation = 1,
         Value = 1,
@@ -1843,7 +1452,7 @@ function library.sections:CreateColorpicker(properties)
     local holder = render_object("Frame", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Parent = colorpicker.Section.Holder,
+        Parent = self.Holder,
         Size = udim2_new(1, 0, 0, 18),
         ZIndex = 3
     })
@@ -1865,28 +1474,10 @@ function library.sections:CreateColorpicker(properties)
         Size = udim2_new(1, -41, 1, 0),
         ZIndex = 3,
         Font = "Code",
-        RichText = true,
         Text = colorpicker.Name,
         TextColor3 = color_from_rgb(205, 205, 205),
         TextSize = 9,
         TextStrokeTransparency = 1,
-        TextXAlignment = "Left"
-    })
-
-    render_object("TextLabel", {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = holder,
-        Position = udim2_new(0, 41, 0, 0),
-        Size = udim2_new(1, -41, 1, 0),
-        ZIndex = 3,
-        Font = "Code",
-        RichText = true,
-        Text = colorpicker.Name,
-        TextColor3 = color_from_rgb(205, 205, 205),
-        TextSize = 9,
-        TextStrokeTransparency = 1,
-        TextTransparency = 0.5,
         TextXAlignment = "Left"
     })
 
@@ -1899,7 +1490,7 @@ function library.sections:CreateColorpicker(properties)
     })
 
     local outline_frame = render_object("Frame", {
-        BackgroundColor3 = color_from_rgb(255, 255, 255),
+        BackgroundColor3 = colorpicker.State,
         BorderSizePixel = 0,
         Parent = outline,
         Position = udim2_new(0, 1, 0, 1),
@@ -1907,37 +1498,32 @@ function library.sections:CreateColorpicker(properties)
         ZIndex = 3
     })
 
-    local outline_gradient = render_object("UIGradient", {
-        Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(140, 140, 140)),
-        Rotation = 90,
-        Parent = outline_frame
-    })
-
-    function colorpicker:Set(state)
+    function colorpicker:set(state)
         colorpicker.State = state
         outline_frame.BackgroundColor3 = state
-        colorpicker.Callback(colorpicker:Get())
+        colorpicker.Callback(colorpicker.State)
     end
 
-    function colorpicker:Get()
+    function colorpicker:get()
         return colorpicker.State
     end
 
-    function colorpicker:Open()
-        colorpicker.Section:CloseContent()
+    function colorpicker:open()
+        if self.Section then
+            self.Section:CloseContent()
+        end
+
         local connections = {}
         local input_check
-        local sliding_palette = false
-        local sliding_hue = false
-        local sliding_alpha = false
+        local sliding = {palette = false, hue = false, alpha = false}
 
         colorpicker.Hue, colorpicker.Saturation, colorpicker.Value = colorpicker.State:ToHSV()
 
         local open_holder = render_object("Frame", {
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            Parent = colorpicker.Section.Extra,
-            Position = udim2_new(0, outline.AbsolutePosition.X - colorpicker.Section.Extra.AbsolutePosition.X, 0, outline.AbsolutePosition.Y - colorpicker.Section.Extra.AbsolutePosition.Y + 10),
+            Parent = self.Extra,
+            Position = udim2_new(0, outline.AbsolutePosition.X - self.Extra.AbsolutePosition.X, 0, outline.AbsolutePosition.Y - self.Extra.AbsolutePosition.Y + 10),
             Size = udim2_new(0, 180, 0, 175),
             ZIndex = 6
         })
@@ -2006,7 +1592,6 @@ function library.sections:CreateColorpicker(properties)
         })
 
         render_object("UIGradient", {
-            Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(255, 255, 255)),
             Transparency = number_sequence_new{number_sequence_keypoint_new(0, 0), number_sequence_keypoint_new(1, 1)},
             Parent = saturation_gradient
         })
@@ -2020,7 +1605,6 @@ function library.sections:CreateColorpicker(properties)
         })
 
         render_object("UIGradient", {
-            Color = color_sequence_new(color_from_rgb(0, 0, 0), color_from_rgb(0, 0, 0)),
             Transparency = number_sequence_new{number_sequence_keypoint_new(0, 1), number_sequence_keypoint_new(1, 0)},
             Rotation = 90,
             Parent = value_gradient
@@ -2111,31 +1695,23 @@ function library.sections:CreateColorpicker(properties)
                 input_check:Disconnect()
             end
             open_holder:Remove()
-            input_check = nil
-            connections = nil
         end
 
-        function colorpicker.Content:Refresh() end
-
-        palette_dragger.Position = udim2_new(colorpicker.Saturation, -2, 1 - colorpicker.Value, -2)
-        hue_dragger.Position = udim2_new(0, -1, colorpicker.Hue, -2)
-        alpha_dragger.Position = udim2_new(colorpicker.Alpha, -2, 0, -1)
+        colorpicker.Content.Open = true
+        self.Content = colorpicker.Content
 
         update_color()
-
-        colorpicker.Content.Open = true
-        colorpicker.Section.Content = colorpicker.Content
 
         connections[#connections + 1] = create_connection(palette_color.InputBegan, function(input)
             if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
                 return
             end
-            sliding_palette = true
-            local relative_x = math.clamp((input.Position.X - palette_color.AbsolutePosition.X) / palette_color.AbsoluteSize.X, 0, 1)
-            local relative_y = math.clamp((input.Position.Y - palette_color.AbsolutePosition.Y) / palette_color.AbsoluteSize.Y, 0, 1)
-            colorpicker.Saturation = relative_x
-            colorpicker.Value = 1 - relative_y
-            palette_dragger.Position = udim2_new(relative_x, -2, relative_y, -2)
+            sliding.palette = true
+            local rx = math.clamp((input.Position.X - palette_color.AbsolutePosition.X) / palette_color.AbsoluteSize.X, 0, 1)
+            local ry = math.clamp((input.Position.Y - palette_color.AbsolutePosition.Y) / palette_color.AbsoluteSize.Y, 0, 1)
+            colorpicker.Saturation = rx
+            colorpicker.Value = 1 - ry
+            palette_dragger.Position = udim2_new(rx, -2, ry, -2)
             update_color()
         end)
 
@@ -2143,10 +1719,10 @@ function library.sections:CreateColorpicker(properties)
             if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
                 return
             end
-            sliding_hue = true
-            local relative_y = math.clamp((input.Position.Y - hue_color.AbsolutePosition.Y) / hue_color.AbsoluteSize.Y, 0, 1)
-            colorpicker.Hue = relative_y
-            hue_dragger.Position = udim2_new(0, -1, relative_y, -2)
+            sliding.hue = true
+            local ry = math.clamp((input.Position.Y - hue_color.AbsolutePosition.Y) / hue_color.AbsoluteSize.Y, 0, 1)
+            colorpicker.Hue = ry
+            hue_dragger.Position = udim2_new(0, -1, ry, -2)
             update_color()
         end)
 
@@ -2154,72 +1730,77 @@ function library.sections:CreateColorpicker(properties)
             if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
                 return
             end
-            sliding_alpha = true
-            local relative_x = math.clamp((input.Position.X - alpha_color.AbsolutePosition.X) / alpha_color.AbsoluteSize.X, 0, 1)
-            colorpicker.Alpha = relative_x
-            alpha_dragger.Position = udim2_new(relative_x, -2, 0, -1)
+            sliding.alpha = true
+            local rx = math.clamp((input.Position.X - alpha_color.AbsolutePosition.X) / alpha_color.AbsoluteSize.X, 0, 1)
+            colorpicker.Alpha = rx
+            alpha_dragger.Position = udim2_new(rx, -2, 0, -1)
         end)
 
         connections[#connections + 1] = create_connection(input_service.InputChanged, function(input)
             if input.UserInputType ~= Enum.UserInputType.MouseMovement then
                 return
             end
-            if sliding_palette then
-                local relative_x = math.clamp((input.Position.X - palette_color.AbsolutePosition.X) / palette_color.AbsoluteSize.X, 0, 1)
-                local relative_y = math.clamp((input.Position.Y - palette_color.AbsolutePosition.Y) / palette_color.AbsoluteSize.Y, 0, 1)
-                colorpicker.Saturation = relative_x
-                colorpicker.Value = 1 - relative_y
-                palette_dragger.Position = udim2_new(relative_x, -2, relative_y, -2)
+            if sliding.palette then
+                local rx = math.clamp((input.Position.X - palette_color.AbsolutePosition.X) / palette_color.AbsoluteSize.X, 0, 1)
+                local ry = math.clamp((input.Position.Y - palette_color.AbsolutePosition.Y) / palette_color.AbsoluteSize.Y, 0, 1)
+                colorpicker.Saturation = rx
+                colorpicker.Value = 1 - ry
+                palette_dragger.Position = udim2_new(rx, -2, ry, -2)
                 update_color()
-            elseif sliding_hue then
-                local relative_y = math.clamp((input.Position.Y - hue_color.AbsolutePosition.Y) / hue_color.AbsoluteSize.Y, 0, 1)
-                colorpicker.Hue = relative_y
-                hue_dragger.Position = udim2_new(0, -1, relative_y, -2)
+            elseif sliding.hue then
+                local ry = math.clamp((input.Position.Y - hue_color.AbsolutePosition.Y) / hue_color.AbsoluteSize.Y, 0, 1)
+                colorpicker.Hue = ry
+                hue_dragger.Position = udim2_new(0, -1, ry, -2)
                 update_color()
-            elseif sliding_alpha then
-                local relative_x = math.clamp((input.Position.X - alpha_color.AbsolutePosition.X) / alpha_color.AbsoluteSize.X, 0, 1)
-                colorpicker.Alpha = relative_x
-                alpha_dragger.Position = udim2_new(relative_x, -2, 0, -1)
+            elseif sliding.alpha then
+                local rx = math.clamp((input.Position.X - alpha_color.AbsolutePosition.X) / alpha_color.AbsoluteSize.X, 0, 1)
+                colorpicker.Alpha = rx
+                alpha_dragger.Position = udim2_new(rx, -2, 0, -1)
             end
         end)
 
         connections[#connections + 1] = create_connection(input_service.InputEnded, function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                sliding_palette = false
-                sliding_hue = false
-                sliding_alpha = false
+                sliding.palette = false
+                sliding.hue = false
+                sliding.alpha = false
             end
-        end)
-
-        input_check = create_connection(input_service.InputBegan, function(input)
-            if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
-                return
-            end
-            if is_mouse_over_frame(open_holder) then
-                return
-            end
-            colorpicker.Section:CloseContent()
         end)
     end
 
     create_connection(button.MouseButton1Click, function()
         if colorpicker.Content.Open then
-            colorpicker.Section:CloseContent()
+            colorpicker.Content:Close()
         else
-            colorpicker:Open()
+            colorpicker:open()
         end
     end)
 
-    create_connection(button.MouseEnter, function()
-        outline_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(180, 180, 180))
-    end)
-
-    create_connection(button.MouseLeave, function()
-        outline_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(140, 140, 140))
-    end)
-
-    colorpicker:Set(colorpicker.State)
+    colorpicker:set(colorpicker.State)
     return colorpicker
+end
+
+function library.sections:label(properties)
+    if type(properties) == "string" then
+        properties = {name = properties}
+    end
+    local label = {Name = properties.name or properties.Name or "Label"}
+
+    render_object("TextLabel", {
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Parent = self.Holder,
+        Size = udim2_new(1, 0, 0, 16),
+        ZIndex = 3,
+        Font = "Code",
+        Text = label.Name,
+        TextColor3 = color_from_rgb(205, 205, 205),
+        TextSize = 9,
+        TextStrokeTransparency = 1,
+        TextXAlignment = "Left"
+    })
+
+    return label
 end
 
 return library
