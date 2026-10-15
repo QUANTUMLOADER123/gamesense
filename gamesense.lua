@@ -17,9 +17,9 @@ local color_sequence_new = ColorSequence.new
 local number_sequence_new = NumberSequence.new
 local number_sequence_keypoint_new = NumberSequenceKeypoint.new
 local color_sequence_keypoint_new = ColorSequenceKeypoint.new
+local tween_info_new = TweenInfo.new
 
 local accent_color = color_from_rgb(255, 120, 30)
-local accent_dark = color_from_rgb(255, 90, 20)
 
 library.renders = {}
 library.connections = {}
@@ -257,28 +257,33 @@ function library:CreateWindow(properties)
     function window:Fade(state)
         for _, render in pairs(library.renders) do
             if not render[3] then
-                if render[1].ClassName == "Frame" and (render[2]["BackgroundTransparency"] or 0) ~= 1 then
-                    tween_service:Create(render[1], TweenInfo.new(render[4] or 0.25, Enum.EasingStyle.Linear, state and Enum.EasingDirection.Out or Enum.EasingDirection.In), {BackgroundTransparency = state and (render[2]["BackgroundTransparency"] or 0) or 1}):Play()
-                elseif render[1].ClassName == "ImageLabel" then
-                    if (render[2]["BackgroundTransparency"] or 0) ~= 1 then
-                        tween_service:Create(render[1], TweenInfo.new(render[4] or 0.25, Enum.EasingStyle.Linear, state and Enum.EasingDirection.Out or Enum.EasingDirection.In), {BackgroundTransparency = state and (render[2]["BackgroundTransparency"] or 0) or 1}):Play()
+                local instance = render[1]
+                local props = render[2] or {}
+                local duration = render[4] or 0.25
+                local easing = state and Enum.EasingDirection.Out or Enum.EasingDirection.In
+                local info = tween_info_new(duration, Enum.EasingStyle.Linear, easing)
+                if instance.ClassName == "Frame" and (props.BackgroundTransparency or 0) ~= 1 then
+                    tween_service:Create(instance, info, {BackgroundTransparency = state and (props.BackgroundTransparency or 0) or 1}):Play()
+                elseif instance.ClassName == "ImageLabel" then
+                    if (props.BackgroundTransparency or 0) ~= 1 then
+                        tween_service:Create(instance, info, {BackgroundTransparency = state and (props.BackgroundTransparency or 0) or 1}):Play()
                     end
-                    if (render[2]["ImageTransparency"] or 0) ~= 1 then
-                        tween_service:Create(render[1], TweenInfo.new(render[4] or 0.25, Enum.EasingStyle.Linear, state and Enum.EasingDirection.Out or Enum.EasingDirection.In), {ImageTransparency = state and (render[2]["ImageTransparency"] or 0) or 1}):Play()
+                    if (props.ImageTransparency or 0) ~= 1 then
+                        tween_service:Create(instance, info, {ImageTransparency = state and (props.ImageTransparency or 0) or 1}):Play()
                     end
-                elseif render[1].ClassName == "TextLabel" then
-                    if (render[2]["BackgroundTransparency"] or 0) ~= 1 then
-                        tween_service:Create(render[1], TweenInfo.new(render[4] or 0.25, Enum.EasingStyle.Linear, state and Enum.EasingDirection.Out or Enum.EasingDirection.In), {BackgroundTransparency = state and (render[2]["BackgroundTransparency"] or 0) or 1}):Play()
+                elseif instance.ClassName == "TextLabel" then
+                    if (props.BackgroundTransparency or 0) ~= 1 then
+                        tween_service:Create(instance, info, {BackgroundTransparency = state and (props.BackgroundTransparency or 0) or 1}):Play()
                     end
-                    if (render[2]["TextTransparency"] or 0) ~= 1 then
-                        tween_service:Create(render[1], TweenInfo.new(render[4] or 0.25, Enum.EasingStyle.Linear, state and Enum.EasingDirection.Out or Enum.EasingDirection.In), {TextTransparency = state and (render[2]["TextTransparency"] or 0) or 1}):Play()
+                    if (props.TextTransparency or 0) ~= 1 then
+                        tween_service:Create(instance, info, {TextTransparency = state and (props.TextTransparency or 0) or 1}):Play()
                     end
-                elseif render[1].ClassName == "ScrollingFrame" then
-                    if (render[2]["BackgroundTransparency"] or 0) ~= 1 then
-                        tween_service:Create(render[1], TweenInfo.new(render[4] or 0.25, Enum.EasingStyle.Linear, state and Enum.EasingDirection.Out or Enum.EasingDirection.In), {BackgroundTransparency = state and (render[2]["BackgroundTransparency"] or 0) or 1}):Play()
+                elseif instance.ClassName == "ScrollingFrame" then
+                    if (props.BackgroundTransparency or 0) ~= 1 then
+                        tween_service:Create(instance, info, {BackgroundTransparency = state and (props.BackgroundTransparency or 0) or 1}):Play()
                     end
-                    if (render[2]["ScrollBarImageTransparency"] or 0) ~= 1 then
-                        tween_service:Create(render[1], TweenInfo.new(render[4] or 0.25, Enum.EasingStyle.Linear, state and Enum.EasingDirection.Out or Enum.EasingDirection.In), {ScrollBarImageTransparency = state and (render[2]["ScrollBarImageTransparency"] or 0) or 1}):Play()
+                    if (props.ScrollBarImageTransparency or 0) ~= 1 then
+                        tween_service:Create(instance, info, {ScrollBarImageTransparency = state and (props.ScrollBarImageTransparency or 0) or 1}):Play()
                     end
                 end
             end
@@ -328,8 +333,7 @@ function library:CreatePage(properties)
         Parent = tab,
         Size = udim2_new(1, 0, 1, 0),
         Visible = false,
-        ZIndex = 2,
-        RenderTime = 0.15
+        ZIndex = 2
     })
 
     local tab_image = render_object("ImageLabel", {
@@ -358,8 +362,7 @@ function library:CreatePage(properties)
         Parent = tab_border,
         Position = udim2_new(0, 0, 0, 1),
         Size = udim2_new(1, 1, 1, -2),
-        ZIndex = 2,
-        RenderTime = 0.15
+        ZIndex = 2
     })
 
     local inner_inner = render_object("Frame", {
@@ -368,8 +371,7 @@ function library:CreatePage(properties)
         Parent = border_inner,
         Position = udim2_new(0, 0, 0, 1),
         Size = udim2_new(1, 0, 1, -2),
-        ZIndex = 2,
-        RenderTime = 0.15
+        ZIndex = 2
     })
 
     render_object("ImageLabel", {
@@ -605,7 +607,7 @@ function library.pages:CreateSection(properties)
         ZIndex = 4
     })
 
-    local line = render_object("Frame", {
+    render_object("Frame", {
         BackgroundColor3 = color_from_rgb(45, 45, 45),
         BorderSizePixel = 0,
         Parent = extra,
@@ -716,7 +718,7 @@ function library.sections:CreateToggle(properties)
         ZIndex = 3
     })
 
-    local title = render_object("TextLabel", {
+    render_object("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = holder,
@@ -732,7 +734,7 @@ function library.sections:CreateToggle(properties)
         TextXAlignment = "Left"
     })
 
-    local shadow = render_object("TextLabel", {
+    render_object("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = holder,
@@ -917,11 +919,10 @@ function library.sections:CreateSlider(properties)
         TextColor3 = color_from_rgb(255, 255, 255),
         TextSize = 11,
         TextStrokeTransparency = 0.5,
-        TextXAlignment = "Center",
-        RenderTime = 0.15
+        TextXAlignment = "Center"
     })
 
-    local value_shadow = render_object("TextLabel", {
+    render_object("TextLabel", {
         AnchorPoint = vector2_new(0.5, 0),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -935,16 +936,12 @@ function library.sections:CreateSlider(properties)
         TextColor3 = color_from_rgb(255, 255, 255),
         TextSize = 11,
         TextStrokeTransparency = 0.5,
-        TextTransparency = 0,
-        TextXAlignment = "Center",
-        RenderTime = 0.15
+        TextXAlignment = "Center"
     })
 
     function slider:Set(state)
         slider.State = math.clamp(math.round(state * slider.Decimals) / slider.Decimals, slider.Min, slider.Max)
-        local text = "<b>" .. slider.State .. slider.Ending .. "</b>"
-        value_label.Text = text
-        value_shadow.Text = text
+        value_label.Text = "<b>" .. slider.State .. slider.Ending .. "</b>"
         fill.Size = udim2_new(1 - ((slider.Max - slider.State) / (slider.Max - slider.Min)), 0, 1, 0)
         slider.Callback(slider:Get())
     end
@@ -952,8 +949,7 @@ function library.sections:CreateSlider(properties)
     function slider:Refresh()
         local mouse = mouse_location()
         local relative_x = math.clamp(mouse.X - fill.AbsolutePosition.X, 0, outline_frame.AbsoluteSize.X) / outline_frame.AbsoluteSize.X
-        local new_value = slider.Min + (slider.Max - slider.Min) * relative_x
-        slider:Set(new_value)
+        slider:Set(slider.Min + (slider.Max - slider.Min) * relative_x)
     end
 
     function slider:Get()
@@ -973,8 +969,9 @@ function library.sections:CreateSlider(properties)
     end)
 
     create_connection(button.MouseLeave, function()
-        outline_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), slider.Holding and color_from_rgb(215, 215, 215) or color_from_rgb(175, 175, 175))
-        fill_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), slider.Holding and color_from_rgb(215, 215, 215) or color_from_rgb(175, 175, 175))
+        local end_color = slider.Holding and color_from_rgb(215, 215, 215) or color_from_rgb(175, 175, 175)
+        outline_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), end_color)
+        fill_gradient.Color = color_sequence_new(color_from_rgb(255, 255, 255), end_color)
     end)
 
     create_connection(input_service.InputChanged, function(input)
@@ -1025,7 +1022,7 @@ function library.sections:CreateDropdown(properties)
         ZIndex = 3
     })
 
-    local title = render_object("TextLabel", {
+    render_object("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = holder,
@@ -1041,7 +1038,7 @@ function library.sections:CreateDropdown(properties)
         TextXAlignment = "Left"
     })
 
-    local shadow = render_object("TextLabel", {
+    render_object("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = holder,
@@ -1075,7 +1072,7 @@ function library.sections:CreateDropdown(properties)
         ZIndex = 3
     })
 
-    local outline_gradient = render_object("UIGradient", {
+    render_object("UIGradient", {
         Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(220, 220, 220)),
         Rotation = 270,
         Parent = outline_frame
@@ -1097,23 +1094,6 @@ function library.sections:CreateDropdown(properties)
         TextXAlignment = "Left"
     })
 
-    local value_shadow = render_object("TextLabel", {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = outline_frame,
-        Position = udim2_new(0, 8, 0, 0),
-        Size = udim2_new(1, 0, 1, 0),
-        ZIndex = 3,
-        Font = "Code",
-        RichText = true,
-        Text = "",
-        TextColor3 = color_from_rgb(155, 155, 155),
-        TextSize = 9,
-        TextStrokeTransparency = 1,
-        TextTransparency = 0,
-        TextXAlignment = "Left"
-    })
-
     render_object("ImageLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -1127,12 +1107,10 @@ function library.sections:CreateDropdown(properties)
 
     function dropdown:Set(state)
         dropdown.State = state
-        local text = dropdown.Options[dropdown:Get()]
-        value_label.Text = text
-        value_shadow.Text = text
+        value_label.Text = tostring(dropdown.Options[state])
         dropdown.Callback(dropdown:Get())
         if dropdown.Content.Open then
-            dropdown.Content:Refresh(dropdown:Get())
+            dropdown.Content:Refresh()
         end
     end
 
@@ -1197,23 +1175,6 @@ function library.sections:CreateDropdown(properties)
                 TextXAlignment = "Left"
             })
 
-            local option_shadow = render_object("TextLabel", {
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                Parent = option_frame,
-                Position = udim2_new(0, 8, 0, 0),
-                Size = udim2_new(1, 0, 1, 0),
-                ZIndex = 6,
-                Font = "Code",
-                RichText = true,
-                Text = tostring(option),
-                TextColor3 = index == dropdown.State and dropdown.Window.Accent or color_from_rgb(205, 205, 205),
-                TextSize = 9,
-                TextStrokeTransparency = 1,
-                TextTransparency = 0.5,
-                TextXAlignment = "Left"
-            })
-
             local option_button = render_object("TextButton", {
                 BackgroundTransparency = 1,
                 BorderSizePixel = 0,
@@ -1235,7 +1196,7 @@ function library.sections:CreateDropdown(properties)
                 option_frame.BackgroundColor3 = color_from_rgb(35, 35, 35)
             end)
 
-            open_items[#open_items + 1] = {index, option_label, option_shadow, option_frame, option_button}
+            open_items[#open_items + 1] = {index, option_label, option_frame, option_button}
         end
 
         function dropdown.Content:Close()
@@ -1251,7 +1212,6 @@ function library.sections:CreateDropdown(properties)
                 item[2]:Remove()
                 item[3]:Remove()
                 item[4]:Remove()
-                item[5]:Remove()
             end
             open_holder:Remove()
             open_outline:Remove()
@@ -1263,9 +1223,7 @@ function library.sections:CreateDropdown(properties)
 
         function dropdown.Content:Refresh()
             for _, item in pairs(open_items) do
-                local color = item[1] == dropdown.State and dropdown.Window.Accent or color_from_rgb(205, 205, 205)
-                item[2].TextColor3 = color
-                item[3].TextColor3 = color
+                item[2].TextColor3 = item[1] == dropdown.State and dropdown.Window.Accent or color_from_rgb(205, 205, 205)
             end
         end
 
@@ -1280,7 +1238,7 @@ function library.sections:CreateDropdown(properties)
                 local mouse = mouse_location()
                 local inside = false
                 for _, item in pairs(open_items) do
-                    local option_button = item[5]
+                    local option_button = item[4]
                     if mouse.X >= option_button.AbsolutePosition.X and mouse.Y >= option_button.AbsolutePosition.Y and mouse.X <= option_button.AbsolutePosition.X + option_button.AbsoluteSize.X and mouse.Y <= option_button.AbsolutePosition.Y + option_button.AbsoluteSize.Y then
                         inside = true
                         break
@@ -1345,7 +1303,7 @@ function library.sections:CreateMultibox(properties)
         ZIndex = 3
     })
 
-    local title = render_object("TextLabel", {
+    render_object("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = holder,
@@ -1361,7 +1319,7 @@ function library.sections:CreateMultibox(properties)
         TextXAlignment = "Left"
     })
 
-    local shadow = render_object("TextLabel", {
+    render_object("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = holder,
@@ -1395,7 +1353,7 @@ function library.sections:CreateMultibox(properties)
         ZIndex = 3
     })
 
-    local outline_gradient = render_object("UIGradient", {
+    render_object("UIGradient", {
         Color = color_sequence_new(color_from_rgb(255, 255, 255), color_from_rgb(220, 220, 220)),
         Rotation = 270,
         Parent = outline_frame
@@ -1417,23 +1375,6 @@ function library.sections:CreateMultibox(properties)
         TextXAlignment = "Left"
     })
 
-    local value_shadow = render_object("TextLabel", {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Parent = outline_frame,
-        Position = udim2_new(0, 8, 0, 0),
-        Size = udim2_new(1, 0, 1, 0),
-        ZIndex = 3,
-        Font = "Code",
-        RichText = true,
-        Text = "",
-        TextColor3 = color_from_rgb(155, 155, 155),
-        TextSize = 9,
-        TextStrokeTransparency = 1,
-        TextTransparency = 0,
-        TextXAlignment = "Left"
-    })
-
     render_object("ImageLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -1449,12 +1390,10 @@ function library.sections:CreateMultibox(properties)
         table.sort(state)
         multibox.State = state
         local serialised = serialise_list(sort_options(multibox:Get(), multibox.Options))
-        serialised = serialised == "" and "-" or serialised
-        value_label.Text = serialised
-        value_shadow.Text = serialised
+        value_label.Text = serialised == "" and "-" or serialised
         multibox.Callback(multibox:Get())
         if multibox.Content.Open then
-            multibox.Content:Refresh(multibox:Get())
+            multibox.Content:Refresh()
         end
     end
 
@@ -1519,23 +1458,6 @@ function library.sections:CreateMultibox(properties)
                 TextXAlignment = "Left"
             })
 
-            local option_shadow = render_object("TextLabel", {
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                Parent = option_frame,
-                Position = udim2_new(0, 8, 0, 0),
-                Size = udim2_new(1, 0, 1, 0),
-                ZIndex = 6,
-                Font = "Code",
-                RichText = true,
-                Text = tostring(option),
-                TextColor3 = table.find(multibox.State, index) and multibox.Window.Accent or color_from_rgb(205, 205, 205),
-                TextSize = 9,
-                TextStrokeTransparency = 1,
-                TextTransparency = 0.5,
-                TextXAlignment = "Left"
-            })
-
             local option_button = render_object("TextButton", {
                 BackgroundTransparency = 1,
                 BorderSizePixel = 0,
@@ -1567,7 +1489,7 @@ function library.sections:CreateMultibox(properties)
                 option_frame.BackgroundColor3 = color_from_rgb(35, 35, 35)
             end)
 
-            open_items[#open_items + 1] = {index, option_label, option_shadow, option_frame, option_button}
+            open_items[#open_items + 1] = {index, option_label, option_frame, option_button}
         end
 
         function multibox.Content:Close()
@@ -1583,7 +1505,6 @@ function library.sections:CreateMultibox(properties)
                 item[2]:Remove()
                 item[3]:Remove()
                 item[4]:Remove()
-                item[5]:Remove()
             end
             open_holder:Remove()
             open_outline:Remove()
@@ -1595,9 +1516,7 @@ function library.sections:CreateMultibox(properties)
 
         function multibox.Content:Refresh()
             for _, item in pairs(open_items) do
-                local color = table.find(multibox.State, item[1]) and multibox.Window.Accent or color_from_rgb(205, 205, 205)
-                item[2].TextColor3 = color
-                item[3].TextColor3 = color
+                item[2].TextColor3 = table.find(multibox.State, item[1]) and multibox.Window.Accent or color_from_rgb(205, 205, 205)
             end
         end
 
@@ -1612,7 +1531,7 @@ function library.sections:CreateMultibox(properties)
                 local mouse = mouse_location()
                 local inside = false
                 for _, item in pairs(open_items) do
-                    local option_button = item[5]
+                    local option_button = item[4]
                     if mouse.X >= option_button.AbsolutePosition.X and mouse.Y >= option_button.AbsolutePosition.Y and mouse.X <= option_button.AbsolutePosition.X + option_button.AbsoluteSize.X and mouse.Y <= option_button.AbsolutePosition.Y + option_button.AbsoluteSize.Y then
                         inside = true
                         break
@@ -1673,7 +1592,7 @@ function library.sections:CreateKeybind(properties)
         ZIndex = 3
     })
 
-    local title = render_object("TextLabel", {
+    render_object("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = holder,
@@ -1689,7 +1608,7 @@ function library.sections:CreateKeybind(properties)
         TextXAlignment = "Left"
     })
 
-    local shadow = render_object("TextLabel", {
+    render_object("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = holder,
@@ -1938,7 +1857,7 @@ function library.sections:CreateColorpicker(properties)
         ZIndex = 3
     })
 
-    local title = render_object("TextLabel", {
+    render_object("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = holder,
@@ -1954,7 +1873,7 @@ function library.sections:CreateColorpicker(properties)
         TextXAlignment = "Left"
     })
 
-    local shadow = render_object("TextLabel", {
+    render_object("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Parent = holder,
