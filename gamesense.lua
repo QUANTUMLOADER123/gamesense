@@ -4,7 +4,6 @@ library.__index = library
 local tween_service = game:GetService("TweenService")
 local input_service = game:GetService("UserInputService")
 local core_gui = game:GetService("CoreGui")
-local run_service = game:GetService("RunService")
 
 local color_from_rgb = Color3.fromRGB
 local color_from_hsv = Color3.fromHSV
@@ -16,7 +15,7 @@ local number_sequence_keypoint_new = NumberSequenceKeypoint.new
 local color_sequence_keypoint_new = ColorSequenceKeypoint.new
 local tween_info_new = TweenInfo.new
 
-local icons = {
+library.icons = {
     rage = "rbxassetid://8547236654",
     aimbot = "rbxassetid://8547249956",
     visuals = "rbxassetid://8547254518",
@@ -25,7 +24,6 @@ local icons = {
     config = "rbxassetid://8547269749"
 }
 
-library.icons = icons
 library.renders = {}
 library.connections = {}
 library.accent_objects = {}
@@ -49,6 +47,17 @@ end
 
 local function register_accent(object, property)
     library.accent_objects[#library.accent_objects + 1] = {object, property}
+end
+
+local function apply_accent(window, color)
+    window.Accent = color
+    for _, entry in pairs(library.accent_objects) do
+        if entry[1] and entry[1].Parent then
+            pcall(function()
+                entry[1][entry[2]] = color
+            end)
+        end
+    end
 end
 
 local function make_draggable(frame, handle)
@@ -108,22 +117,8 @@ local function sort_options(indices, options)
     return result
 end
 
-local function is_mouse_over_frame(frame)
-    local mouse = mouse_location()
-    local position = frame.AbsolutePosition
-    local size = frame.AbsoluteSize
-    return mouse.X >= position.X and mouse.Y >= position.Y and mouse.X <= position.X + size.X and mouse.Y <= position.Y + size.Y
-end
-
 local function round_to_step(value, step)
     return math.floor(value / step + 0.5) * step
-end
-
-function library:set_accent(color)
-    self.Accent = color
-    for _, entry in pairs(library.accent_objects) do
-        entry[1][entry[2]] = color
-    end
 end
 
 function library:CreateWindow(properties)
@@ -255,6 +250,14 @@ function library:CreateWindow(properties)
     window["TabsHolder"] = tabs_holder
     window["PagesHolder"] = pages_folder
 
+    function window:set_accent(color)
+        apply_accent(self, color)
+    end
+
+    function window:get_accent()
+        return self.Accent
+    end
+
     make_draggable(main_frame, top_gradient)
 
     function window:SetPage(active_page)
@@ -286,7 +289,7 @@ function library:CreateWindow(properties)
         library = nil
     end
 
-    window:set_accent(window.Accent)
+    apply_accent(window, window.Accent)
 
     create_connection(input_service.InputBegan, function(input)
         if input.KeyCode == window.Key then
@@ -300,6 +303,9 @@ function library:CreateWindow(properties)
 
     return setmetatable(window, library)
 end
+
+library.pages = {}
+library.pages.__index = library.pages
 
 function library:CreatePage(properties)
     properties = properties or {}
@@ -454,9 +460,6 @@ function library:CreatePage(properties)
     page.Window.Pages[#page.Window.Pages + 1] = page
     return setmetatable(page, library.pages)
 end
-
-library.pages = {}
-library.pages.__index = library.pages
 
 function library.pages:_CreateSection(properties)
     properties = properties or {}
@@ -924,11 +927,8 @@ function library.sections:dropdown(properties)
     end
 
     function dropdown:open()
-        if self.Page then
-            self.Page:CloseContent()
-        end
-        if dropdown.Section then
-            dropdown.Section:CloseContent()
+        if self.Section then
+            self.Section:CloseContent()
         end
 
         local open_holder = render_object("Frame", {
