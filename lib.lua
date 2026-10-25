@@ -31,7 +31,7 @@ local Theme = {
     Danger       = Color3.fromRGB(233, 92, 92),
     Radius       = UDim.new(0, 10),
     RadiusSmall  = UDim.new(0, 6),
-    Transp       = 0.05
+    Transp       = 0
 }
 Library.Theme = Theme
 Library.Fonts = Fonts
@@ -144,12 +144,6 @@ function Library:_Build(config)
     ScreenGui.Parent = CoreGui
     self.ScreenGui = ScreenGui
 
-    local Blur = Create("BlurEffect", {
-        Size = 20,
-        Parent = ScreenGui
-    })
-    self.Blur = Blur
-
     local Root = Create("Frame", {
         Name = "Root",
         Size = UDim2.fromOffset(660, 420),
@@ -261,7 +255,7 @@ function Library:_Build(config)
         Name = "TopBar",
         Size = UDim2.new(1, 0, 0, 52),
         BackgroundTransparency = 1,
-        ZIndex = 3,
+        ZIndex = 10,
     })
     TopBar.Parent = Content
     self.TopBar = TopBar
@@ -282,6 +276,7 @@ function Library:_Build(config)
         Size = UDim2.new(1, 0, 1, -52),
         BackgroundTransparency = 1,
         ClipsDescendants = true,
+        ZIndex = 1,
     })
     PageHolder.Parent = Content
     self.PageHolder = PageHolder
@@ -295,7 +290,7 @@ function Library:_Build(config)
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
-            ZIndex = 3,
+            ZIndex = 11,
         })
         btn.Parent = TopBar
         Corner(UDim.new(0, 6)).Parent = btn
@@ -305,7 +300,7 @@ function Library:_Build(config)
             Position = UDim2.fromOffset(7, 7),
             Image = icon,
             ImageColor3 = Theme.TextMuted,
-            ZIndex = 4,
+            ZIndex = 12,
         })
         iconLbl.Parent = btn
         btn.MouseEnter:Connect(function()
@@ -783,6 +778,7 @@ function Library:_WrapTab(tabObj)
             ScrollingDirection = Enum.ScrollingDirection.Y,
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             ScrollingEnabled = true,
+            ZIndex = 1,
         })
         page.Parent = tabObj.Page
         Create("UIListLayout", {
@@ -815,6 +811,7 @@ function Library:_WrapSub(sub, page)
             BorderSizePixel = 0,
             AutomaticSize = Enum.AutomaticSize.Y,
             ClipsDescendants = false,
+            ZIndex = 2,
         })
         frame.Parent = page
         Round(frame, UDim.new(0, 9), Theme.Outline, 1)
@@ -823,6 +820,7 @@ function Library:_WrapSub(sub, page)
             Name = "Header",
             Size = UDim2.new(1, 0, 0, 34),
             BackgroundTransparency = 1,
+            ZIndex = 2,
         })
         header.Parent = frame
 
@@ -835,6 +833,7 @@ function Library:_WrapSub(sub, page)
             TextColor3 = Theme.Text,
             TextSize = 13,
             TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 2,
         })
         title.Parent = header
 
@@ -844,6 +843,7 @@ function Library:_WrapSub(sub, page)
             Size = UDim2.new(1, 0, 0, 0),
             BackgroundTransparency = 1,
             AutomaticSize = Enum.AutomaticSize.Y,
+            ZIndex = 2,
         })
         inner.Parent = frame
         Create("UIPadding", {
@@ -857,6 +857,7 @@ function Library:_WrapSub(sub, page)
             Size = UDim2.new(1, 0, 0, 0),
             BackgroundTransparency = 1,
             AutomaticSize = Enum.AutomaticSize.Y,
+            ZIndex = 2,
         })
         columns.Parent = inner
 
@@ -890,6 +891,7 @@ function Library:_WrapSection(section, sub, page)
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextWrapped = true,
+            ZIndex = 3,
         })
         lbl.Parent = section._columns
         return lbl
@@ -903,6 +905,7 @@ function Library:_WrapSection(section, sub, page)
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = true,
+            ZIndex = 3,
         })
         btn.Parent = section._columns
         Round(btn, Theme.RadiusSmall)
@@ -915,6 +918,7 @@ function Library:_WrapSection(section, sub, page)
             TextColor3 = Theme.Text,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Center,
+            ZIndex = 3,
         })
         lbl.Parent = btn
 
@@ -938,6 +942,7 @@ function Library:_WrapSection(section, sub, page)
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = true,
+            ZIndex = 3,
         })
         btn.Parent = section._columns
         Round(btn, Theme.RadiusSmall)
@@ -951,6 +956,7 @@ function Library:_WrapSection(section, sub, page)
             TextColor3 = Theme.Text,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 3,
         })
         lbl.Parent = btn
 
@@ -959,6 +965,7 @@ function Library:_WrapSection(section, sub, page)
             Position = UDim2.new(1, -38, 0.5, -8),
             BackgroundColor3 = Theme.Outline,
             BorderSizePixel = 0,
+            ZIndex = 3,
         })
         track.Parent = btn
         Corner(UDim.new(1, 0)).Parent = track
@@ -968,6 +975,7 @@ function Library:_WrapSection(section, sub, page)
             Position = UDim2.fromOffset(2, 2),
             BackgroundColor3 = Theme.Text,
             BorderSizePixel = 0,
+            ZIndex = 4,
         })
         knob.Parent = track
         Corner(UDim.new(1, 0)).Parent = knob
@@ -978,7 +986,7 @@ function Library:_WrapSection(section, sub, page)
             BackgroundTransparency = 1,
             Text = "",
             AutoButtonColor = false,
-            ZIndex = 3,
+            ZIndex = 4,
         })
         dots.Parent = btn
         for i = 1, 3 do
@@ -987,6 +995,7 @@ function Library:_WrapSection(section, sub, page)
                 Position = UDim2.fromOffset(7 + (i - 1) * 3, 9),
                 BackgroundColor3 = Theme.TextMuted,
                 BorderSizePixel = 0,
+                ZIndex = 4,
             })
             dot.Parent = dots
             Corner(UDim.new(1, 0)).Parent = dot
@@ -1025,6 +1034,7 @@ function Library:_WrapSection(section, sub, page)
             local header = Create("Frame", {
                 Size = UDim2.new(1, 0, 0, 32),
                 BackgroundTransparency = 1,
+                ZIndex = 101,
             })
             header.Parent = popup
 
@@ -1037,6 +1047,7 @@ function Library:_WrapSection(section, sub, page)
                 TextColor3 = Theme.Text,
                 TextSize = 13,
                 TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 101,
             })
             headerLbl.Parent = header
 
@@ -1046,6 +1057,7 @@ function Library:_WrapSection(section, sub, page)
                 BackgroundTransparency = 1,
                 Text = "",
                 AutoButtonColor = false,
+                ZIndex = 101,
             })
             close.Parent = header
             local closeIcon = Create("ImageLabel", {
@@ -1054,6 +1066,7 @@ function Library:_WrapSection(section, sub, page)
                 Position = UDim2.fromOffset(5, 5),
                 Image = "rbxassetid://10747384394",
                 ImageColor3 = Theme.TextMuted,
+                ZIndex = 102,
             })
             closeIcon.Parent = close
             close.MouseButton1Click:Connect(function() popup:Destroy() self.Popup = nil end)
@@ -1062,6 +1075,7 @@ function Library:_WrapSection(section, sub, page)
                 Position = UDim2.fromOffset(0, 32),
                 Size = UDim2.new(1, 0, 1, -32),
                 BackgroundTransparency = 1,
+                ZIndex = 101,
             })
             content.Parent = popup
             Create("UIPadding", {
@@ -1080,6 +1094,7 @@ function Library:_WrapSection(section, sub, page)
                 TextWrapped = true,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 TextYAlignment = Enum.TextYAlignment.Top,
+                ZIndex = 102,
             })
             info.Parent = content
         end)
@@ -1095,6 +1110,7 @@ function Library:_WrapSection(section, sub, page)
             BackgroundColor3 = Theme.SurfaceAlt,
             BackgroundTransparency = Theme.Transp,
             BorderSizePixel = 0,
+            ZIndex = 3,
         })
         frame.Parent = section._columns
         Round(frame, Theme.RadiusSmall)
@@ -1108,6 +1124,7 @@ function Library:_WrapSection(section, sub, page)
             TextColor3 = Theme.Text,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 4,
         })
         lbl.Parent = frame
 
@@ -1116,6 +1133,7 @@ function Library:_WrapSection(section, sub, page)
             Position = UDim2.new(0.5, 0, 0.5, -2),
             BackgroundColor3 = Theme.Outline,
             BorderSizePixel = 0,
+            ZIndex = 4,
         })
         bar.Parent = frame
         Corner(UDim.new(1, 0)).Parent = bar
@@ -1124,6 +1142,7 @@ function Library:_WrapSection(section, sub, page)
             Size = UDim2.fromScale(0, 1),
             BackgroundColor3 = Theme.Accent,
             BorderSizePixel = 0,
+            ZIndex = 4,
         })
         fill.Parent = bar
         Corner(UDim.new(1, 0)).Parent = fill
@@ -1137,6 +1156,7 @@ function Library:_WrapSection(section, sub, page)
             TextColor3 = Theme.Accent,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Right,
+            ZIndex = 4,
         })
         valueLbl.Parent = frame
 
@@ -1151,6 +1171,7 @@ function Library:_WrapSection(section, sub, page)
             TextSize = 12,
             Visible = false,
             ClearTextOnFocus = false,
+            ZIndex = 4,
         })
         box.Parent = frame
         Round(box, UDim.new(0, 4))
@@ -1230,6 +1251,7 @@ function Library:_WrapSection(section, sub, page)
             BackgroundColor3 = Theme.SurfaceAlt,
             BackgroundTransparency = Theme.Transp,
             BorderSizePixel = 0,
+            ZIndex = 3,
         })
         frame.Parent = section._columns
         Round(frame, Theme.RadiusSmall)
@@ -1243,6 +1265,7 @@ function Library:_WrapSection(section, sub, page)
             TextColor3 = Theme.Text,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 4,
         })
         lbl.Parent = frame
 
@@ -1259,6 +1282,7 @@ function Library:_WrapSection(section, sub, page)
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
             ClearTextOnFocus = false,
+            ZIndex = 4,
         })
         box.Parent = frame
         Corner(UDim.new(0, 4)).Parent = box
@@ -1281,6 +1305,7 @@ function Library:_WrapSection(section, sub, page)
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = false,
+            ZIndex = 3,
         })
         btn.Parent = section._columns
         Round(btn, Theme.RadiusSmall)
@@ -1294,6 +1319,7 @@ function Library:_WrapSection(section, sub, page)
             TextColor3 = Theme.Text,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 4,
         })
         lbl.Parent = btn
 
@@ -1306,6 +1332,7 @@ function Library:_WrapSection(section, sub, page)
             TextColor3 = Theme.Accent,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Right,
+            ZIndex = 4,
         })
         valueLbl.Parent = btn
 
@@ -1315,6 +1342,7 @@ function Library:_WrapSection(section, sub, page)
             Size = UDim2.fromOffset(6, 6),
             Image = "rbxassetid://10709790948",
             ImageColor3 = Theme.TextMuted,
+            ZIndex = 4,
         })
         arrow.Parent = btn
 
@@ -1391,6 +1419,7 @@ function Library:_WrapSection(section, sub, page)
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = true,
+            ZIndex = 3,
         })
         btn.Parent = section._columns
         Round(btn, Theme.RadiusSmall)
@@ -1404,6 +1433,7 @@ function Library:_WrapSection(section, sub, page)
             TextColor3 = Theme.Text,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 4,
         })
         lbl.Parent = btn
 
@@ -1416,6 +1446,7 @@ function Library:_WrapSection(section, sub, page)
             Text = key.Name,
             TextColor3 = Theme.Accent,
             TextSize = 11,
+            ZIndex = 4,
         })
         keyLbl.Parent = btn
         Corner(UDim.new(0, 4)).Parent = keyLbl
@@ -1458,6 +1489,7 @@ function Library:_WrapSection(section, sub, page)
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = true,
+            ZIndex = 3,
         })
         btn.Parent = section._columns
         Round(btn, Theme.RadiusSmall)
@@ -1471,6 +1503,7 @@ function Library:_WrapSection(section, sub, page)
             TextColor3 = Theme.Text,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 4,
         })
         lbl.Parent = btn
 
@@ -1479,6 +1512,7 @@ function Library:_WrapSection(section, sub, page)
             Position = UDim2.new(1, -30, 0.5, -9),
             BackgroundColor3 = color,
             BorderSizePixel = 0,
+            ZIndex = 4,
         })
         swatch.Parent = btn
         Round(swatch, UDim.new(0, 4), Theme.Outline, 1)
@@ -1557,6 +1591,7 @@ function Library:_WrapSection(section, sub, page)
                 Position = UDim2.fromOffset(5, 5),
                 Image = "rbxassetid://10747384394",
                 ImageColor3 = Theme.TextMuted,
+                ZIndex = 103,
             })
             closeIcon.Parent = close
             close.MouseButton1Click:Connect(function() popup:Destroy() end)
