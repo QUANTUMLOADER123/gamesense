@@ -5,7 +5,6 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
-local Lighting = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 
 local Library = {}
@@ -128,6 +127,7 @@ function Library.new(config)
     self.Subtitle = config.Subtitle or "redux"
     self.Tabs = {}
     self.Flags = {}
+    self.ToggleKey = config.ToggleKey or Enum.KeyCode.RightShift
     self._connections = {}
     self:_Build(config)
     return self
@@ -174,6 +174,7 @@ function Library:_Build(config)
         ZIndex = 2,
     })
     Body.Parent = Main
+    Corner(UDim.new(0, 14)).Parent = Body
 
     local Sidebar = Create("Frame", {
         Name = "Sidebar",
@@ -184,6 +185,7 @@ function Library:_Build(config)
         ZIndex = 2,
     })
     Sidebar.Parent = Body
+    Corner(UDim.new(0, 14)).Parent = Sidebar
 
     local SideDivider = Create("Frame", {
         Size = UDim2.new(0, 1, 1, 0),
@@ -315,7 +317,11 @@ function Library:_Build(config)
             Sidebar.Visible = false
             Content.Position = UDim2.fromOffset(0, 0)
             Content.Size = UDim2.new(1, 0, 1, 0)
+            BrandLabel.Position = UDim2.fromOffset(18, 16)
+            BrandLabel.Parent = TopBar
         else
+            BrandLabel.Parent = Brand
+            BrandLabel.Position = UDim2.fromOffset(18, 16)
             Sidebar.Visible = true
             Content.Position = UDim2.fromOffset(160, 0)
             Content.Size = UDim2.new(1, -160, 1, 0)
@@ -335,7 +341,7 @@ function Library:_Build(config)
 
     table.insert(self._connections, UserInputService.InputBegan:Connect(function(input, processed)
         if processed then return end
-        if input.KeyCode == Enum.KeyCode.RightShift then self:Toggle() end
+        if input.KeyCode == self.ToggleKey then self:Toggle() end
     end))
 
     self.Visible = true
@@ -587,6 +593,10 @@ function Library:_RenderSubtabs(tabObj)
 
             buttons[i] = { btn = btn, lbl = lbl, sub = sub }
 
+            btn.MouseButton1Click:Connect(function()
+                self:_SelectSub(tabObj, sub)
+            end)
+
             if tabObj.ActiveSub == sub then
                 Tween(lbl, { TextColor3 = Theme.Text }, Ease.OutQuad)
                 task.defer(function()
@@ -598,13 +608,7 @@ function Library:_RenderSubtabs(tabObj)
         end
 
         if not tabObj.ActiveSub and buttons[1] then
-            tabObj.ActiveSub = buttons[1].sub
-            Tween(buttons[1].lbl, { TextColor3 = Theme.Text }, Ease.OutQuad)
-            task.defer(function()
-                local targetX = buttons[1].btn.AbsolutePosition.X - holder.AbsolutePosition.X
-                activeBg.Position = UDim2.fromOffset(targetX, 0)
-                activeBg.Size = UDim2.fromOffset(buttons[1].btn.AbsoluteSize.X, 24)
-            end)
+            self:_SelectSub(tabObj, buttons[1].sub)
         end
 
         tabObj._updateSubBg = function(activeSub)
@@ -747,6 +751,7 @@ function Library:_WrapTab(tabObj)
             Name = (subName or "Subtab") .. "_Sub",
             Size = UDim2.new(1, 0, 1, -52),
             Position = UDim2.fromOffset(0, 52),
+            BackgroundColor3 = Theme.Background,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ScrollBarThickness = 3,
@@ -763,6 +768,7 @@ function Library:_WrapTab(tabObj)
         Create("UIListLayout", {
             Padding = UDim.new(0, 10),
             SortOrder = Enum.SortOrder.LayoutOrder,
+            HorizontalAlignment = Enum.HorizontalAlignment.Center
         }).Parent = page
         Create("UIPadding", {
             PaddingTop = UDim.new(0, 12),
@@ -994,6 +1000,7 @@ function Library:_WrapSection(section, sub, page)
             popup.Parent = self.ScreenGui
             Round(popup, UDim.new(0, 10), Theme.Outline, 1)
             self.Popup = popup
+            Draggable(popup, popup)
 
             local header = Create("Frame", {
                 Size = UDim2.new(1, 0, 0, 32),
@@ -1075,7 +1082,7 @@ function Library:_WrapSection(section, sub, page)
         local lbl = Create("TextLabel", {
             BackgroundTransparency = 1,
             Position = UDim2.fromOffset(12, 0),
-            Size = UDim2.new(1, -60, 0, 16),
+            Size = UDim2.new(0.5, -12, 1, 0),
             Font = Fonts.Medium,
             Text = text or "Slider",
             TextColor3 = Theme.Text,
@@ -1084,21 +1091,9 @@ function Library:_WrapSection(section, sub, page)
         })
         lbl.Parent = frame
 
-        local valueLbl = Create("TextLabel", {
-            BackgroundTransparency = 1,
-            Position = UDim2.new(1, -50, 0, 0),
-            Size = UDim2.fromOffset(40, 16),
-            Font = Fonts.Bold,
-            Text = tostring(default),
-            TextColor3 = Theme.Accent,
-            TextSize = 12,
-            TextXAlignment = Enum.TextXAlignment.Right,
-        })
-        valueLbl.Parent = frame
-
         local bar = Create("Frame", {
-            Size = UDim2.new(1, -24, 0, 4),
-            Position = UDim2.new(0, 12, 1, -10),
+            Size = UDim2.new(0.3, 0, 0, 4),
+            Position = UDim2.new(0.5, 0, 0.5, -2),
             BackgroundColor3 = Theme.Outline,
             BorderSizePixel = 0,
         })
@@ -1113,11 +1108,40 @@ function Library:_WrapSection(section, sub, page)
         fill.Parent = bar
         Corner(UDim.new(1, 0)).Parent = fill
 
+        local valueLbl = Create("TextButton", {
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, -40, 0.5, -8),
+            Size = UDim2.fromOffset(30, 16),
+            Font = Fonts.Bold,
+            Text = tostring(default),
+            TextColor3 = Theme.Accent,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            Text = tostring(default),
+        })
+        valueLbl.Parent = frame
+
+        local box = Create("TextBox", {
+            BackgroundColor3 = Theme.Surface,
+            BorderSizePixel = 0,
+            Position = UDim2.new(0.5, 0, 0.5, -9),
+            Size = UDim2.new(0.3, 0, 0, 18),
+            Font = Fonts.Body,
+            Text = tostring(default),
+            TextColor3 = Theme.Text,
+            TextSize = 12,
+            Visible = false,
+            ClearTextOnFocus = false,
+        })
+        box.Parent = frame
+        Round(box, UDim.new(0, 4))
+
         local dragging = false
         local function update(input)
             local pct = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
             local val = math.floor(min + (max - min) * pct + 0.5)
             valueLbl.Text = tostring(val)
+            box.Text = tostring(val)
             fill.Size = UDim2.fromScale(pct, 1)
             self.Flags[text] = val
             if callback then callback(val) end
@@ -1146,7 +1170,40 @@ function Library:_WrapSection(section, sub, page)
         local pct = (default - min) / (max - min)
         fill.Size = UDim2.fromScale(pct, 1)
 
-        return { Set = function(_, v) self.Flags[text] = v valueLbl.Text = tostring(v) fill.Size = UDim2.fromScale((v - min) / (max - min), 1) end }
+        valueLbl.MouseButton1Click:Connect(function()
+            Tween(valueLbl, { TextTransparency = 1 }, Ease.OutQuad)
+            Tween(bar, { BackgroundTransparency = 1 }, Ease.OutQuad)
+            Tween(fill, { BackgroundTransparency = 1 }, Ease.OutQuad)
+            box.Visible = true
+            box:CaptureFocus()
+        end)
+
+        local function saveBox()
+            local num = tonumber(box.Text)
+            if num then
+                local val = math.clamp(math.floor(num), min, max)
+                valueLbl.Text = tostring(val)
+                fill.Size = UDim2.fromScale((val - min) / (max - min), 1)
+                self.Flags[text] = val
+                if callback then callback(val) end
+            else
+                box.Text = valueLbl.Text
+            end
+            box.Visible = false
+            box:ReleaseFocus()
+            Tween(valueLbl, { TextTransparency = 0 }, Ease.OutQuad)
+            Tween(bar, { BackgroundTransparency = 0 }, Ease.OutQuad)
+            Tween(fill, { BackgroundTransparency = 0 }, Ease.OutQuad)
+        end
+
+        box.FocusLost:Connect(saveBox)
+
+        return { Set = function(_, v)
+            self.Flags[text] = v
+            valueLbl.Text = tostring(v)
+            box.Text = tostring(v)
+            fill.Size = UDim2.fromScale((v - min) / (max - min), 1)
+        end }
     end
 
     wrapper.Textbox = function(_, text, placeholder, callback)
@@ -1418,6 +1475,7 @@ function Library:_WrapSection(section, sub, page)
             })
             popup.Parent = gui
             Round(popup, UDim.new(0, 10), Theme.Outline, 1)
+            Draggable(popup, popup)
 
             local field = Create("ImageLabel", {
                 Size = UDim2.new(1, -20, 1, -44),
