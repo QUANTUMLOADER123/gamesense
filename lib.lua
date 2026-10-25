@@ -134,16 +134,6 @@ function Library.new(config)
 end
 
 function Library:_Build(config)
-    if not Lighting:FindFirstChild("ReduxBlur") then
-        self.Blur = Create("BlurEffect", {
-            Name = "ReduxBlur",
-            Size = 16,
-            Parent = Lighting
-        })
-    else
-        self.Blur = Lighting.ReduxBlur
-    end
-
     local ScreenGui = Create("ScreenGui", {
         Name = self.Name .. "_" .. tostring(math.random(1, 1e6)),
         ResetOnSpawn = false,
@@ -163,21 +153,6 @@ function Library:_Build(config)
     Root.Parent = ScreenGui
     self.Root = Root
 
-    local Shadow = Create("ImageLabel", {
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://1316045217",
-        ImageColor3 = Color3.new(0, 0, 0),
-        ImageTransparency = 0.4,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(10, 10, 118, 118),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.new(1, 20, 1, 20),
-        ZIndex = 0,
-    })
-    Shadow.Parent = Root
-    Corner(UDim.new(0, 20)).Parent = Shadow
-
     local Main = Create("Frame", {
         Name = "Main",
         Size = UDim2.fromScale(1, 1),
@@ -191,7 +166,6 @@ function Library:_Build(config)
     Corner(UDim.new(0, 14)).Parent = Main
     Stroke(Theme.Outline, 1, 0.5).Parent = Main
     self.Window = Main
-    Draggable(Root, Main)
 
     local Body = Create("Frame", {
         Name = "Body",
@@ -283,6 +257,7 @@ function Library:_Build(config)
     })
     TopBar.Parent = Content
     self.TopBar = TopBar
+    Draggable(Root, TopBar)
 
     local TabBar = Create("Frame", {
         Name = "TabBar",
@@ -337,9 +312,13 @@ function Library:_Build(config)
         self.Minimized = not self.Minimized
         if self.Minimized then
             Tween(Root, { Size = UDim2.fromOffset(660, 52) }, Ease.OutCubic)
-            Body.Visible = false
+            Sidebar.Visible = false
+            Content.Position = UDim2.fromOffset(0, 0)
+            Content.Size = UDim2.new(1, 0, 1, 0)
         else
-            Body.Visible = true
+            Sidebar.Visible = true
+            Content.Position = UDim2.fromOffset(160, 0)
+            Content.Size = UDim2.new(1, -160, 1, 0)
             Tween(Root, { Size = FullSize }, Ease.OutCubic)
         end
     end)
@@ -368,11 +347,9 @@ function Library:Toggle()
     self.Visible = not self.Visible
     if self.Visible then
         root.Visible = true
-        if self.Blur then Tween(self.Blur, { Size = 16 }, Ease.OutCubic) end
         root.Size = UDim2.fromOffset(660, 0)
         Tween(root, { Size = UDim2.fromOffset(660, 420) }, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
     else
-        if self.Blur then Tween(self.Blur, { Size = 0 }, Ease.OutCubic) end
         Tween(root, { Size = UDim2.fromOffset(660, 0) }, TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.In))
         task.delay(0.24, function() root.Visible = false end)
     end
@@ -380,7 +357,6 @@ end
 
 function Library:Destroy()
     for _, conn in next, self._connections do conn:Disconnect() end
-    if self.Blur then self.Blur:Destroy() end
     if self.ScreenGui then self.ScreenGui:Destroy() end
 end
 
