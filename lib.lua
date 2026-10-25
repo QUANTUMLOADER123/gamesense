@@ -5,6 +5,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
+local Lighting = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 
 local Library = {}
@@ -31,7 +32,7 @@ local Theme = {
     Danger       = Color3.fromRGB(233, 92, 92),
     Radius       = UDim.new(0, 10),
     RadiusSmall  = UDim.new(0, 6),
-    Transp       = 0.12
+    Transp       = 0.05
 }
 Library.Theme = Theme
 Library.Fonts = Fonts
@@ -143,6 +144,12 @@ function Library:_Build(config)
     })
     ScreenGui.Parent = CoreGui
     self.ScreenGui = ScreenGui
+
+    local Blur = Create("BlurEffect", {
+        Size = 20,
+        Parent = ScreenGui
+    })
+    self.Blur = Blur
 
     local Root = Create("Frame", {
         Name = "Root",
@@ -264,7 +271,7 @@ function Library:_Build(config)
     local TabBar = Create("Frame", {
         Name = "TabBar",
         Position = UDim2.fromOffset(14, 14),
-        Size = UDim2.new(1, -110, 0, 24),
+        Size = UDim2.new(1, -120, 0, 24),
         BackgroundTransparency = 1,
     })
     TabBar.Parent = TopBar
@@ -313,18 +320,26 @@ function Library:_Build(config)
     Minimize.MouseButton1Click:Connect(function()
         self.Minimized = not self.Minimized
         if self.Minimized then
-            Tween(Root, { Size = UDim2.fromOffset(660, 52) }, Ease.OutCubic)
+            Tween(Root, { Size = UDim2.fromOffset(260, 52) }, Ease.OutCubic)
             Sidebar.Visible = false
             Content.Position = UDim2.fromOffset(0, 0)
             Content.Size = UDim2.new(1, 0, 1, 0)
-            BrandLabel.Position = UDim2.fromOffset(18, 16)
             BrandLabel.Parent = TopBar
+            BrandLabel.Position = UDim2.fromOffset(18, 16)
+            BrandLabel.Size = UDim2.new(0, 100, 0, 22)
+            TabBar.Position = UDim2.new(0, 120, 0, 14)
+            TabBar.Size = UDim2.new(1, -200, 0, 24)
+            PageHolder.Visible = false
         else
             BrandLabel.Parent = Brand
             BrandLabel.Position = UDim2.fromOffset(18, 16)
+            BrandLabel.Size = UDim2.new(1, -28, 0, 22)
             Sidebar.Visible = true
             Content.Position = UDim2.fromOffset(160, 0)
             Content.Size = UDim2.new(1, -160, 1, 0)
+            TabBar.Position = UDim2.fromOffset(14, 14)
+            TabBar.Size = UDim2.new(1, -120, 0, 24)
+            PageHolder.Visible = true
             Tween(Root, { Size = FullSize }, Ease.OutCubic)
         end
     end)
@@ -576,7 +591,7 @@ function Library:_RenderSubtabs(tabObj)
                 Text = "",
                 AutoButtonColor = false,
                 LayoutOrder = i,
-                ZIndex = 2,
+                ZIndex = 3,
             })
             btn.Parent = holder
 
@@ -1117,7 +1132,6 @@ function Library:_WrapSection(section, sub, page)
             TextColor3 = Theme.Accent,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Right,
-            Text = tostring(default),
         })
         valueLbl.Parent = frame
 
