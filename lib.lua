@@ -40,7 +40,7 @@ Library.Fonts = Fonts
 local Ease = {
     OutQuad   = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
     OutCubic  = TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
-    OutQuint  = TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+    OutQuint  = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
     InOutQuad = TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
     Spring    = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
     Snap      = TweenInfo.new(0.10, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
@@ -134,15 +134,14 @@ function Library.new(config)
 end
 
 function Library:_Build(config)
-    if not CoreGui:FindFirstChild("ReduxBlur") then
-        local blur = Create("BlurEffect", {
+    if not Lighting:FindFirstChild("ReduxBlur") then
+        self.Blur = Create("BlurEffect", {
             Name = "ReduxBlur",
-            Size = 0,
+            Size = 16,
             Parent = Lighting
         })
-        self.Blur = blur
     else
-        self.Blur = CoreGui.ReduxBlur
+        self.Blur = Lighting.ReduxBlur
     end
 
     local ScreenGui = Create("ScreenGui", {
@@ -312,7 +311,6 @@ function Library:_Build(config)
             Position = UDim2.fromOffset(7, 7),
             Image = icon,
             ImageColor3 = Theme.TextMuted,
-            ImageTransparency = 0,
             ZIndex = 4,
         })
         iconLbl.Parent = btn
@@ -561,48 +559,43 @@ function Library:_RenderSubtabs(tabObj)
     if #tabObj.Subtabs <= 3 then
         local holder = Create("Frame", {
             Size = UDim2.fromScale(1, 1),
-            BackgroundColor3 = Theme.SurfaceAlt,
-            BackgroundTransparency = Theme.Transp,
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
         })
         holder.Parent = bar
-        Corner(UDim.new(0, 6)).Parent = holder
-        Stroke(Theme.Outline, 1, 0.5).Parent = holder
 
-        Create("UIListLayout", {
+        local layout = Create("UIListLayout", {
             FillDirection = Enum.FillDirection.Horizontal,
-            Padding = UDim.new(0, 0),
+            Padding = UDim.new(0, 4),
             VerticalAlignment = Enum.VerticalAlignment.Center,
             SortOrder = Enum.SortOrder.LayoutOrder,
-        }).Parent = holder
+        })
+        layout.Parent = holder
 
-        local total = #tabObj.Subtabs
+        local activeBg = Create("Frame", {
+            Name = "ActiveBg",
+            Size = UDim2.fromOffset(0, 24),
+            BackgroundColor3 = Theme.SurfaceAlt,
+            BackgroundTransparency = 0,
+            BorderSizePixel = 0,
+            ZIndex = 1,
+        })
+        activeBg.Parent = holder
+        Corner(UDim.new(0, 6)).Parent = activeBg
+
+        local buttons = {}
+
         for i, sub in next, tabObj.Subtabs do
             local btn = Create("TextButton", {
                 Name = sub.Name,
-                Size = UDim2.fromOffset(96, 24),
-                BackgroundColor3 = Theme.Accent,
+                Size = UDim2.fromOffset(80, 24),
                 BackgroundTransparency = 1,
                 Text = "",
                 AutoButtonColor = false,
-                ClipsDescendants = true,
                 LayoutOrder = i,
+                ZIndex = 2,
             })
             btn.Parent = holder
-
-            local shape = Create("Frame", {
-                Size = UDim2.fromScale(1, 1),
-                BackgroundColor3 = Theme.Accent,
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                ClipsDescendants = true,
-            })
-            shape.Parent = btn
-            local corner = Corner(UDim.new(0, 0))
-            if i == 1 then corner.CornerRadius = UDim.new(0, 6) end
-            if i == total then corner.CornerRadius = UDim.new(0, 6) end
-            if total == 1 then corner.CornerRadius = UDim.new(0, 6) end
-            corner.Parent = shape
 
             local lbl = Create("TextLabel", {
                 BackgroundTransparency = 1,
@@ -615,31 +608,46 @@ function Library:_RenderSubtabs(tabObj)
             })
             lbl.Parent = btn
 
-            local function updateActive(active)
-                if active then
-                    Tween(shape, { BackgroundTransparency = 0 }, Ease.OutQuad)
-                    Tween(lbl, { TextColor3 = Theme.Text }, Ease.OutQuad)
+            buttons[i] = { btn = btn, lbl = lbl, sub = sub }
+
+            btn.MouseButton1Click:Connect(function()
+                self:_SelectSub(tabObj, sub)
+                local targetX = btn.AbsolutePosition.X - holder.AbsolutePosition.X
+                Tween(activeBg, { Position = UDim2.fromOffset(targetX, 0), Size = UDim2.fromOffset(btn.AbsoluteSize.X, 24) }, Ease.OutQuint)
+            end)
+
+            if tabObj.ActiveSub == sub then
+                Tween(lbl, { TextColor3 = Theme.Text }, Ease.OutQuad)
+                task.defer(function()
+                    local targetX = btn.AbsolutePosition.X - holder.AbsolutePosition.X
+                    activeBg.Position = UDim2.fromOffset(targetX, 0)
+                    activeBg.Size = UDim2.fromOffset(btn.AbsoluteSize.X, 24)
+                end)
+            end
+        end
+
+        if not tabObj.ActiveSub and buttons[1] then
+            tabObj.ActiveSub = buttons[1].sub
+            Tween(buttons[1].lbl, { TextColor3 = Theme.Text }, Ease.OutQuad)
+            task.defer(function()
+                local targetX = buttons[1].btn.AbsolutePosition.X - holder.AbsolutePosition.X
+                activeBg.Position = UDim2.fromOffset(targetX, 0)
+                activeBg.Size = UDim2.fromOffset(buttons[1].btn.AbsoluteSize.X, 24)
+            end)
+        end
+
+        tabObj._updateSubBg = function(activeSub)
+            for _, data in pairs(buttons) do
+                if data.sub == activeSub then
+                    Tween(data.lbl, { TextColor3 = Theme.Text }, Ease.OutQuad)
+                    local targetX = data.btn.AbsolutePosition.X - holder.AbsolutePosition.X
+                    Tween(activeBg, { Position = UDim2.fromOffset(targetX, 0), Size = UDim2.fromOffset(data.btn.AbsoluteSize.X, 24) }, Ease.OutQuint)
                 else
-                    Tween(shape, { BackgroundTransparency = 1 }, Ease.OutQuad)
-                    Tween(lbl, { TextColor3 = Theme.TextMuted }, Ease.OutQuad)
+                    Tween(data.lbl, { TextColor3 = Theme.TextMuted }, Ease.OutQuad)
                 end
             end
-
-            updateActive(tabObj.ActiveSub == sub)
-            btn.MouseEnter:Connect(function()
-                if tabObj.ActiveSub ~= sub then
-                    Tween(shape, { BackgroundColor3 = Theme.SurfaceHover, BackgroundTransparency = 0.5 }, Ease.OutQuad)
-                end
-            end)
-            btn.MouseLeave:Connect(function()
-                if tabObj.ActiveSub ~= sub then
-                    Tween(shape, { BackgroundTransparency = 1 }, Ease.OutQuad)
-                end
-            end)
-            sub._setActive = updateActive
-            btn.MouseButton1Click:Connect(function() self:_SelectSub(tabObj, sub) end)
-            sub._button = btn
         end
+
     else
         local combo = Create("TextButton", {
             Size = UDim2.fromOffset(160, 24),
@@ -753,9 +761,9 @@ end
 function Library:_SelectSub(tabObj, sub)
     for _, s in next, tabObj.Subtabs do
         if s.Page then s.Page.Visible = (s == sub) end
-        if s._setActive then s._setActive(s == sub) end
     end
     if tabObj._comboLabel then tabObj._comboLabel.Text = sub.Name end
+    if tabObj._updateSubBg then tabObj._updateSubBg(sub) end
     tabObj.ActiveSub = sub
 end
 
