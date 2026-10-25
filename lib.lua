@@ -5,6 +5,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
+local Lighting = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 
 local Library = {}
@@ -31,6 +32,7 @@ local Theme = {
     Danger       = Color3.fromRGB(233, 92, 92),
     Radius       = UDim.new(0, 10),
     RadiusSmall  = UDim.new(0, 6),
+    Transp       = 0.08
 }
 Library.Theme = Theme
 Library.Fonts = Fonts
@@ -54,10 +56,6 @@ end
 
 local function Corner(radius)
     return Create("UICorner", { CornerRadius = radius or Theme.Radius })
-end
-
-local function CornerSides(topLeft, topRight, bottomLeft, bottomRight)
-    return Create("UICorner", { CornerRadius = UDim.new(0, 0) })
 end
 
 local function Stroke(color, thickness, transparency)
@@ -136,6 +134,17 @@ function Library.new(config)
 end
 
 function Library:_Build(config)
+    if not CoreGui:FindFirstChild("ReduxBlur") then
+        local blur = Create("BlurEffect", {
+            Name = "ReduxBlur",
+            Size = 0,
+            Parent = Lighting
+        })
+        self.Blur = blur
+    else
+        self.Blur = CoreGui.ReduxBlur
+    end
+
     local ScreenGui = Create("ScreenGui", {
         Name = self.Name .. "_" .. tostring(math.random(1, 1e6)),
         ResetOnSpawn = false,
@@ -159,12 +168,12 @@ function Library:_Build(config)
         BackgroundTransparency = 1,
         Image = "rbxassetid://1316045217",
         ImageColor3 = Color3.new(0, 0, 0),
-        ImageTransparency = 0.35,
+        ImageTransparency = 0.6,
         ScaleType = Enum.ScaleType.Slice,
         SliceCenter = Rect.new(10, 10, 118, 118),
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.new(1, 50, 1, 50),
+        Size = UDim2.new(1, 20, 1, 20),
         ZIndex = 0,
     })
     Shadow.Parent = Root
@@ -173,6 +182,7 @@ function Library:_Build(config)
         Name = "Main",
         Size = UDim2.fromScale(1, 1),
         BackgroundColor3 = Theme.Background,
+        BackgroundTransparency = Theme.Transp,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         ZIndex = 1,
@@ -187,35 +197,25 @@ function Library:_Build(config)
         Name = "Body",
         Size = UDim2.fromScale(1, 1),
         BackgroundTransparency = 1,
-        ClipsDescendants = true,
         ZIndex = 2,
     })
     Body.Parent = Main
-    Corner(UDim.new(0, 14)).Parent = Body
 
     local Sidebar = Create("Frame", {
         Name = "Sidebar",
         Size = UDim2.fromOffset(160, 420),
         BackgroundColor3 = Theme.Sidebar,
+        BackgroundTransparency = Theme.Transp,
         BorderSizePixel = 0,
         ZIndex = 2,
     })
     Sidebar.Parent = Body
-    local sidebarCorner = Create("UICorner", { CornerRadius = UDim.new(0, 14) })
-    sidebarCorner.Parent = Sidebar
-    local sidebarFiller = Create("Frame", {
-        Size = UDim2.new(0, 14, 1, 0),
-        Position = UDim2.new(1, -14, 0, 0),
-        BackgroundColor3 = Theme.Sidebar,
-        BorderSizePixel = 0,
-        ZIndex = 2,
-    })
-    sidebarFiller.Parent = Sidebar
 
     local SideDivider = Create("Frame", {
         Size = UDim2.new(0, 1, 1, 0),
         Position = UDim2.new(1, 0, 0, 0),
         BackgroundColor3 = Theme.Outline,
+        BackgroundTransparency = 0.5,
         BorderSizePixel = 0,
         ZIndex = 3,
     })
@@ -298,6 +298,7 @@ function Library:_Build(config)
             Size = UDim2.fromOffset(24, 24),
             Position = UDim2.new(1, offsetX, 0, 14),
             BackgroundColor3 = Theme.SurfaceAlt,
+            BackgroundTransparency = Theme.Transp,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
@@ -307,25 +308,27 @@ function Library:_Build(config)
         Corner(UDim.new(0, 6)).Parent = btn
         local iconLbl = Create("ImageLabel", {
             BackgroundTransparency = 1,
-            Size = UDim2.fromOffset(12, 12),
-            Position = UDim2.fromOffset(6, 6),
+            Size = UDim2.fromOffset(10, 10),
+            Position = UDim2.fromOffset(7, 7),
             Image = icon,
             ImageColor3 = Theme.TextMuted,
+            ImageTransparency = 0,
+            ZIndex = 4,
         })
         iconLbl.Parent = btn
         btn.MouseEnter:Connect(function()
-            Tween(btn, { BackgroundColor3 = hoverColor or Theme.SurfaceHover }, Ease.OutQuad)
+            Tween(btn, { BackgroundColor3 = hoverColor or Theme.SurfaceHover, BackgroundTransparency = 0 }, Ease.OutQuad)
             Tween(iconLbl, { ImageColor3 = Theme.Text }, Ease.OutQuad)
         end)
         btn.MouseLeave:Connect(function()
-            Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad)
+            Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt, BackgroundTransparency = Theme.Transp }, Ease.OutQuad)
             Tween(iconLbl, { ImageColor3 = Theme.TextMuted }, Ease.OutQuad)
         end)
         return btn, iconLbl
     end
 
-    local Minimize, minIcon = MakeWindowButton("rbxassetid://10734896269", -66)
-    local Close, closeIcon = MakeWindowButton("rbxassetid://10747384394", -36, Theme.Danger)
+    local Minimize, minIcon = MakeWindowButton("rbxassetid://6031090990", -66)
+    local Close, closeIcon = MakeWindowButton("rbxassetid://6031090995", -36, Theme.Danger)
 
     Close.MouseButton1Click:Connect(function() self:Toggle() end)
 
@@ -366,9 +369,11 @@ function Library:Toggle()
     self.Visible = not self.Visible
     if self.Visible then
         root.Visible = true
+        if self.Blur then Tween(self.Blur, { Size = 16 }, Ease.OutCubic) end
         root.Size = UDim2.fromOffset(660, 0)
         Tween(root, { Size = UDim2.fromOffset(660, 420) }, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
     else
+        if self.Blur then Tween(self.Blur, { Size = 0 }, Ease.OutCubic) end
         Tween(root, { Size = UDim2.fromOffset(660, 0) }, TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.In))
         task.delay(0.24, function() root.Visible = false end)
     end
@@ -376,6 +381,7 @@ end
 
 function Library:Destroy()
     for _, conn in next, self._connections do conn:Disconnect() end
+    if self.Blur then self.Blur:Destroy() end
     if self.ScreenGui then self.ScreenGui:Destroy() end
 end
 
@@ -454,7 +460,7 @@ function Library:Notify(title, content, duration)
     })
     contentLbl.Parent = card
 
-    Tween(card, { BackgroundTransparency = 0 }, Ease.OutQuad)
+    Tween(card, { BackgroundTransparency = Theme.Transp }, Ease.OutQuad)
     Tween(stroke, { Transparency = 0 }, Ease.OutQuad)
     Tween(accentBar, { BackgroundTransparency = 0 }, Ease.OutQuad)
     Tween(titleLbl, { TextTransparency = 0 }, Ease.OutQuad)
@@ -545,20 +551,6 @@ function Library:SelectTab(tabObj)
     self:_RenderSubtabs(tabObj)
 end
 
-local function BuildSegmentedCorners(count)
-    return function(index, obj)
-        local c = Instance.new("UICorner")
-        if count == 1 then
-            c.CornerRadius = UDim.new(0, 7)
-        elseif index == 1 then
-            c.CornerRadius = UDim.new(0, 7)
-        else
-            c.CornerRadius = UDim.new(0, 0)
-        end
-        c.Parent = obj
-    end
-end
-
 function Library:_RenderSubtabs(tabObj)
     local bar = self.TabBar
     for _, c in next, bar:GetChildren() do
@@ -569,9 +561,14 @@ function Library:_RenderSubtabs(tabObj)
     if #tabObj.Subtabs <= 3 then
         local holder = Create("Frame", {
             Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
+            BackgroundColor3 = Theme.SurfaceAlt,
+            BackgroundTransparency = Theme.Transp,
+            BorderSizePixel = 0,
         })
         holder.Parent = bar
+        Corner(UDim.new(0, 6)).Parent = holder
+        Stroke(Theme.Outline, 1, 0.5).Parent = holder
+
         Create("UIListLayout", {
             FillDirection = Enum.FillDirection.Horizontal,
             Padding = UDim.new(0, 0),
@@ -584,137 +581,62 @@ function Library:_RenderSubtabs(tabObj)
             local btn = Create("TextButton", {
                 Name = sub.Name,
                 Size = UDim2.fromOffset(96, 24),
-                BackgroundColor3 = Theme.SurfaceAlt,
-                BackgroundTransparency = 0,
-                Text = sub.Name,
+                BackgroundColor3 = Theme.Accent,
+                BackgroundTransparency = 1,
+                Text = "",
                 AutoButtonColor = false,
-                Font = Fonts.Medium,
-                TextColor3 = Theme.TextMuted,
-                TextSize = 12,
-                LayoutOrder = i,
                 ClipsDescendants = true,
+                LayoutOrder = i,
             })
             btn.Parent = holder
 
-            local corner = Instance.new("UICorner")
-            local tl, tr, bl, br = 0, 0, 0, 0
-            if i == 1 then tl, bl = 7, 7 end
-            if i == total then tr, br = 7, 7 end
-            corner.CornerRadius = UDim.new(0, 7)
-            corner.Parent = btn
+            local shape = Create("Frame", {
+                Size = UDim2.fromScale(1, 1),
+                BackgroundColor3 = Theme.Accent,
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                ClipsDescendants = true,
+            })
+            shape.Parent = btn
+            local corner = Corner(UDim.new(0, 0))
+            if i == 1 then corner.CornerRadius = UDim.new(0, 6) end
+            if i == total then corner.CornerRadius = UDim.new(0, 6) end
+            if total == 1 then corner.CornerRadius = UDim.new(0, 6) end
+            corner.Parent = shape
 
-            if total > 1 then
-                local shape = Create("Frame", {
-                    Size = UDim2.fromScale(1, 1),
-                    BackgroundColor3 = Theme.SurfaceAlt,
-                    BackgroundTransparency = 0,
-                    BorderSizePixel = 0,
-                    ClipsDescendants = true,
-                    ZIndex = 1,
-                })
-                shape.Parent = btn
-                shape.Name = "_shape"
-                local shapeCorner = Instance.new("UICorner")
-                shapeCorner.CornerRadius = UDim.new(0, 0)
-                shapeCorner.Parent = shape
+            local lbl = Create("TextLabel", {
+                BackgroundTransparency = 1,
+                Size = UDim2.fromScale(1, 1),
+                Font = Fonts.Medium,
+                Text = sub.Name,
+                TextColor3 = Theme.TextMuted,
+                TextSize = 12,
+                ZIndex = 3,
+            })
+            lbl.Parent = btn
 
-                if total == 2 then
-                    shapeCorner.CornerRadius = UDim.new(0, 7)
+            local function updateActive(active)
+                if active then
+                    Tween(shape, { BackgroundTransparency = 0 }, Ease.OutQuad)
+                    Tween(lbl, { TextColor3 = Theme.Text }, Ease.OutQuad)
                 else
-                    if i == 1 then
-                        shapeCorner.CornerRadius = UDim.new(0, 7)
-                    elseif i == total then
-                        shapeCorner.CornerRadius = UDim.new(0, 7)
-                    end
-                end
-
-                local coverL = Create("Frame", {
-                    Size = UDim2.new(0.5, 0, 1, 0),
-                    Position = UDim2.new(0, 0, 0, 0),
-                    BackgroundColor3 = Theme.SurfaceAlt,
-                    BorderSizePixel = 0,
-                    BackgroundTransparency = 0,
-                    ZIndex = 2,
-                })
-                coverL.Parent = btn
-                coverL.Name = "_coverL"
-                if total > 2 and i > 1 then
-                    local c = Instance.new("UICorner")
-                    c.CornerRadius = UDim.new(0, 0)
-                    c.Parent = coverL
-                    coverL.BackgroundTransparency = 1
-                else
-                    coverL.BackgroundTransparency = 1
-                end
-
-                local coverR = Create("Frame", {
-                    Size = UDim2.new(0.5, 0, 1, 0),
-                    Position = UDim2.new(0.5, 0, 0, 0),
-                    BackgroundColor3 = Theme.SurfaceAlt,
-                    BorderSizePixel = 0,
-                    BackgroundTransparency = 1,
-                    ZIndex = 2,
-                })
-                coverR.Parent = btn
-                coverR.Name = "_coverR"
-
-                local lbl = Create("TextLabel", {
-                    BackgroundTransparency = 1,
-                    Size = UDim2.fromScale(1, 1),
-                    Font = Fonts.Medium,
-                    Text = sub.Name,
-                    TextColor3 = Theme.TextMuted,
-                    TextSize = 12,
-                    ZIndex = 3,
-                })
-                lbl.Parent = btn
-                lbl.Name = "_label"
-                btn.Text = ""
-
-                local function applyCorners(active)
-                    local tl2, tr2, bl2, br2 = 0, 0, 0, 0
-                    if total == 1 then
-                        tl2, tr2, bl2, br2 = 7, 7, 7, 7
-                    elseif total == 2 then
-                        if i == 1 then tl2, bl2 = 7, 7 else tr2, br2 = 7, 7 end
-                    else
-                        if i == 1 then tl2, bl2 = 7, 7 end
-                        if i == total then tr2, br2 = 7, 7 end
-                    end
-                    shapeCorner.CornerRadius = UDim.new(0, math.max(tl2, tr2, bl2, br2))
-                    shape.Size = UDim2.fromScale(1, 1)
-                end
-
-                local function updateActive(active)
-                    if active then
-                        Tween(shape, { BackgroundColor3 = Theme.Accent, BackgroundTransparency = 0 }, Ease.OutQuad)
-                        Tween(lbl, { TextColor3 = Theme.Text }, Ease.OutQuad)
-                    else
-                        Tween(shape, { BackgroundColor3 = Theme.SurfaceAlt, BackgroundTransparency = 0 }, Ease.OutQuad)
-                        Tween(lbl, { TextColor3 = Theme.TextMuted }, Ease.OutQuad)
-                    end
-                end
-
-                updateActive(tabObj.ActiveSub == sub)
-                btn.MouseEnter:Connect(function()
-                    if tabObj.ActiveSub ~= sub then
-                        Tween(shape, { BackgroundColor3 = Theme.SurfaceHover }, Ease.OutQuad)
-                    end
-                end)
-                btn.MouseLeave:Connect(function()
-                    if tabObj.ActiveSub ~= sub then
-                        Tween(shape, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad)
-                    end
-                end)
-                sub._setActive = updateActive
-            else
-                Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad)
-                sub._setActive = function(active)
-                    if active then Tween(btn, { BackgroundColor3 = Theme.Accent }, Ease.OutQuad)
-                    else Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad) end
+                    Tween(shape, { BackgroundTransparency = 1 }, Ease.OutQuad)
+                    Tween(lbl, { TextColor3 = Theme.TextMuted }, Ease.OutQuad)
                 end
             end
 
+            updateActive(tabObj.ActiveSub == sub)
+            btn.MouseEnter:Connect(function()
+                if tabObj.ActiveSub ~= sub then
+                    Tween(shape, { BackgroundColor3 = Theme.SurfaceHover, BackgroundTransparency = 0.5 }, Ease.OutQuad)
+                end
+            end)
+            btn.MouseLeave:Connect(function()
+                if tabObj.ActiveSub ~= sub then
+                    Tween(shape, { BackgroundTransparency = 1 }, Ease.OutQuad)
+                end
+            end)
+            sub._setActive = updateActive
             btn.MouseButton1Click:Connect(function() self:_SelectSub(tabObj, sub) end)
             sub._button = btn
         end
@@ -722,12 +644,14 @@ function Library:_RenderSubtabs(tabObj)
         local combo = Create("TextButton", {
             Size = UDim2.fromOffset(160, 24),
             BackgroundColor3 = Theme.SurfaceAlt,
+            BackgroundTransparency = Theme.Transp,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
         })
         combo.Parent = bar
         Corner(UDim.new(0, 6)).Parent = combo
+        Stroke(Theme.Outline, 1, 0.5).Parent = combo
 
         local comboLabel = Create("TextLabel", {
             BackgroundTransparency = 1,
@@ -754,7 +678,8 @@ function Library:_RenderSubtabs(tabObj)
         local dropdown = Create("Frame", {
             Size = UDim2.fromOffset(160, 0),
             Position = UDim2.new(0, 0, 1, 4),
-            BackgroundColor3 = Theme.Surface,
+            BackgroundColor3 = Theme.Background,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ClipsDescendants = true,
             Visible = false,
@@ -846,6 +771,7 @@ function Library:_WrapTab(tabObj)
             BorderSizePixel = 0,
             ScrollBarThickness = 3,
             ScrollBarImageColor3 = Theme.Accent,
+            ScrollBarImageTransparency = 0.5,
             CanvasSize = UDim2.new(0, 0, 0, 0),
             Visible = false,
             ClipsDescendants = true,
@@ -879,6 +805,7 @@ function Library:_WrapSub(sub, page)
             Name = sectionName or "Section",
             Size = UDim2.new(1, 0, 0, 0),
             BackgroundColor3 = Theme.Surface,
+            BackgroundTransparency = Theme.Transp,
             BorderSizePixel = 0,
             AutomaticSize = Enum.AutomaticSize.Y,
             ClipsDescendants = false,
@@ -929,7 +856,7 @@ function Library:_WrapSub(sub, page)
 
         local grid = Create("UIGridLayout", {
             CellSize = UDim2.new(0.5, -4, 0, 32),
-            CellPadding = UDim.new(0, 8),
+            CellPadding = UDim2.new(0, 8, 0, 8),
             FillDirectionMaxCells = 2,
             SortOrder = Enum.SortOrder.LayoutOrder,
         })
@@ -965,6 +892,7 @@ function Library:_WrapSection(section, sub, page)
     wrapper.Button = function(_, text, callback)
         local btn = Create("TextButton", {
             BackgroundColor3 = Theme.SurfaceAlt,
+            BackgroundTransparency = Theme.Transp,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
@@ -984,8 +912,8 @@ function Library:_WrapSection(section, sub, page)
         })
         lbl.Parent = btn
 
-        btn.MouseEnter:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceHover }, Ease.OutQuad) end)
-        btn.MouseLeave:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad) end)
+        btn.MouseEnter:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceHover, BackgroundTransparency = 0 }, Ease.OutQuad) end)
+        btn.MouseLeave:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt, BackgroundTransparency = Theme.Transp }, Ease.OutQuad) end)
         btn.MouseButton1Click:Connect(function()
             Ripple(btn, Theme.Accent)
             if callback then callback() end
@@ -999,6 +927,7 @@ function Library:_WrapSection(section, sub, page)
 
         local btn = Create("TextButton", {
             BackgroundColor3 = Theme.SurfaceAlt,
+            BackgroundTransparency = Theme.Transp,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
@@ -1065,8 +994,8 @@ function Library:_WrapSection(section, sub, page)
         end
         apply(state)
 
-        btn.MouseEnter:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceHover }, Ease.OutQuad) end)
-        btn.MouseLeave:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad) end)
+        btn.MouseEnter:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceHover, BackgroundTransparency = 0 }, Ease.OutQuad) end)
+        btn.MouseLeave:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt, BackgroundTransparency = Theme.Transp }, Ease.OutQuad) end)
         btn.MouseButton1Click:Connect(function()
             apply(not state)
             if callback then callback(state) end
@@ -1157,6 +1086,7 @@ function Library:_WrapSection(section, sub, page)
 
         local frame = Create("Frame", {
             BackgroundColor3 = Theme.SurfaceAlt,
+            BackgroundTransparency = Theme.Transp,
             BorderSizePixel = 0,
         })
         frame.Parent = section._columns
@@ -1242,6 +1172,7 @@ function Library:_WrapSection(section, sub, page)
     wrapper.Textbox = function(_, text, placeholder, callback)
         local frame = Create("Frame", {
             BackgroundColor3 = Theme.SurfaceAlt,
+            BackgroundTransparency = Theme.Transp,
             BorderSizePixel = 0,
         })
         frame.Parent = section._columns
@@ -1289,6 +1220,7 @@ function Library:_WrapSection(section, sub, page)
 
         local btn = Create("TextButton", {
             BackgroundColor3 = Theme.SurfaceAlt,
+            BackgroundTransparency = Theme.Transp,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
@@ -1333,7 +1265,7 @@ function Library:_WrapSection(section, sub, page)
         local drop = Create("Frame", {
             Size = UDim2.new(1, 0, 0, 0),
             Position = UDim2.new(0, 0, 1, 4),
-            BackgroundColor3 = Theme.Surface,
+            BackgroundColor3 = Theme.Background,
             BorderSizePixel = 0,
             ClipsDescendants = true,
             Visible = false,
@@ -1398,6 +1330,7 @@ function Library:_WrapSection(section, sub, page)
 
         local btn = Create("TextButton", {
             BackgroundColor3 = Theme.SurfaceAlt,
+            BackgroundTransparency = Theme.Transp,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
@@ -1464,6 +1397,7 @@ function Library:_WrapSection(section, sub, page)
 
         local btn = Create("TextButton", {
             BackgroundColor3 = Theme.SurfaceAlt,
+            BackgroundTransparency = Theme.Transp,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
