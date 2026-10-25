@@ -32,7 +32,7 @@ local Theme = {
     Danger       = Color3.fromRGB(233, 92, 92),
     Radius       = UDim.new(0, 10),
     RadiusSmall  = UDim.new(0, 6),
-    Transp       = 0.05
+    Transp       = 0.08
 }
 Library.Theme = Theme
 Library.Fonts = Fonts
@@ -146,7 +146,7 @@ function Library:_Build(config)
     self.ScreenGui = ScreenGui
 
     local Blur = Create("BlurEffect", {
-        Size = 20,
+        Size = 24,
         Parent = ScreenGui
     })
     self.Blur = Blur
@@ -315,6 +315,16 @@ function Library:_Build(config)
 
     Close.MouseButton1Click:Connect(function() self:Toggle() end)
 
+    local PageHolder = Create("Frame", {
+        Name = "PageHolder",
+        Position = UDim2.fromOffset(0, 52),
+        Size = UDim2.new(1, 0, 1, -52),
+        BackgroundTransparency = 1,
+        ClipsDescendants = true,
+    })
+    PageHolder.Parent = Content
+    self.PageHolder = PageHolder
+
     self.Minimized = false
     local FullSize = UDim2.fromOffset(660, 420)
     Minimize.MouseButton1Click:Connect(function()
@@ -331,6 +341,7 @@ function Library:_Build(config)
             TabBar.Size = UDim2.new(1, -200, 0, 24)
             PageHolder.Visible = false
         else
+            Tween(Root, { Size = FullSize }, Ease.OutCubic)
             BrandLabel.Parent = Brand
             BrandLabel.Position = UDim2.fromOffset(18, 16)
             BrandLabel.Size = UDim2.new(1, -28, 0, 22)
@@ -340,19 +351,8 @@ function Library:_Build(config)
             TabBar.Position = UDim2.fromOffset(14, 14)
             TabBar.Size = UDim2.new(1, -120, 0, 24)
             PageHolder.Visible = true
-            Tween(Root, { Size = FullSize }, Ease.OutCubic)
         end
     end)
-
-    local PageHolder = Create("Frame", {
-        Name = "PageHolder",
-        Position = UDim2.fromOffset(0, 52),
-        Size = UDim2.new(1, 0, 1, -52),
-        BackgroundTransparency = 1,
-        ClipsDescendants = true,
-    })
-    PageHolder.Parent = Content
-    self.PageHolder = PageHolder
 
     table.insert(self._connections, UserInputService.InputBegan:Connect(function(input, processed)
         if processed then return end
@@ -368,10 +368,16 @@ function Library:Toggle()
     self.Visible = not self.Visible
     if self.Visible then
         root.Visible = true
-        root.Size = UDim2.fromOffset(660, 0)
-        Tween(root, { Size = UDim2.fromOffset(660, 420) }, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
+        if not self.Minimized then
+            root.Size = UDim2.fromOffset(660, 0)
+            Tween(root, { Size = UDim2.fromOffset(660, 420) }, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
+        else
+            root.Size = UDim2.fromOffset(260, 0)
+            Tween(root, { Size = UDim2.fromOffset(260, 52) }, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
+        end
     else
-        Tween(root, { Size = UDim2.fromOffset(660, 0) }, TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.In))
+        local targetW = self.Minimized and 260 or 660
+        Tween(root, { Size = UDim2.fromOffset(targetW, 0) }, TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.In))
         task.delay(0.24, function() root.Visible = false end)
     end
 end
@@ -578,7 +584,7 @@ function Library:_RenderSubtabs(tabObj)
             BorderSizePixel = 0,
             ZIndex = 1,
         })
-        activeBg.Parent = holder
+        activeBg.Parent = bar
         Corner(UDim.new(0, 6)).Parent = activeBg
 
         local buttons = {}
@@ -615,7 +621,7 @@ function Library:_RenderSubtabs(tabObj)
             if tabObj.ActiveSub == sub then
                 Tween(lbl, { TextColor3 = Theme.Text }, Ease.OutQuad)
                 task.defer(function()
-                    local targetX = btn.AbsolutePosition.X - holder.AbsolutePosition.X
+                    local targetX = btn.AbsolutePosition.X - bar.AbsolutePosition.X
                     activeBg.Position = UDim2.fromOffset(targetX, 0)
                     activeBg.Size = UDim2.fromOffset(btn.AbsoluteSize.X, 24)
                 end)
@@ -630,7 +636,7 @@ function Library:_RenderSubtabs(tabObj)
             for _, data in pairs(buttons) do
                 if data.sub == activeSub then
                     Tween(data.lbl, { TextColor3 = Theme.Text }, Ease.OutQuad)
-                    local targetX = data.btn.AbsolutePosition.X - holder.AbsolutePosition.X
+                    local targetX = data.btn.AbsolutePosition.X - bar.AbsolutePosition.X
                     Tween(activeBg, { Position = UDim2.fromOffset(targetX, 0), Size = UDim2.fromOffset(data.btn.AbsoluteSize.X, 24) }, Ease.OutQuint)
                 else
                     Tween(data.lbl, { TextColor3 = Theme.TextMuted }, Ease.OutQuad)
