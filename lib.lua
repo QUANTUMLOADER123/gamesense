@@ -5,7 +5,6 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
-local Lighting = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 
 local Library = {}
@@ -32,7 +31,7 @@ local Theme = {
     Danger       = Color3.fromRGB(233, 92, 92),
     Radius       = UDim.new(0, 10),
     RadiusSmall  = UDim.new(0, 6),
-    Transp       = 0.08
+    Transp       = 0.05
 }
 Library.Theme = Theme
 Library.Fonts = Fonts
@@ -146,7 +145,7 @@ function Library:_Build(config)
     self.ScreenGui = ScreenGui
 
     local Blur = Create("BlurEffect", {
-        Size = 24,
+        Size = 20,
         Parent = ScreenGui
     })
     self.Blur = Blur
@@ -277,6 +276,16 @@ function Library:_Build(config)
     TabBar.Parent = TopBar
     self.TabBar = TabBar
 
+    local PageHolder = Create("Frame", {
+        Name = "PageHolder",
+        Position = UDim2.fromOffset(0, 52),
+        Size = UDim2.new(1, 0, 1, -52),
+        BackgroundTransparency = 1,
+        ClipsDescendants = true,
+    })
+    PageHolder.Parent = Content
+    self.PageHolder = PageHolder
+
     local function MakeWindowButton(icon, offsetX, hoverColor)
         local btn = Create("TextButton", {
             Size = UDim2.fromOffset(24, 24),
@@ -314,16 +323,6 @@ function Library:_Build(config)
     local Close, closeIcon = MakeWindowButton("rbxassetid://6031090995", -36, Theme.Danger)
 
     Close.MouseButton1Click:Connect(function() self:Toggle() end)
-
-    local PageHolder = Create("Frame", {
-        Name = "PageHolder",
-        Position = UDim2.fromOffset(0, 52),
-        Size = UDim2.new(1, 0, 1, -52),
-        BackgroundTransparency = 1,
-        ClipsDescendants = true,
-    })
-    PageHolder.Parent = Content
-    self.PageHolder = PageHolder
 
     self.Minimized = false
     local FullSize = UDim2.fromOffset(660, 420)
@@ -789,7 +788,7 @@ function Library:_WrapTab(tabObj)
         Create("UIListLayout", {
             Padding = UDim.new(0, 10),
             SortOrder = Enum.SortOrder.LayoutOrder,
-            HorizontalAlignment = Enum.HorizontalAlignment.Center
+            HorizontalAlignment = Enum.HorizontalAlignment.Left
         }).Parent = page
         Create("UIPadding", {
             PaddingTop = UDim.new(0, 12),
