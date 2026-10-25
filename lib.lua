@@ -32,7 +32,7 @@ local Theme = {
     Danger       = Color3.fromRGB(233, 92, 92),
     Radius       = UDim.new(0, 10),
     RadiusSmall  = UDim.new(0, 6),
-    Transp       = 0.08
+    Transp       = 0.12
 }
 Library.Theme = Theme
 Library.Fonts = Fonts
@@ -167,7 +167,7 @@ function Library:_Build(config)
         BackgroundTransparency = 1,
         Image = "rbxassetid://1316045217",
         ImageColor3 = Color3.new(0, 0, 0),
-        ImageTransparency = 0.6,
+        ImageTransparency = 0.4,
         ScaleType = Enum.ScaleType.Slice,
         SliceCenter = Rect.new(10, 10, 118, 118),
         AnchorPoint = Vector2.new(0.5, 0.5),
@@ -176,6 +176,7 @@ function Library:_Build(config)
         ZIndex = 0,
     })
     Shadow.Parent = Root
+    Corner(UDim.new(0, 20)).Parent = Shadow
 
     local Main = Create("Frame", {
         Name = "Main",
@@ -188,7 +189,7 @@ function Library:_Build(config)
     })
     Main.Parent = Root
     Corner(UDim.new(0, 14)).Parent = Main
-    Stroke(Theme.Outline, 1).Parent = Main
+    Stroke(Theme.Outline, 1, 0.5).Parent = Main
     self.Window = Main
     Draggable(Root, Main)
 
@@ -576,7 +577,7 @@ function Library:_RenderSubtabs(tabObj)
             Name = "ActiveBg",
             Size = UDim2.fromOffset(0, 24),
             BackgroundColor3 = Theme.SurfaceAlt,
-            BackgroundTransparency = 0,
+            BackgroundTransparency = Theme.Transp,
             BorderSizePixel = 0,
             ZIndex = 1,
         })
@@ -609,12 +610,6 @@ function Library:_RenderSubtabs(tabObj)
             lbl.Parent = btn
 
             buttons[i] = { btn = btn, lbl = lbl, sub = sub }
-
-            btn.MouseButton1Click:Connect(function()
-                self:_SelectSub(tabObj, sub)
-                local targetX = btn.AbsolutePosition.X - holder.AbsolutePosition.X
-                Tween(activeBg, { Position = UDim2.fromOffset(targetX, 0), Size = UDim2.fromOffset(btn.AbsoluteSize.X, 24) }, Ease.OutQuint)
-            end)
 
             if tabObj.ActiveSub == sub then
                 Tween(lbl, { TextColor3 = Theme.Text }, Ease.OutQuad)
@@ -698,19 +693,21 @@ function Library:_RenderSubtabs(tabObj)
         Stroke(Theme.Outline, 1).Parent = dropdown
 
         Create("UIListLayout", {
-            Padding = UDim.new(0, 2),
+            Padding = UDim.new(0, 4),
             SortOrder = Enum.SortOrder.LayoutOrder,
         }).Parent = dropdown
         Create("UIPadding", {
-            PaddingTop = UDim.new(0, 4),
-            PaddingBottom = UDim.new(0, 4),
+            PaddingTop = UDim.new(0, 6),
+            PaddingBottom = UDim.new(0, 6),
+            PaddingLeft = UDim.new(0, 6),
+            PaddingRight = UDim.new(0, 6),
         }).Parent = dropdown
 
         local opened = false
         combo.MouseButton1Click:Connect(function()
             opened = not opened
             if opened then
-                local target = #tabObj.Subtabs * 26 + 8
+                local target = #tabObj.Subtabs * 28 + 12
                 dropdown.Visible = true
                 dropdown.Size = UDim2.fromOffset(160, 0)
                 Tween(dropdown, { Size = UDim2.fromOffset(160, target) }, Ease.OutCubic)
@@ -722,8 +719,7 @@ function Library:_RenderSubtabs(tabObj)
 
         for i, sub in next, tabObj.Subtabs do
             local opt = Create("TextButton", {
-                Size = UDim2.new(1, -8, 0, 24),
-                Position = UDim2.fromOffset(4, 0),
+                Size = UDim2.new(1, 0, 0, 24),
                 BackgroundColor3 = Theme.SurfaceAlt,
                 BackgroundTransparency = 1,
                 Text = sub.Name,
@@ -1284,10 +1280,10 @@ function Library:_WrapSection(section, sub, page)
         Stroke(Theme.Outline, 1).Parent = drop
 
         Create("UIListLayout", {
-            Padding = UDim.new(0, 2),
+            Padding = UDim.new(0, 4),
             SortOrder = Enum.SortOrder.LayoutOrder,
         }).Parent = drop
-        Create("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) }).Parent = drop
+        Create("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6) }).Parent = drop
 
         local opened = false
         btn.MouseButton1Click:Connect(function()
@@ -1295,7 +1291,7 @@ function Library:_WrapSection(section, sub, page)
             if opened then
                 drop.Visible = true
                 drop.Size = UDim2.new(1, 0, 0, 0)
-                Tween(drop, { Size = UDim2.new(1, 0, 0, #options * 24 + 8) }, Ease.OutCubic)
+                Tween(drop, { Size = UDim2.new(1, 0, 0, #options * 28 + 12) }, Ease.OutCubic)
             else
                 Tween(drop, { Size = UDim2.new(1, 0, 0, 0) }, Ease.OutCubic)
                 task.delay(0.25, function() drop.Visible = false end)
