@@ -1,57 +1,63 @@
--- Kavo Redux :: modern interface library for Roblox
--- clean architecture, custom tweening, no dead weight
+-- Redux :: modern interface library for Roblox
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
 local Library = {}
 Library.__index = Library
 
+local Fonts = {
+    Display = Enum.Font.Montserrat,
+    Body    = Enum.Font.Gotham,
+    Medium  = Enum.Font.GothamMedium,
+    Bold    = Enum.Font.GothamBold,
+}
+
 local Theme = {
-    Accent       = Color3.fromRGB(120, 140, 255),
-    AccentSoft   = Color3.fromRGB(90, 105, 200),
-    Background   = Color3.fromRGB(18, 19, 24),
+    Accent       = Color3.fromRGB(118, 138, 250),
+    AccentSoft   = Color3.fromRGB(88, 104, 200),
+    Background   = Color3.fromRGB(16, 17, 22),
+    Sidebar      = Color3.fromRGB(21, 22, 28),
     Surface      = Color3.fromRGB(26, 27, 34),
-    SurfaceAlt   = Color3.fromRGB(32, 34, 42),
-    SurfaceHover = Color3.fromRGB(40, 43, 53),
-    Outline      = Color3.fromRGB(46, 49, 60),
-    Text         = Color3.fromRGB(240, 242, 248),
-    TextMuted    = Color3.fromRGB(150, 155, 170),
-    Danger       = Color3.fromRGB(235, 90, 90),
-    Success      = Color3.fromRGB(110, 210, 140),
-    Radius       = UDim.new(0, 8),
+    SurfaceAlt   = Color3.fromRGB(33, 35, 43),
+    SurfaceHover = Color3.fromRGB(42, 45, 55),
+    Outline      = Color3.fromRGB(46, 49, 62),
+    Text         = Color3.fromRGB(242, 244, 250),
+    TextMuted    = Color3.fromRGB(148, 153, 168),
+    Danger       = Color3.fromRGB(233, 92, 92),
+    Radius       = UDim.new(0, 10),
     RadiusSmall  = UDim.new(0, 6),
 }
 Library.Theme = Theme
+Library.Fonts = Fonts
 
 local Ease = {
-    OutQuad    = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-    OutCubic   = TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
-    OutQuint   = TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-    InOutQuad  = TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
-    Spring     = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-    Snap       = TweenInfo.new(0.10, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+    OutQuad   = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    OutCubic  = TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
+    OutQuint  = TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+    InOutQuad = TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+    Spring    = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+    Snap      = TweenInfo.new(0.10, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
 }
 Library.Ease = Ease
 
 local function Create(class, props, children)
     local obj = Instance.new(class)
-    for k, v in next, props or {} do
-        obj[k] = v
-    end
-    for _, child in next, children or {} do
-        child.Parent = obj
-    end
+    for k, v in next, props or {} do obj[k] = v end
+    for _, child in next, children or {} do child.Parent = obj end
     return obj
 end
 
 local function Corner(radius)
     return Create("UICorner", { CornerRadius = radius or Theme.Radius })
+end
+
+local function CornerSides(topLeft, topRight, bottomLeft, bottomRight)
+    return Create("UICorner", { CornerRadius = UDim.new(0, 0) })
 end
 
 local function Stroke(color, thickness, transparency)
@@ -63,43 +69,28 @@ local function Stroke(color, thickness, transparency)
     })
 end
 
-local function Padding(all, extra)
-    local p = Create("UIPadding")
-    if type(all) == "number" then
-        p.PaddingTop = UDim.new(0, all)
-        p.PaddingBottom = UDim.new(0, all)
-        p.PaddingLeft = UDim.new(0, all)
-        p.PaddingRight = UDim.new(0, all)
-    else
-        for k, v in next, all do p[k] = v end
-    end
-    if extra then for k, v in next, extra do p[k] = v end end
-    return p
-end
-
 local function Tween(obj, props, info)
     local t = TweenService:Create(obj, info or Ease.OutQuad, props)
     t:Play()
     return t
 end
 
-local function Ripple(button, color)
+local function Ripple(parent, color)
     local mouse = LocalPlayer:GetMouse()
-    local ripple = Create("Frame", {
+    local r = Create("Frame", {
         BackgroundColor3 = color or Theme.Accent,
-        BackgroundTransparency = 0.55,
+        BackgroundTransparency = 0.6,
         BorderSizePixel = 0,
         Size = UDim2.fromOffset(0, 0),
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromOffset(mouse.X - button.AbsolutePosition.X, mouse.Y - button.AbsolutePosition.Y),
+        Position = UDim2.fromOffset(mouse.X - parent.AbsolutePosition.X, mouse.Y - parent.AbsolutePosition.Y),
         ZIndex = 5,
     })
-    ripple.Parent = button
-    local corner = Corner(UDim.new(1, 0))
-    corner.Parent = ripple
-    local target = math.max(button.AbsoluteSize.X, button.AbsoluteSize.Y) * 2
-    Tween(ripple, { Size = UDim2.fromOffset(target, target), BackgroundTransparency = 1 }, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
-    task.delay(0.45, function() if ripple then ripple:Destroy() end end)
+    r.Parent = parent
+    Corner(UDim.new(1, 0)).Parent = r
+    local target = math.max(parent.AbsoluteSize.X, parent.AbsoluteSize.Y) * 2
+    Tween(r, { Size = UDim2.fromOffset(target, target), BackgroundTransparency = 1 }, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+    task.delay(0.5, function() if r then r:Destroy() end end)
 end
 
 local function Draggable(frame, handle)
@@ -110,8 +101,12 @@ local function Draggable(frame, handle)
             dragging = true
             dragStart = input.Position
             startPos = frame.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            local conn
+            conn = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    conn:Disconnect()
+                end
             end)
         end
     end)
@@ -132,10 +127,9 @@ function Library.new(config)
     config = config or {}
     local self = setmetatable({}, Library)
     self.Name = config.Name or "Interface"
+    self.Subtitle = config.Subtitle or "redux"
     self.Tabs = {}
-    self.ActiveTab = nil
     self.Flags = {}
-    self.Window = nil
     self._connections = {}
     self:_Build(config)
     return self
@@ -152,86 +146,106 @@ function Library:_Build(config)
     ScreenGui.Parent = CoreGui
     self.ScreenGui = ScreenGui
 
-    local Main = Create("Frame", {
-        Name = "Main",
-        Size = UDim2.fromOffset(640, 400),
-        Position = UDim2.new(0.5, -320, 0.5, -200),
-        BackgroundColor3 = Theme.Background,
-        BorderSizePixel = 0,
-        ClipsDescendants = true,
+    local Root = Create("Frame", {
+        Name = "Root",
+        Size = UDim2.fromOffset(660, 420),
+        Position = UDim2.new(0.5, -330, 0.5, -210),
+        BackgroundTransparency = 1,
     })
-    Main.Parent = ScreenGui
-    Round(Main, UDim.new(0, 12), Theme.Outline, 1)
-    self.Window = Main
-    Draggable(Main)
+    Root.Parent = ScreenGui
+    self.Root = Root
 
     local Shadow = Create("ImageLabel", {
-        Name = "Shadow",
         BackgroundTransparency = 1,
         Image = "rbxassetid://1316045217",
         ImageColor3 = Color3.new(0, 0, 0),
-        ImageTransparency = 0.5,
+        ImageTransparency = 0.35,
         ScaleType = Enum.ScaleType.Slice,
         SliceCenter = Rect.new(10, 10, 118, 118),
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        Size = UDim2.new(1, 40, 1, 40),
-        ZIndex = -1,
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, 50, 1, 50),
+        ZIndex = 0,
     })
-    Shadow.Parent = Main
+    Shadow.Parent = Root
+
+    local Main = Create("Frame", {
+        Name = "Main",
+        Size = UDim2.fromScale(1, 1),
+        BackgroundColor3 = Theme.Background,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        ZIndex = 1,
+    })
+    Main.Parent = Root
+    Corner(UDim.new(0, 14)).Parent = Main
+    Stroke(Theme.Outline, 1).Parent = Main
+    self.Window = Main
+    Draggable(Root, Main)
+
+    local Body = Create("Frame", {
+        Name = "Body",
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        ClipsDescendants = true,
+        ZIndex = 2,
+    })
+    Body.Parent = Main
+    Corner(UDim.new(0, 14)).Parent = Body
 
     local Sidebar = Create("Frame", {
         Name = "Sidebar",
-        Size = UDim2.fromOffset(150, 400),
-        BackgroundColor3 = Theme.Surface,
+        Size = UDim2.fromOffset(160, 420),
+        BackgroundColor3 = Theme.Sidebar,
         BorderSizePixel = 0,
+        ZIndex = 2,
     })
-    Sidebar.Parent = Main
-    self.Sidebar = Sidebar
+    Sidebar.Parent = Body
+    local sidebarCorner = Create("UICorner", { CornerRadius = UDim.new(0, 14) })
+    sidebarCorner.Parent = Sidebar
+    local sidebarFiller = Create("Frame", {
+        Size = UDim2.new(0, 14, 1, 0),
+        Position = UDim2.new(1, -14, 0, 0),
+        BackgroundColor3 = Theme.Sidebar,
+        BorderSizePixel = 0,
+        ZIndex = 2,
+    })
+    sidebarFiller.Parent = Sidebar
 
-    local SidebarDivider = Create("Frame", {
-        Name = "Divider",
+    local SideDivider = Create("Frame", {
         Size = UDim2.new(0, 1, 1, 0),
         Position = UDim2.new(1, 0, 0, 0),
         BackgroundColor3 = Theme.Outline,
         BorderSizePixel = 0,
+        ZIndex = 3,
     })
-    SidebarDivider.Parent = Sidebar
+    SideDivider.Parent = Sidebar
 
     local Brand = Create("Frame", {
         Name = "Brand",
-        Size = UDim2.new(1, 0, 0, 52),
+        Size = UDim2.new(1, 0, 0, 56),
         BackgroundTransparency = 1,
     })
     Brand.Parent = Sidebar
 
-    local BrandDot = Create("Frame", {
-        Size = UDim2.fromOffset(6, 6),
-        Position = UDim2.fromOffset(16, 24),
-        BackgroundColor3 = Theme.Accent,
-        BorderSizePixel = 0,
-    })
-    BrandDot.Parent = Brand
-    Corner(UDim.new(1, 0)).Parent = BrandDot
-
     local BrandLabel = Create("TextLabel", {
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(30, 16),
-        Size = UDim2.new(1, -40, 0, 20),
-        Font = Enum.Font.GothamBold,
+        Position = UDim2.fromOffset(18, 16),
+        Size = UDim2.new(1, -28, 0, 22),
+        Font = Fonts.Display,
         Text = config.Name or "Interface",
         TextColor3 = Theme.Text,
-        TextSize = 14,
+        TextSize = 17,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
     BrandLabel.Parent = Brand
 
     local BrandSub = Create("TextLabel", {
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(30, 30),
-        Size = UDim2.new(1, -40, 0, 14),
-        Font = Enum.Font.Gotham,
-        Text = config.Subtitle or "redux build",
+        Position = UDim2.fromOffset(18, 34),
+        Size = UDim2.new(1, -28, 0, 14),
+        Font = Fonts.Body,
+        Text = config.Subtitle or "redux",
         TextColor3 = Theme.TextMuted,
         TextSize = 11,
         TextXAlignment = Enum.TextXAlignment.Left,
@@ -240,97 +254,91 @@ function Library:_Build(config)
 
     local TabHolder = Create("Frame", {
         Name = "TabHolder",
-        Position = UDim2.fromOffset(8, 56),
-        Size = UDim2.new(1, -16, 1, -64),
+        Position = UDim2.fromOffset(10, 60),
+        Size = UDim2.new(1, -20, 1, -70),
         BackgroundTransparency = 1,
     })
     TabHolder.Parent = Sidebar
-
     Create("UIListLayout", {
-        Name = "Layout",
         Padding = UDim.new(0, 4),
         SortOrder = Enum.SortOrder.LayoutOrder,
     }).Parent = TabHolder
-
     self.TabHolder = TabHolder
 
     local Content = Create("Frame", {
         Name = "Content",
-        Position = UDim2.fromOffset(150, 0),
-        Size = UDim2.new(1, -150, 1, 0),
+        Position = UDim2.fromOffset(160, 0),
+        Size = UDim2.new(1, -160, 1, 0),
         BackgroundTransparency = 1,
+        ZIndex = 2,
     })
-    Content.Parent = Main
+    Content.Parent = Body
     self.Content = Content
 
     local TopBar = Create("Frame", {
         Name = "TopBar",
         Size = UDim2.new(1, 0, 0, 52),
         BackgroundTransparency = 1,
+        ZIndex = 3,
     })
     TopBar.Parent = Content
     self.TopBar = TopBar
 
     local TabBar = Create("Frame", {
         Name = "TabBar",
-        Position = UDim2.fromOffset(12, 14),
-        Size = UDim2.new(1, -90, 0, 24),
+        Position = UDim2.fromOffset(14, 14),
+        Size = UDim2.new(1, -110, 0, 24),
         BackgroundTransparency = 1,
     })
     TabBar.Parent = TopBar
     self.TabBar = TabBar
 
-    local CloseBtn = Create("TextButton", {
-        Name = "Close",
-        Size = UDim2.fromOffset(24, 24),
-        Position = UDim2.new(1, -36, 0, 14),
-        BackgroundColor3 = Theme.SurfaceAlt,
-        BorderSizePixel = 0,
-        Text = "",
-        AutoButtonColor = false,
-    })
-    CloseBtn.Parent = TopBar
-    Round(CloseBtn, Theme.RadiusSmall)
-    local closeIcon = Create("ImageLabel", {
-        BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(12, 12),
-        Position = UDim2.fromOffset(6, 6),
-        Image = "rbxassetid://10747384394",
-        ImageColor3 = Theme.TextMuted,
-    })
-    closeIcon.Parent = CloseBtn
-    CloseBtn.MouseEnter:Connect(function() Tween(CloseBtn, { BackgroundColor3 = Theme.Danger }, Ease.OutQuad) Tween(closeIcon, { ImageColor3 = Theme.Text }, Ease.OutQuad) end)
-    CloseBtn.MouseLeave:Connect(function() Tween(CloseBtn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad) Tween(closeIcon, { ImageColor3 = Theme.TextMuted }, Ease.OutQuad) end)
-    CloseBtn.MouseButton1Click:Connect(function() self:Toggle() end)
+    local function MakeWindowButton(icon, offsetX, hoverColor)
+        local btn = Create("TextButton", {
+            Size = UDim2.fromOffset(24, 24),
+            Position = UDim2.new(1, offsetX, 0, 14),
+            BackgroundColor3 = Theme.SurfaceAlt,
+            BorderSizePixel = 0,
+            Text = "",
+            AutoButtonColor = false,
+            ZIndex = 3,
+        })
+        btn.Parent = TopBar
+        Corner(UDim.new(0, 6)).Parent = btn
+        local iconLbl = Create("ImageLabel", {
+            BackgroundTransparency = 1,
+            Size = UDim2.fromOffset(12, 12),
+            Position = UDim2.fromOffset(6, 6),
+            Image = icon,
+            ImageColor3 = Theme.TextMuted,
+        })
+        iconLbl.Parent = btn
+        btn.MouseEnter:Connect(function()
+            Tween(btn, { BackgroundColor3 = hoverColor or Theme.SurfaceHover }, Ease.OutQuad)
+            Tween(iconLbl, { ImageColor3 = Theme.Text }, Ease.OutQuad)
+        end)
+        btn.MouseLeave:Connect(function()
+            Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad)
+            Tween(iconLbl, { ImageColor3 = Theme.TextMuted }, Ease.OutQuad)
+        end)
+        return btn, iconLbl
+    end
 
-    local Minimize = Create("TextButton", {
-        Name = "Minimize",
-        Size = UDim2.fromOffset(24, 24),
-        Position = UDim2.new(1, -66, 0, 14),
-        BackgroundColor3 = Theme.SurfaceAlt,
-        BorderSizePixel = 0,
-        Text = "",
-        AutoButtonColor = false,
-    })
-    Minimize.Parent = TopBar
-    Round(Minimize, Theme.RadiusSmall)
-    local minIcon = Create("ImageLabel", {
-        BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(12, 12),
-        Position = UDim2.fromOffset(6, 6),
-        Image = "rbxassetid://10734896269",
-        ImageColor3 = Theme.TextMuted,
-    })
-    minIcon.Parent = Minimize
-    Minimize.MouseEnter:Connect(function() Tween(Minimize, { BackgroundColor3 = Theme.SurfaceHover }, Ease.OutQuad) Tween(minIcon, { ImageColor3 = Theme.Text }, Ease.OutQuad) end)
-    Minimize.MouseLeave:Connect(function() Tween(Minimize, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad) Tween(minIcon, { ImageColor3 = Theme.TextMuted }, Ease.OutQuad) end)
+    local Minimize, minIcon = MakeWindowButton("rbxassetid://10734896269", -66)
+    local Close, closeIcon = MakeWindowButton("rbxassetid://10747384394", -36, Theme.Danger)
+
+    Close.MouseButton1Click:Connect(function() self:Toggle() end)
+
     self.Minimized = false
+    local FullSize = UDim2.fromOffset(660, 420)
     Minimize.MouseButton1Click:Connect(function()
         self.Minimized = not self.Minimized
         if self.Minimized then
-            Tween(Main, { Size = UDim2.fromOffset(640, 52) }, Ease.OutCubic)
+            Tween(Root, { Size = UDim2.fromOffset(660, 52) }, Ease.OutCubic)
+            Body.Visible = false
         else
-            Tween(Main, { Size = UDim2.fromOffset(640, 400) }, Ease.OutCubic)
+            Body.Visible = true
+            Tween(Root, { Size = FullSize }, Ease.OutCubic)
         end
     end)
 
@@ -344,25 +352,25 @@ function Library:_Build(config)
     PageHolder.Parent = Content
     self.PageHolder = PageHolder
 
-    table.insert(self._connections, UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        if input.KeyCode == Enum.KeyCode.RightShift then
-            self:Toggle()
-        end
+    table.insert(self._connections, UserInputService.InputBegan:Connect(function(input, processed)
+        if processed then return end
+        if input.KeyCode == Enum.KeyCode.RightShift then self:Toggle() end
     end))
+
+    self.Visible = true
 end
 
 function Library:Toggle()
-    local w = self.Window
-    if not w then return end
+    local root = self.Root
+    if not root then return end
     self.Visible = not self.Visible
     if self.Visible then
-        w.Visible = true
-        w.Size = UDim2.fromOffset(640, 0)
-        Tween(w, { Size = UDim2.fromOffset(640, 400) }, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
+        root.Visible = true
+        root.Size = UDim2.fromOffset(660, 0)
+        Tween(root, { Size = UDim2.fromOffset(660, 420) }, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
     else
-        Tween(w, { Size = UDim2.fromOffset(640, 0) }, TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.In))
-        task.delay(0.24, function() w.Visible = false end)
+        Tween(root, { Size = UDim2.fromOffset(660, 0) }, TweenInfo.new(0.22, Enum.EasingStyle.Cubic, Enum.EasingDirection.In))
+        task.delay(0.24, function() root.Visible = false end)
     end
 end
 
@@ -381,6 +389,7 @@ function Library:Notify(title, content, duration)
             Position = UDim2.new(1, -20, 1, -20),
             Size = UDim2.fromOffset(300, 400),
             BackgroundTransparency = 1,
+            ZIndex = 500,
         })
         holder.Parent = gui
         Create("UIListLayout", {
@@ -394,18 +403,24 @@ function Library:Notify(title, content, duration)
     local card = Create("Frame", {
         BackgroundColor3 = Theme.Surface,
         BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(300, 60),
+        Size = UDim2.fromOffset(300, 64),
         BorderSizePixel = 0,
         ClipsDescendants = true,
+        ZIndex = 501,
     })
     card.Parent = holder
-    Round(card, UDim.new(0, 10), Theme.Outline, 1)
+    Corner(UDim.new(0, 10)).Parent = card
+    local stroke = Stroke(Theme.Outline, 1)
+    stroke.Transparency = 1
+    stroke.Parent = card
 
     local accentBar = Create("Frame", {
-        Size = UDim2.new(0, 3, 1, -16),
-        Position = UDim2.fromOffset(8, 8),
+        Size = UDim2.new(0, 3, 1, -20),
+        Position = UDim2.fromOffset(8, 10),
         BackgroundColor3 = Theme.Accent,
         BorderSizePixel = 0,
+        BackgroundTransparency = 1,
+        ZIndex = 502,
     })
     accentBar.Parent = card
     Corner(UDim.new(1, 0)).Parent = accentBar
@@ -414,85 +429,67 @@ function Library:Notify(title, content, duration)
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(20, 10),
         Size = UDim2.new(1, -28, 0, 18),
-        Font = Enum.Font.GothamBold,
+        Font = Fonts.Bold,
         Text = title or "Notification",
         TextColor3 = Theme.Text,
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextTransparency = 1,
+        ZIndex = 502,
     })
     titleLbl.Parent = card
 
     local contentLbl = Create("TextLabel", {
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(20, 30),
-        Size = UDim2.new(1, -28, 0, 20),
-        Font = Enum.Font.Gotham,
+        Size = UDim2.new(1, -28, 0, 24),
+        Font = Fonts.Body,
         Text = content or "",
         TextColor3 = Theme.TextMuted,
         TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextWrapped = true,
         TextTransparency = 1,
+        ZIndex = 502,
     })
     contentLbl.Parent = card
 
     Tween(card, { BackgroundTransparency = 0 }, Ease.OutQuad)
+    Tween(stroke, { Transparency = 0 }, Ease.OutQuad)
+    Tween(accentBar, { BackgroundTransparency = 0 }, Ease.OutQuad)
     Tween(titleLbl, { TextTransparency = 0 }, Ease.OutQuad)
     Tween(contentLbl, { TextTransparency = 0 }, Ease.OutQuad)
 
     task.delay(duration or 4, function()
         Tween(card, { BackgroundTransparency = 1 }, Ease.OutQuad)
+        Tween(stroke, { Transparency = 1 }, Ease.OutQuad)
+        Tween(accentBar, { BackgroundTransparency = 1 }, Ease.OutQuad)
         Tween(titleLbl, { TextTransparency = 1 }, Ease.OutQuad)
         Tween(contentLbl, { TextTransparency = 1 }, Ease.OutQuad)
-        task.delay(0.25, function() card:Destroy() end)
+        task.delay(0.3, function() card:Destroy() end)
     end)
 end
 
-function Library:SetTheme(newTheme)
-    for k, v in next, newTheme do
-        if k == "Accent" or k == "AccentSoft" then Theme[k] = v end
-    end
-    local main = self.Window
-    if main then
-        Tween(main:FindFirstChildOfClass("UIStroke"), { Color = Theme.Outline }, Ease.OutQuad)
-    end
-end
-
 function Library:Tab(name)
-    local tabObj = {}
-    tabObj.Name = name or "Tab"
-    tabObj.Subtabs = {}
-    tabObj.ActiveSub = nil
-    tabObj.Sections = {}
+    local tabObj = { Name = name or "Tab", Subtabs = {}, Sections = {}, ActiveSub = nil }
 
     local btn = Create("TextButton", {
         Name = tabObj.Name,
         Size = UDim2.new(1, 0, 0, 34),
         BackgroundColor3 = Theme.Accent,
-        BackgroundTransparency = 1,
+        BackgroundTransparency = 0.85,
         Text = "",
         AutoButtonColor = false,
         ClipsDescendants = true,
     })
     btn.Parent = self.TabHolder
-    Round(btn, UDim.new(0, 7))
-
-    local accent = Create("Frame", {
-        Name = "Accent",
-        Size = UDim2.new(0, 3, 1, -12),
-        Position = UDim2.fromOffset(6, 6),
-        BackgroundColor3 = Theme.Accent,
-        BorderSizePixel = 0,
-    })
-    accent.Parent = btn
-    Corner(UDim.new(1, 0)).Parent = accent
+    Corner(UDim.new(0, 7)).Parent = btn
 
     local lbl = Create("TextLabel", {
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(18, 0),
-        Size = UDim2.new(1, -24, 1, 0),
-        Font = Enum.Font.GothamMedium,
+        Position = UDim2.fromOffset(14, 0),
+        Size = UDim2.new(1, -20, 1, 0),
+        Font = Fonts.Medium,
         Text = tabObj.Name,
         TextColor3 = Theme.TextMuted,
         TextSize = 13,
@@ -502,7 +499,7 @@ function Library:Tab(name)
 
     btn.MouseEnter:Connect(function()
         if self.ActiveTab ~= tabObj then
-            Tween(btn, { BackgroundTransparency = 0.85, BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad)
+            Tween(btn, { BackgroundTransparency = 0.9, BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad)
             Tween(lbl, { TextColor3 = Theme.Text }, Ease.OutQuad)
         end
     end)
@@ -521,15 +518,13 @@ function Library:Tab(name)
     })
     page.Parent = self.PageHolder
     tabObj.Page = page
+    tabObj._button = btn
+    tabObj._label = lbl
 
-    btn.MouseButton1Click:Connect(function()
-        self:SelectTab(tabObj)
-    end)
+    btn.MouseButton1Click:Connect(function() self:SelectTab(tabObj) end)
 
     table.insert(self.Tabs, tabObj)
-    if not self.ActiveTab then
-        self:SelectTab(tabObj)
-    end
+    if not self.ActiveTab then self:SelectTab(tabObj) end
     return self:_WrapTab(tabObj)
 end
 
@@ -538,24 +533,30 @@ function Library:SelectTab(tabObj)
         if t == tabObj then
             t.Page.Visible = true
             Tween(t.Page, { BackgroundTransparency = 0 }, Ease.OutQuad)
-            local btn = self.TabHolder:FindFirstChild(t.Name)
-            if btn then
-                Tween(btn, { BackgroundTransparency = 0.82, BackgroundColor3 = Theme.Accent }, Ease.OutQuad)
-                local lbl = btn:FindFirstChildOfClass("TextLabel")
-                if lbl then Tween(lbl, { TextColor3 = Theme.Text }, Ease.OutQuad) end
-            end
+            Tween(t._button, { BackgroundTransparency = 0.78, BackgroundColor3 = Theme.Accent }, Ease.OutQuad)
+            Tween(t._label, { TextColor3 = Theme.Text }, Ease.OutQuad)
         else
             t.Page.Visible = false
-            local btn = self.TabHolder:FindFirstChild(t.Name)
-            if btn then
-                Tween(btn, { BackgroundTransparency = 1 }, Ease.OutQuad)
-                local lbl = btn:FindFirstChildOfClass("TextLabel")
-                if lbl then Tween(lbl, { TextColor3 = Theme.TextMuted }, Ease.OutQuad) end
-            end
+            Tween(t._button, { BackgroundTransparency = 1 }, Ease.OutQuad)
+            Tween(t._label, { TextColor3 = Theme.TextMuted }, Ease.OutQuad)
         end
     end
     self.ActiveTab = tabObj
     self:_RenderSubtabs(tabObj)
+end
+
+local function BuildSegmentedCorners(count)
+    return function(index, obj)
+        local c = Instance.new("UICorner")
+        if count == 1 then
+            c.CornerRadius = UDim.new(0, 7)
+        elseif index == 1 then
+            c.CornerRadius = UDim.new(0, 7)
+        else
+            c.CornerRadius = UDim.new(0, 0)
+        end
+        c.Parent = obj
+    end
 end
 
 function Library:_RenderSubtabs(tabObj)
@@ -563,7 +564,6 @@ function Library:_RenderSubtabs(tabObj)
     for _, c in next, bar:GetChildren() do
         if c:IsA("GuiObject") then c:Destroy() end
     end
-
     if #tabObj.Subtabs == 0 then return end
 
     if #tabObj.Subtabs <= 3 then
@@ -579,49 +579,143 @@ function Library:_RenderSubtabs(tabObj)
             SortOrder = Enum.SortOrder.LayoutOrder,
         }).Parent = holder
 
+        local total = #tabObj.Subtabs
         for i, sub in next, tabObj.Subtabs do
             local btn = Create("TextButton", {
                 Name = sub.Name,
-                Size = UDim2.fromOffset(90, 24),
+                Size = UDim2.fromOffset(96, 24),
                 BackgroundColor3 = Theme.SurfaceAlt,
                 BackgroundTransparency = 0,
                 Text = sub.Name,
                 AutoButtonColor = false,
-                Font = Enum.Font.GothamMedium,
+                Font = Fonts.Medium,
                 TextColor3 = Theme.TextMuted,
                 TextSize = 12,
                 LayoutOrder = i,
                 ClipsDescendants = true,
             })
             btn.Parent = holder
-            Corner(i == 1 and UDim.new(0, 7) or UDim.new(0, 0)).Parent = btn
-            if i == #tabObj.Subtabs then
-                local r = Corner(UDim.new(0, 7))
-                r.Parent = btn
-            end
-            local function setActive(on)
-                if on then
-                    Tween(btn, { BackgroundColor3 = Theme.Accent }, Ease.OutQuad)
-                    Tween(btn, { TextColor3 = Theme.Text }, Ease.OutQuad)
+
+            local corner = Instance.new("UICorner")
+            local tl, tr, bl, br = 0, 0, 0, 0
+            if i == 1 then tl, bl = 7, 7 end
+            if i == total then tr, br = 7, 7 end
+            corner.CornerRadius = UDim.new(0, 7)
+            corner.Parent = btn
+
+            if total > 1 then
+                local shape = Create("Frame", {
+                    Size = UDim2.fromScale(1, 1),
+                    BackgroundColor3 = Theme.SurfaceAlt,
+                    BackgroundTransparency = 0,
+                    BorderSizePixel = 0,
+                    ClipsDescendants = true,
+                    ZIndex = 1,
+                })
+                shape.Parent = btn
+                shape.Name = "_shape"
+                local shapeCorner = Instance.new("UICorner")
+                shapeCorner.CornerRadius = UDim.new(0, 0)
+                shapeCorner.Parent = shape
+
+                if total == 2 then
+                    shapeCorner.CornerRadius = UDim.new(0, 7)
                 else
-                    Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad)
-                    Tween(btn, { TextColor3 = Theme.TextMuted }, Ease.OutQuad)
+                    if i == 1 then
+                        shapeCorner.CornerRadius = UDim.new(0, 7)
+                    elseif i == total then
+                        shapeCorner.CornerRadius = UDim.new(0, 7)
+                    end
+                end
+
+                local coverL = Create("Frame", {
+                    Size = UDim2.new(0.5, 0, 1, 0),
+                    Position = UDim2.new(0, 0, 0, 0),
+                    BackgroundColor3 = Theme.SurfaceAlt,
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 0,
+                    ZIndex = 2,
+                })
+                coverL.Parent = btn
+                coverL.Name = "_coverL"
+                if total > 2 and i > 1 then
+                    local c = Instance.new("UICorner")
+                    c.CornerRadius = UDim.new(0, 0)
+                    c.Parent = coverL
+                    coverL.BackgroundTransparency = 1
+                else
+                    coverL.BackgroundTransparency = 1
+                end
+
+                local coverR = Create("Frame", {
+                    Size = UDim2.new(0.5, 0, 1, 0),
+                    Position = UDim2.new(0.5, 0, 0, 0),
+                    BackgroundColor3 = Theme.SurfaceAlt,
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    ZIndex = 2,
+                })
+                coverR.Parent = btn
+                coverR.Name = "_coverR"
+
+                local lbl = Create("TextLabel", {
+                    BackgroundTransparency = 1,
+                    Size = UDim2.fromScale(1, 1),
+                    Font = Fonts.Medium,
+                    Text = sub.Name,
+                    TextColor3 = Theme.TextMuted,
+                    TextSize = 12,
+                    ZIndex = 3,
+                })
+                lbl.Parent = btn
+                lbl.Name = "_label"
+                btn.Text = ""
+
+                local function applyCorners(active)
+                    local tl2, tr2, bl2, br2 = 0, 0, 0, 0
+                    if total == 1 then
+                        tl2, tr2, bl2, br2 = 7, 7, 7, 7
+                    elseif total == 2 then
+                        if i == 1 then tl2, bl2 = 7, 7 else tr2, br2 = 7, 7 end
+                    else
+                        if i == 1 then tl2, bl2 = 7, 7 end
+                        if i == total then tr2, br2 = 7, 7 end
+                    end
+                    shapeCorner.CornerRadius = UDim.new(0, math.max(tl2, tr2, bl2, br2))
+                    shape.Size = UDim2.fromScale(1, 1)
+                end
+
+                local function updateActive(active)
+                    if active then
+                        Tween(shape, { BackgroundColor3 = Theme.Accent, BackgroundTransparency = 0 }, Ease.OutQuad)
+                        Tween(lbl, { TextColor3 = Theme.Text }, Ease.OutQuad)
+                    else
+                        Tween(shape, { BackgroundColor3 = Theme.SurfaceAlt, BackgroundTransparency = 0 }, Ease.OutQuad)
+                        Tween(lbl, { TextColor3 = Theme.TextMuted }, Ease.OutQuad)
+                    end
+                end
+
+                updateActive(tabObj.ActiveSub == sub)
+                btn.MouseEnter:Connect(function()
+                    if tabObj.ActiveSub ~= sub then
+                        Tween(shape, { BackgroundColor3 = Theme.SurfaceHover }, Ease.OutQuad)
+                    end
+                end)
+                btn.MouseLeave:Connect(function()
+                    if tabObj.ActiveSub ~= sub then
+                        Tween(shape, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad)
+                    end
+                end)
+                sub._setActive = updateActive
+            else
+                Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad)
+                sub._setActive = function(active)
+                    if active then Tween(btn, { BackgroundColor3 = Theme.Accent }, Ease.OutQuad)
+                    else Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad) end
                 end
             end
-            sub._setActive = setActive
-            btn.MouseEnter:Connect(function()
-                if tabObj.ActiveSub ~= sub then
-                    Tween(btn, { BackgroundColor3 = Theme.SurfaceHover }, Ease.OutQuad)
-                end
-            end)
-            btn.MouseLeave:Connect(function()
-                if tabObj.ActiveSub ~= sub then
-                    Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad)
-                end
-            end)
-            btn.MouseButton1Click:Connect(function()
-                self:_SelectSub(tabObj, sub)
-            end)
+
+            btn.MouseButton1Click:Connect(function() self:_SelectSub(tabObj, sub) end)
             sub._button = btn
         end
     else
@@ -633,13 +727,13 @@ function Library:_RenderSubtabs(tabObj)
             AutoButtonColor = false,
         })
         combo.Parent = bar
-        Round(combo, Theme.RadiusSmall)
+        Corner(UDim.new(0, 6)).Parent = combo
 
         local comboLabel = Create("TextLabel", {
             BackgroundTransparency = 1,
             Position = UDim2.fromOffset(10, 0),
             Size = UDim2.new(1, -30, 1, 0),
-            Font = Enum.Font.GothamMedium,
+            Font = Fonts.Medium,
             Text = tabObj.ActiveSub and tabObj.ActiveSub.Name or (tabObj.Subtabs[1] and tabObj.Subtabs[1].Name or "Select"),
             TextColor3 = Theme.Text,
             TextSize = 12,
@@ -667,7 +761,8 @@ function Library:_RenderSubtabs(tabObj)
             ZIndex = 20,
         })
         dropdown.Parent = combo
-        Round(dropdown, Theme.RadiusSmall, Theme.Outline, 1)
+        Corner(UDim.new(0, 6)).Parent = dropdown
+        Stroke(Theme.Outline, 1).Parent = dropdown
 
         Create("UIListLayout", {
             Padding = UDim.new(0, 2),
@@ -699,7 +794,7 @@ function Library:_RenderSubtabs(tabObj)
                 BackgroundColor3 = Theme.SurfaceAlt,
                 BackgroundTransparency = 1,
                 Text = sub.Name,
-                Font = Enum.Font.Gotham,
+                Font = Fonts.Body,
                 TextColor3 = Theme.TextMuted,
                 TextSize = 12,
                 AutoButtonColor = false,
@@ -707,10 +802,8 @@ function Library:_RenderSubtabs(tabObj)
                 ZIndex = 21,
             })
             opt.Parent = dropdown
-            Round(opt, UDim.new(0, 4))
-            opt.MouseEnter:Connect(function()
-                Tween(opt, { BackgroundTransparency = 0, TextColor3 = Theme.Text }, Ease.OutQuad)
-            end)
+            Corner(UDim.new(0, 4)).Parent = opt
+            opt.MouseEnter:Connect(function() Tween(opt, { BackgroundTransparency = 0, TextColor3 = Theme.Text }, Ease.OutQuad) end)
             opt.MouseLeave:Connect(function()
                 if tabObj.ActiveSub ~= sub then
                     Tween(opt, { BackgroundTransparency = 1, TextColor3 = Theme.TextMuted }, Ease.OutQuad)
@@ -736,10 +829,6 @@ function Library:_SelectSub(tabObj, sub)
     for _, s in next, tabObj.Subtabs do
         if s.Page then s.Page.Visible = (s == sub) end
         if s._setActive then s._setActive(s == sub) end
-        if s._button then
-            Tween(s._button, { BackgroundColor3 = (s == sub) and Theme.Accent or Theme.SurfaceAlt }, Ease.OutQuad)
-            Tween(s._button, { TextColor3 = (s == sub) and Theme.Text or Theme.TextMuted }, Ease.OutQuad)
-        end
     end
     if tabObj._comboLabel then tabObj._comboLabel.Text = sub.Name end
     tabObj.ActiveSub = sub
@@ -783,33 +872,32 @@ function Library:_WrapTab(tabObj)
 end
 
 function Library:_WrapSub(sub, page)
-    local self2 = self
     local wrapper = {}
     wrapper.Section = function(_, sectionName)
-        local section = { Name = sectionName or "Section", Elements = {} }
+        local section = { Name = sectionName or "Section" }
         local frame = Create("Frame", {
             Name = sectionName or "Section",
             Size = UDim2.new(1, 0, 0, 0),
             BackgroundColor3 = Theme.Surface,
             BorderSizePixel = 0,
             AutomaticSize = Enum.AutomaticSize.Y,
-            ClipsDescendants = true,
+            ClipsDescendants = false,
         })
         frame.Parent = page
         Round(frame, UDim.new(0, 9), Theme.Outline, 1)
 
         local header = Create("Frame", {
             Name = "Header",
-            Size = UDim2.new(1, 0, 0, 30),
+            Size = UDim2.new(1, 0, 0, 34),
             BackgroundTransparency = 1,
         })
         header.Parent = frame
 
         local title = Create("TextLabel", {
             BackgroundTransparency = 1,
-            Position = UDim2.fromOffset(12, 0),
-            Size = UDim2.new(1, -24, 1, 0),
-            Font = Enum.Font.GothamBold,
+            Position = UDim2.fromOffset(14, 0),
+            Size = UDim2.new(1, -28, 1, 0),
+            Font = Fonts.Bold,
             Text = sectionName or "Section",
             TextColor3 = Theme.Text,
             TextSize = 13,
@@ -817,27 +905,18 @@ function Library:_WrapSub(sub, page)
         })
         title.Parent = header
 
-        local divider = Create("Frame", {
-            Size = UDim2.new(1, -16, 0, 1),
-            Position = UDim2.fromOffset(8, 30),
-            BackgroundColor3 = Theme.Outline,
-            BorderSizePixel = 0,
-            BackgroundTransparency = 0.4,
-        })
-        divider.Parent = frame
-
         local inner = Create("Frame", {
             Name = "Inner",
-            Position = UDim2.fromOffset(0, 35),
+            Position = UDim2.fromOffset(0, 34),
             Size = UDim2.new(1, 0, 0, 0),
             BackgroundTransparency = 1,
             AutomaticSize = Enum.AutomaticSize.Y,
         })
         inner.Parent = frame
         Create("UIPadding", {
-            PaddingLeft = UDim.new(0, 10),
-            PaddingRight = UDim.new(0, 10),
-            PaddingBottom = UDim.new(0, 10),
+            PaddingLeft = UDim.new(0, 12),
+            PaddingRight = UDim.new(0, 12),
+            PaddingBottom = UDim.new(0, 12),
         }).Parent = inner
 
         local columns = Create("Frame", {
@@ -849,8 +928,8 @@ function Library:_WrapSub(sub, page)
         columns.Parent = inner
 
         local grid = Create("UIGridLayout", {
-            CellSize = UDim2.new(0.5, -4, 0, 30),
-            CellPadding = UDim2.new(0, 8, 0, 6),
+            CellSize = UDim2.new(0.5, -4, 0, 32),
+            CellPadding = UDim.new(0, 8),
             FillDirectionMaxCells = 2,
             SortOrder = Enum.SortOrder.LayoutOrder,
         })
@@ -860,33 +939,24 @@ function Library:_WrapSub(sub, page)
         section._columns = columns
         section._inner = inner
         section._frame = frame
-
-        table.insert(sub.Sections, section)
         return self:_WrapSection(section, sub, page)
     end
     return wrapper
 end
 
 function Library:_WrapSection(section, sub, page)
-    local self2 = self
     local wrapper = {}
 
-    local function addElement(element)
-        element.Parent = section._columns
-        return element
-    end
-
-    wrapper.Label = function(_, text, layoutOrder)
+    wrapper.Label = function(_, text)
         local lbl = Create("TextLabel", {
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 0, 20),
-            Font = Enum.Font.Gotham,
+            Font = Fonts.Body,
             Text = text or "",
             TextColor3 = Theme.TextMuted,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextWrapped = true,
-            LayoutOrder = layoutOrder or 0,
         })
         lbl.Parent = section._columns
         return lbl
@@ -899,16 +969,14 @@ function Library:_WrapSection(section, sub, page)
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = true,
-            LayoutOrder = #section._columns:GetChildren(),
         })
         btn.Parent = section._columns
         Round(btn, Theme.RadiusSmall)
 
         local lbl = Create("TextLabel", {
             BackgroundTransparency = 1,
-            Size = UDim2.new(1, -12, 1, 0),
-            Position = UDim2.fromOffset(6, 0),
-            Font = Enum.Font.GothamMedium,
+            Size = UDim2.fromScale(1, 1),
+            Font = Fonts.Medium,
             Text = text or "Button",
             TextColor3 = Theme.Text,
             TextSize = 12,
@@ -935,16 +1003,15 @@ function Library:_WrapSection(section, sub, page)
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = true,
-            LayoutOrder = #section._columns:GetChildren(),
         })
         btn.Parent = section._columns
         Round(btn, Theme.RadiusSmall)
 
         local lbl = Create("TextLabel", {
             BackgroundTransparency = 1,
-            Position = UDim2.fromOffset(10, 0),
-            Size = UDim2.new(1, -50, 1, 0),
-            Font = Enum.Font.GothamMedium,
+            Position = UDim2.fromOffset(12, 0),
+            Size = UDim2.new(1, -80, 1, 0),
+            Font = Fonts.Medium,
             Text = text or "Toggle",
             TextColor3 = Theme.Text,
             TextSize = 12,
@@ -1009,8 +1076,8 @@ function Library:_WrapSection(section, sub, page)
             if self.Popup then self.Popup:Destroy() end
             local popup = Create("Frame", {
                 Name = "Popup",
-                Size = UDim2.fromOffset(200, 140),
-                Position = UDim2.new(0.5, -100, 0.5, -70),
+                Size = UDim2.fromOffset(220, 140),
+                Position = UDim2.new(0.5, -110, 0.5, -70),
                 BackgroundColor3 = Theme.Background,
                 BorderSizePixel = 0,
                 ZIndex = 100,
@@ -1020,16 +1087,16 @@ function Library:_WrapSection(section, sub, page)
             self.Popup = popup
 
             local header = Create("Frame", {
-                Size = UDim2.new(1, 0, 0, 30),
+                Size = UDim2.new(1, 0, 0, 32),
                 BackgroundTransparency = 1,
             })
             header.Parent = popup
 
             local headerLbl = Create("TextLabel", {
                 BackgroundTransparency = 1,
-                Position = UDim2.fromOffset(12, 0),
+                Position = UDim2.fromOffset(14, 0),
                 Size = UDim2.new(1, -40, 1, 0),
-                Font = Enum.Font.GothamBold,
+                Font = Fonts.Bold,
                 Text = text or "Options",
                 TextColor3 = Theme.Text,
                 TextSize = 13,
@@ -1039,7 +1106,7 @@ function Library:_WrapSection(section, sub, page)
 
             local close = Create("TextButton", {
                 Size = UDim2.fromOffset(20, 20),
-                Position = UDim2.new(1, -26, 0, 5),
+                Position = UDim2.new(1, -28, 0, 6),
                 BackgroundTransparency = 1,
                 Text = "",
                 AutoButtonColor = false,
@@ -1056,22 +1123,22 @@ function Library:_WrapSection(section, sub, page)
             close.MouseButton1Click:Connect(function() popup:Destroy() self.Popup = nil end)
 
             local content = Create("Frame", {
-                Position = UDim2.fromOffset(0, 30),
-                Size = UDim2.new(1, 0, 1, -30),
+                Position = UDim2.fromOffset(0, 32),
+                Size = UDim2.new(1, 0, 1, -32),
                 BackgroundTransparency = 1,
             })
             content.Parent = popup
             Create("UIPadding", {
-                PaddingLeft = UDim.new(0, 8),
-                PaddingRight = UDim.new(0, 8),
-                PaddingBottom = UDim.new(0, 8),
+                PaddingLeft = UDim.new(0, 12),
+                PaddingRight = UDim.new(0, 12),
+                PaddingBottom = UDim.new(0, 12),
             }).Parent = content
 
             local info = Create("TextLabel", {
                 BackgroundTransparency = 1,
-                Size = UDim2.new(1, 0, 0, 70),
-                Font = Enum.Font.Gotham,
-                Text = "Popup content for " .. (text or "") .. ". Attach additional controls here as needed.",
+                Size = UDim2.new(1, 0, 0, 80),
+                Font = Fonts.Body,
+                Text = "Popup content for " .. (text or "") .. ".",
                 TextColor3 = Theme.TextMuted,
                 TextSize = 12,
                 TextWrapped = true,
@@ -1079,8 +1146,6 @@ function Library:_WrapSection(section, sub, page)
                 TextYAlignment = Enum.TextYAlignment.Top,
             })
             info.Parent = content
-
-            Tween(popup, { BackgroundTransparency = 0 }, Ease.OutQuad)
         end)
 
         return { Set = function(_, v) apply(v) end }
@@ -1093,16 +1158,15 @@ function Library:_WrapSection(section, sub, page)
         local frame = Create("Frame", {
             BackgroundColor3 = Theme.SurfaceAlt,
             BorderSizePixel = 0,
-            LayoutOrder = #section._columns:GetChildren(),
         })
         frame.Parent = section._columns
         Round(frame, Theme.RadiusSmall)
 
         local lbl = Create("TextLabel", {
             BackgroundTransparency = 1,
-            Position = UDim2.fromOffset(10, 0),
+            Position = UDim2.fromOffset(12, 0),
             Size = UDim2.new(1, -60, 0, 16),
-            Font = Enum.Font.GothamMedium,
+            Font = Fonts.Medium,
             Text = text or "Slider",
             TextColor3 = Theme.Text,
             TextSize = 12,
@@ -1114,7 +1178,7 @@ function Library:_WrapSection(section, sub, page)
             BackgroundTransparency = 1,
             Position = UDim2.new(1, -50, 0, 0),
             Size = UDim2.fromOffset(40, 16),
-            Font = Enum.Font.GothamBold,
+            Font = Fonts.Bold,
             Text = tostring(default),
             TextColor3 = Theme.Accent,
             TextSize = 12,
@@ -1123,8 +1187,8 @@ function Library:_WrapSection(section, sub, page)
         valueLbl.Parent = frame
 
         local bar = Create("Frame", {
-            Size = UDim2.new(1, -20, 0, 4),
-            Position = UDim2.new(0, 10, 1, -10),
+            Size = UDim2.new(1, -24, 0, 4),
+            Position = UDim2.new(0, 12, 1, -10),
             BackgroundColor3 = Theme.Outline,
             BorderSizePixel = 0,
         })
@@ -1155,16 +1219,19 @@ function Library:_WrapSection(section, sub, page)
                 update(input)
             end
         end)
-        UserInputService.InputChanged:Connect(function(input)
+        local moveConn, endConn
+        moveConn = UserInputService.InputChanged:Connect(function(input)
             if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                 update(input)
             end
         end)
-        UserInputService.InputEnded:Connect(function(input)
+        endConn = UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 dragging = false
             end
         end)
+        table.insert(self._connections, moveConn)
+        table.insert(self._connections, endConn)
 
         local pct = (default - min) / (max - min)
         fill.Size = UDim2.fromScale(pct, 1)
@@ -1176,16 +1243,15 @@ function Library:_WrapSection(section, sub, page)
         local frame = Create("Frame", {
             BackgroundColor3 = Theme.SurfaceAlt,
             BorderSizePixel = 0,
-            LayoutOrder = #section._columns:GetChildren(),
         })
         frame.Parent = section._columns
         Round(frame, Theme.RadiusSmall)
 
         local lbl = Create("TextLabel", {
             BackgroundTransparency = 1,
-            Position = UDim2.fromOffset(10, 0),
-            Size = UDim2.new(0.4, -10, 1, 0),
-            Font = Enum.Font.GothamMedium,
+            Position = UDim2.fromOffset(12, 0),
+            Size = UDim2.new(0.4, -12, 1, 0),
+            Font = Fonts.Medium,
             Text = text or "Textbox",
             TextColor3 = Theme.Text,
             TextSize = 12,
@@ -1196,9 +1262,9 @@ function Library:_WrapSection(section, sub, page)
         local box = Create("TextBox", {
             BackgroundColor3 = Theme.Surface,
             BorderSizePixel = 0,
-            Position = UDim2.new(0.4, 4, 0.5, -9),
-            Size = UDim2.new(0.6, -14, 0, 18),
-            Font = Enum.Font.Gotham,
+            Position = UDim2.new(0.4, 4, 0.5, -10),
+            Size = UDim2.new(0.6, -16, 0, 20),
+            Font = Fonts.Body,
             PlaceholderText = placeholder or "Enter...",
             PlaceholderColor3 = Theme.TextMuted,
             Text = "",
@@ -1208,8 +1274,8 @@ function Library:_WrapSection(section, sub, page)
             ClearTextOnFocus = false,
         })
         box.Parent = frame
-        Round(box, UDim.new(0, 4))
-        Create("UIPadding", { PaddingLeft = UDim.new(0, 6) }).Parent = box
+        Corner(UDim.new(0, 4)).Parent = box
+        Create("UIPadding", { PaddingLeft = UDim.new(0, 8) }).Parent = box
 
         box.FocusLost:Connect(function(enterPressed)
             if enterPressed and callback then callback(box.Text) end
@@ -1226,17 +1292,16 @@ function Library:_WrapSection(section, sub, page)
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
-            ClipsDescendants = true,
-            LayoutOrder = #section._columns:GetChildren(),
+            ClipsDescendants = false,
         })
         btn.Parent = section._columns
         Round(btn, Theme.RadiusSmall)
 
         local lbl = Create("TextLabel", {
             BackgroundTransparency = 1,
-            Position = UDim2.fromOffset(10, 0),
-            Size = UDim2.new(0.5, -10, 1, 0),
-            Font = Enum.Font.GothamMedium,
+            Position = UDim2.fromOffset(12, 0),
+            Size = UDim2.new(0.5, -12, 1, 0),
+            Font = Fonts.Medium,
             Text = text or "Dropdown",
             TextColor3 = Theme.Text,
             TextSize = 12,
@@ -1247,8 +1312,8 @@ function Library:_WrapSection(section, sub, page)
         local valueLbl = Create("TextLabel", {
             BackgroundTransparency = 1,
             Position = UDim2.new(0.5, 0, 0, 0),
-            Size = UDim2.new(0.5, -20, 1, 0),
-            Font = Enum.Font.Gotham,
+            Size = UDim2.new(0.5, -22, 1, 0),
+            Font = Fonts.Body,
             Text = default or options[1] or "Select",
             TextColor3 = Theme.Accent,
             TextSize = 12,
@@ -1258,7 +1323,7 @@ function Library:_WrapSection(section, sub, page)
 
         local arrow = Create("ImageLabel", {
             BackgroundTransparency = 1,
-            Position = UDim2.new(1, -14, 0.5, -3),
+            Position = UDim2.new(1, -16, 0.5, -3),
             Size = UDim2.fromOffset(6, 6),
             Image = "rbxassetid://10709790948",
             ImageColor3 = Theme.TextMuted,
@@ -1267,7 +1332,7 @@ function Library:_WrapSection(section, sub, page)
 
         local drop = Create("Frame", {
             Size = UDim2.new(1, 0, 0, 0),
-            Position = UDim2.new(0, 0, 1, 2),
+            Position = UDim2.new(0, 0, 1, 4),
             BackgroundColor3 = Theme.Surface,
             BorderSizePixel = 0,
             ClipsDescendants = true,
@@ -1275,13 +1340,13 @@ function Library:_WrapSection(section, sub, page)
             ZIndex = 10,
         })
         drop.Parent = btn
-        Round(drop, Theme.RadiusSmall, Theme.Outline, 1)
+        Corner(UDim.new(0, 6)).Parent = drop
+        Stroke(Theme.Outline, 1).Parent = drop
 
-        local list = Create("UIListLayout", {
+        Create("UIListLayout", {
             Padding = UDim.new(0, 2),
             SortOrder = Enum.SortOrder.LayoutOrder,
-        })
-        list.Parent = drop
+        }).Parent = drop
         Create("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) }).Parent = drop
 
         local opened = false
@@ -1303,7 +1368,7 @@ function Library:_WrapSection(section, sub, page)
                 BackgroundTransparency = 1,
                 Size = UDim2.new(1, 0, 0, 24),
                 Text = opt,
-                Font = Enum.Font.Gotham,
+                Font = Fonts.Body,
                 TextColor3 = Theme.TextMuted,
                 TextSize = 12,
                 AutoButtonColor = false,
@@ -1311,7 +1376,7 @@ function Library:_WrapSection(section, sub, page)
                 ZIndex = 11,
             })
             optBtn.Parent = drop
-            Round(optBtn, UDim.new(0, 4))
+            Corner(UDim.new(0, 4)).Parent = optBtn
             optBtn.MouseEnter:Connect(function() Tween(optBtn, { BackgroundTransparency = 0, TextColor3 = Theme.Text }, Ease.OutQuad) end)
             optBtn.MouseLeave:Connect(function() Tween(optBtn, { BackgroundTransparency = 1, TextColor3 = Theme.TextMuted }, Ease.OutQuad) end)
             optBtn.MouseButton1Click:Connect(function()
@@ -1337,16 +1402,15 @@ function Library:_WrapSection(section, sub, page)
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = true,
-            LayoutOrder = #section._columns:GetChildren(),
         })
         btn.Parent = section._columns
         Round(btn, Theme.RadiusSmall)
 
         local lbl = Create("TextLabel", {
             BackgroundTransparency = 1,
-            Position = UDim2.fromOffset(10, 0),
-            Size = UDim2.new(0.6, -10, 1, 0),
-            Font = Enum.Font.GothamMedium,
+            Position = UDim2.fromOffset(12, 0),
+            Size = UDim2.new(0.6, -12, 1, 0),
+            Font = Fonts.Medium,
             Text = text or "Keybind",
             TextColor3 = Theme.Text,
             TextSize = 12,
@@ -1358,14 +1422,14 @@ function Library:_WrapSection(section, sub, page)
             BackgroundColor3 = Theme.Surface,
             BorderSizePixel = 0,
             Position = UDim2.new(0.6, 0, 0.5, -9),
-            Size = UDim2.new(0.4, -10, 0, 18),
-            Font = Enum.Font.GothamBold,
+            Size = UDim2.new(0.4, -12, 0, 18),
+            Font = Fonts.Bold,
             Text = key.Name,
             TextColor3 = Theme.Accent,
             TextSize = 11,
         })
         keyLbl.Parent = btn
-        Round(keyLbl, UDim.new(0, 4))
+        Corner(UDim.new(0, 4)).Parent = keyLbl
 
         local listening = false
         btn.MouseButton1Click:Connect(function()
@@ -1404,16 +1468,15 @@ function Library:_WrapSection(section, sub, page)
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = true,
-            LayoutOrder = #section._columns:GetChildren(),
         })
         btn.Parent = section._columns
         Round(btn, Theme.RadiusSmall)
 
         local lbl = Create("TextLabel", {
             BackgroundTransparency = 1,
-            Position = UDim2.fromOffset(10, 0),
+            Position = UDim2.fromOffset(12, 0),
             Size = UDim2.new(1, -50, 1, 0),
-            Font = Enum.Font.GothamMedium,
+            Font = Fonts.Medium,
             Text = text or "Color",
             TextColor3 = Theme.Text,
             TextSize = 12,
@@ -1423,7 +1486,7 @@ function Library:_WrapSection(section, sub, page)
 
         local swatch = Create("Frame", {
             Size = UDim2.fromOffset(18, 18),
-            Position = UDim2.new(1, -28, 0.5, -9),
+            Position = UDim2.new(1, -30, 0.5, -9),
             BackgroundColor3 = color,
             BorderSizePixel = 0,
         })
@@ -1433,8 +1496,8 @@ function Library:_WrapSection(section, sub, page)
         btn.MouseButton1Click:Connect(function()
             local gui = self.ScreenGui
             local popup = Create("Frame", {
-                Size = UDim2.fromOffset(180, 140),
-                Position = UDim2.new(0.5, -90, 0.5, -70),
+                Size = UDim2.fromOffset(200, 160),
+                Position = UDim2.new(0.5, -100, 0.5, -80),
                 BackgroundColor3 = Theme.Background,
                 BorderSizePixel = 0,
                 ZIndex = 100,
@@ -1443,7 +1506,7 @@ function Library:_WrapSection(section, sub, page)
             Round(popup, UDim.new(0, 10), Theme.Outline, 1)
 
             local field = Create("ImageLabel", {
-                Size = UDim2.new(1, -20, 1, -40),
+                Size = UDim2.new(1, -20, 1, -44),
                 Position = UDim2.fromOffset(10, 10),
                 BackgroundTransparency = 1,
                 Image = "rbxassetid://6523286724",
@@ -1452,7 +1515,7 @@ function Library:_WrapSection(section, sub, page)
             field.Parent = popup
 
             local cursor = Create("Frame", {
-                Size = UDim2.fromOffset(8, 8),
+                Size = UDim2.fromOffset(10, 10),
                 AnchorPoint = Vector2.new(0.5, 0.5),
                 BackgroundColor3 = Color3.new(1, 1, 1),
                 BorderSizePixel = 0,
@@ -1465,6 +1528,13 @@ function Library:_WrapSection(section, sub, page)
             field.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then
                     dragging = true
+                    local x = math.clamp((input.Position.X - field.AbsolutePosition.X) / field.AbsoluteSize.X, 0, 1)
+                    local y = math.clamp((input.Position.Y - field.AbsolutePosition.Y) / field.AbsoluteSize.Y, 0, 1)
+                    color = Color3.fromHSV(1 - x, 1 - y, 1)
+                    swatch.BackgroundColor3 = color
+                    self.Flags[text] = color
+                    cursor.Position = UDim2.fromScale(x, y)
+                    if callback then callback(color) end
                 end
             end)
             UserInputService.InputEnded:Connect(function(input)
@@ -1484,12 +1554,20 @@ function Library:_WrapSection(section, sub, page)
 
             local close = Create("TextButton", {
                 Size = UDim2.fromOffset(20, 20),
-                Position = UDim2.new(1, -26, 0, 5),
+                Position = UDim2.new(1, -28, 0, 6),
                 BackgroundTransparency = 1,
                 Text = "",
                 ZIndex = 103,
             })
             close.Parent = popup
+            local closeIcon = Create("ImageLabel", {
+                BackgroundTransparency = 1,
+                Size = UDim2.fromOffset(10, 10),
+                Position = UDim2.fromOffset(5, 5),
+                Image = "rbxassetid://10747384394",
+                ImageColor3 = Theme.TextMuted,
+            })
+            closeIcon.Parent = close
             close.MouseButton1Click:Connect(function() popup:Destroy() end)
         end)
     end
