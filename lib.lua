@@ -31,7 +31,7 @@ local Theme = {
     Danger       = Color3.fromRGB(233, 92, 92),
     Radius       = UDim.new(0, 10),
     RadiusSmall  = UDim.new(0, 6),
-    Transp       = 0
+    Transp       = 0.05
 }
 Library.Theme = Theme
 Library.Fonts = Fonts
@@ -251,6 +251,17 @@ function Library:_Build(config)
     Content.Parent = Body
     self.Content = Content
 
+    local PageHolder = Create("Frame", {
+        Name = "PageHolder",
+        Position = UDim2.fromOffset(0, 52),
+        Size = UDim2.new(1, 0, 1, -52),
+        BackgroundTransparency = 1,
+        ClipsDescendants = true,
+        ZIndex = 1,
+    })
+    PageHolder.Parent = Content
+    self.PageHolder = PageHolder
+
     local TopBar = Create("Frame", {
         Name = "TopBar",
         Size = UDim2.new(1, 0, 0, 52),
@@ -269,17 +280,6 @@ function Library:_Build(config)
     })
     TabBar.Parent = TopBar
     self.TabBar = TabBar
-
-    local PageHolder = Create("Frame", {
-        Name = "PageHolder",
-        Position = UDim2.fromOffset(0, 52),
-        Size = UDim2.new(1, 0, 1, -52),
-        BackgroundTransparency = 1,
-        ClipsDescendants = true,
-        ZIndex = 1,
-    })
-    PageHolder.Parent = Content
-    self.PageHolder = PageHolder
 
     local function MakeWindowButton(icon, offsetX, hoverColor)
         local btn = Create("TextButton", {
@@ -483,6 +483,7 @@ function Library:Tab(name)
         Text = "",
         AutoButtonColor = false,
         ClipsDescendants = true,
+        ZIndex = 2,
     })
     btn.Parent = self.TabHolder
     Corner(UDim.new(0, 7)).Parent = btn
@@ -496,6 +497,7 @@ function Library:Tab(name)
         TextColor3 = Theme.TextMuted,
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 3,
     })
     lbl.Parent = btn
 
@@ -517,6 +519,7 @@ function Library:Tab(name)
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
         Visible = false,
+        ZIndex = 1,
     })
     page.Parent = self.PageHolder
     tabObj.Page = page
@@ -559,6 +562,7 @@ function Library:_RenderSubtabs(tabObj)
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
+            ZIndex = 11,
         })
         holder.Parent = bar
 
@@ -602,7 +606,7 @@ function Library:_RenderSubtabs(tabObj)
                 Text = sub.Name,
                 TextColor3 = Theme.TextMuted,
                 TextSize = 12,
-                ZIndex = 3,
+                ZIndex = 4,
             })
             lbl.Parent = btn
 
@@ -646,6 +650,7 @@ function Library:_RenderSubtabs(tabObj)
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
+            ZIndex = 11,
         })
         combo.Parent = bar
         Corner(UDim.new(0, 6)).Parent = combo
@@ -660,6 +665,7 @@ function Library:_RenderSubtabs(tabObj)
             TextColor3 = Theme.Text,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 12,
         })
         comboLabel.Parent = combo
 
@@ -669,6 +675,7 @@ function Library:_RenderSubtabs(tabObj)
             Size = UDim2.fromOffset(10, 10),
             Image = "rbxassetid://10709790948",
             ImageColor3 = Theme.TextMuted,
+            ZIndex = 12,
         })
         chevron.Parent = combo
         tabObj._comboLabel = comboLabel
