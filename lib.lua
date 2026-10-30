@@ -157,7 +157,7 @@ function Library:_Build(config)
         Name = "Main",
         Size = UDim2.fromScale(1, 1),
         BackgroundColor3 = Theme.Background,
-        BackgroundTransparency = Theme.Transp,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         ZIndex = 1,
@@ -167,6 +167,7 @@ function Library:_Build(config)
     Stroke(Theme.Outline, 1, 0.5).Parent = Main
     self.Window = Main
 
+    -- Закругления возвращены
     local Body = Create("Frame", {
         Name = "Body",
         Size = UDim2.fromScale(1, 1),
@@ -174,16 +175,18 @@ function Library:_Build(config)
         ZIndex = 2,
     })
     Body.Parent = Main
+    Corner(UDim.new(0, 14)).Parent = Body
 
     local Sidebar = Create("Frame", {
         Name = "Sidebar",
         Size = UDim2.fromOffset(160, 420),
         BackgroundColor3 = Theme.Sidebar,
-        BackgroundTransparency = Theme.Transp,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 2,
     })
     Sidebar.Parent = Body
+    Corner(UDim.new(0, 14)).Parent = Sidebar
 
     local SideDivider = Create("Frame", {
         Size = UDim2.new(0, 1, 1, 0),
@@ -284,7 +287,7 @@ function Library:_Build(config)
             Size = UDim2.fromOffset(24, 24),
             Position = UDim2.new(1, offsetX, 0, 14),
             BackgroundColor3 = Theme.SurfaceAlt,
-            BackgroundTransparency = Theme.Transp,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
@@ -302,11 +305,11 @@ function Library:_Build(config)
         })
         iconLbl.Parent = btn
         btn.MouseEnter:Connect(function()
-            Tween(btn, { BackgroundColor3 = hoverColor or Theme.SurfaceHover, BackgroundTransparency = 0 }, Ease.OutQuad)
+            Tween(btn, { BackgroundColor3 = hoverColor or Theme.SurfaceHover }, Ease.OutQuad)
             Tween(iconLbl, { ImageColor3 = Theme.Text }, Ease.OutQuad)
         end)
         btn.MouseLeave:Connect(function()
-            Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt, BackgroundTransparency = Theme.Transp }, Ease.OutQuad)
+            Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad)
             Tween(iconLbl, { ImageColor3 = Theme.TextMuted }, Ease.OutQuad)
         end)
         return btn, iconLbl
@@ -510,10 +513,11 @@ function Library:Tab(name)
         end
     end)
 
+    -- ЕБУЧИЙ БЕЛЫЙ ФОН БЫЛ ТУТ (BACKGROUND TRANSPARENCY)
     local page = Create("Frame", {
         Name = tabObj.Name .. "_Page",
         Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
+        BackgroundTransparency = 1, 
         Visible = false,
         ZIndex = 1,
     })
@@ -574,7 +578,7 @@ function Library:_RenderSubtabs(tabObj)
             Name = "ActiveBg",
             Size = UDim2.fromOffset(0, 24),
             BackgroundColor3 = Theme.SurfaceAlt,
-            BackgroundTransparency = Theme.Transp,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = 1,
         })
@@ -642,7 +646,7 @@ function Library:_RenderSubtabs(tabObj)
         local combo = Create("TextButton", {
             Size = UDim2.fromOffset(160, 24),
             BackgroundColor3 = Theme.SurfaceAlt,
-            BackgroundTransparency = Theme.Transp,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
@@ -766,12 +770,10 @@ function Library:_WrapTab(tabObj)
     wrapper.Subtab = function(_, subName)
         local sub = { Name = subName or "Subtab", Sections = {} }
         
-        -- Чистый ScrollingFrame, но с правильными настройками (без AutomaticSize, CanvasSize задается вручную)
         local page = Create("ScrollingFrame", {
             Name = (subName or "Subtab") .. "_Sub",
             Size = UDim2.new(1, 0, 1, -52),
             Position = UDim2.fromOffset(0, 52),
-            BackgroundColor3 = Theme.Background,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ScrollBarThickness = 3,
@@ -800,7 +802,6 @@ function Library:_WrapTab(tabObj)
             PaddingBottom = UDim.new(0, 12),
         }).Parent = page
         
-        -- Сбрасываем скролл наверх при переключении
         sub.Page = page
         table.insert(tabObj.Subtabs, sub)
         return self:_WrapSub(sub, page)
@@ -816,9 +817,9 @@ function Library:_WrapSub(sub, page)
             Name = sectionName or "Section",
             Size = UDim2.new(1, 0, 0, 0),
             BackgroundColor3 = Theme.Surface,
-            BackgroundTransparency = Theme.Transp,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
-            AutomaticSize = Enum.AutomaticSize.Y, -- Секция растягивается по контенту
+            AutomaticSize = Enum.AutomaticSize.Y,
             ClipsDescendants = false,
             ZIndex = 2,
         })
@@ -914,7 +915,7 @@ function Library:_WrapSection(section, sub, page)
     wrapper.Button = function(_, text, callback)
         local btn = Create("TextButton", {
             BackgroundColor3 = Theme.SurfaceAlt,
-            BackgroundTransparency = Theme.Transp,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
@@ -936,8 +937,8 @@ function Library:_WrapSection(section, sub, page)
         })
         lbl.Parent = btn
 
-        btn.MouseEnter:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceHover, BackgroundTransparency = 0 }, Ease.OutQuad) end)
-        btn.MouseLeave:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt, BackgroundTransparency = Theme.Transp }, Ease.OutQuad) end)
+        btn.MouseEnter:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceHover }, Ease.OutQuad) end)
+        btn.MouseLeave:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad) end)
         btn.MouseButton1Click:Connect(function()
             Ripple(btn, Theme.Accent)
             if callback then callback() end
@@ -951,7 +952,7 @@ function Library:_WrapSection(section, sub, page)
 
         local btn = Create("TextButton", {
             BackgroundColor3 = Theme.SurfaceAlt,
-            BackgroundTransparency = Theme.Transp,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
@@ -1023,8 +1024,8 @@ function Library:_WrapSection(section, sub, page)
         end
         apply(state)
 
-        btn.MouseEnter:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceHover, BackgroundTransparency = 0 }, Ease.OutQuad) end)
-        btn.MouseLeave:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt, BackgroundTransparency = Theme.Transp }, Ease.OutQuad) end)
+        btn.MouseEnter:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceHover }, Ease.OutQuad) end)
+        btn.MouseLeave:Connect(function() Tween(btn, { BackgroundColor3 = Theme.SurfaceAlt }, Ease.OutQuad) end)
         btn.MouseButton1Click:Connect(function()
             apply(not state)
             if callback then callback(state) end
@@ -1122,7 +1123,7 @@ function Library:_WrapSection(section, sub, page)
 
         local frame = Create("Frame", {
             BackgroundColor3 = Theme.SurfaceAlt,
-            BackgroundTransparency = Theme.Transp,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = 3,
         })
@@ -1263,7 +1264,7 @@ function Library:_WrapSection(section, sub, page)
     wrapper.Textbox = function(_, text, placeholder, callback)
         local frame = Create("Frame", {
             BackgroundColor3 = Theme.SurfaceAlt,
-            BackgroundTransparency = Theme.Transp,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = 3,
         })
@@ -1314,7 +1315,7 @@ function Library:_WrapSection(section, sub, page)
 
         local btn = Create("TextButton", {
             BackgroundColor3 = Theme.SurfaceAlt,
-            BackgroundTransparency = Theme.Transp,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
@@ -1428,7 +1429,7 @@ function Library:_WrapSection(section, sub, page)
 
         local btn = Create("TextButton", {
             BackgroundColor3 = Theme.SurfaceAlt,
-            BackgroundTransparency = Theme.Transp,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
@@ -1498,7 +1499,7 @@ function Library:_WrapSection(section, sub, page)
 
         local btn = Create("TextButton", {
             BackgroundColor3 = Theme.SurfaceAlt,
-            BackgroundTransparency = Theme.Transp,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             Text = "",
             AutoButtonColor = false,
