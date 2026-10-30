@@ -10,7 +10,7 @@ local Plague = loadstring(game:HttpGet("https://raw.githubusercontent.com/QUANTU
 
 Для Roblox Studio сохраните `plague.lua` как ModuleScript и используйте `require(...)` из LocalScript. В Studio `loadstring`/`game:HttpGet` не являются обычным способом загрузки клиентского кода.
 
-Полный пример: [`plague_example.lua`](plague_example.lua). По умолчанию окно открывается в `PlayerGui`, закрывается/открывается на Right Shift и перетаскивается за верхнюю панель. `Parent`, `Title`, `Name`, `Size`, `Accent` и `ToggleKey` задаются в `Plague.new({...})`.
+Полный пример: [`plague_example.lua`](plague_example.lua). По умолчанию окно создаётся в `CoreGui`, закрывается/открывается на Insert и перетаскивается за верхнюю панель. Доступ к `CoreGui` нужен со стороны среды выполнения; в обычном LocalScript Studio передайте `Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")`. `Parent`, `Title`, `Name`, `Size`, `Accent` и `ToggleKey` задаются в `Plague.new({...})`.
 
 ## Структура и элементы
 
@@ -22,6 +22,8 @@ local section = sub:Section("Player ESP", "Left") -- также "Right"
 
 local enabled = section:Toggle({Name = "Enabled", Flag = "enabled", Default = false,
     Callback = function(value) print(value) end})
+section:Toggle({Name = "Box", Default = true, Color = Color3.fromRGB(77, 122, 181),
+    ColorFlag = "box_color", ColorCallback = function(color) print(color) end})
 section:Slider({Name = "Distance", Min = 0, Max = 100, Step = 1, Default = 50})
 section:Dropdown({Name = "Mode", Options = {"Simple", "Full"}, Default = "Simple"})
 section:Dropdown({Name = "Parts", Options = {"Name", "Health"}, Default = {"Name"}, Multi = true})
@@ -41,3 +43,5 @@ print(window.Flags.enabled)
 ```
 
 Контролы значения возвращают `:Get()` и `:Set(value, silent)`; при `silent = true` callback не вызывается, но `Flags` обновляется. Начальные значения callbacks не вызывают. `Keybind.Callback` срабатывает при нажатии, `Changed` — при смене клавиши; Escape снимает привязку. Имена `Flag` должны быть уникальными в пределах окна. `Button` возвращает Roblox `TextButton`, а `Label` поддерживает `:Set(text)`.
+
+У `Toggle` можно задать `Color`, `ColorFlag` и `ColorCallback`: справа появится цветной квадрат, по нажатию открывающий RGB-палитру. Такой контрол также поддерживает `:SetColor(color, silent)` и `:GetColor()`.

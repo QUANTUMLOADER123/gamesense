@@ -2,6 +2,7 @@
 -- UI only: controls do not implement gameplay features.
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 
 local Plague = {}
 local Window = {}
@@ -51,7 +52,7 @@ end
 local function text(parent, value, size, color)
     return create("TextLabel", {
         BackgroundTransparency = 1, BorderSizePixel = 0,
-        Font = Enum.Font.Code, TextSize = size or 14, TextColor3 = color or C.text,
+        Font = Enum.Font.Arial, TextSize = size or 12, TextColor3 = color or C.text,
         TextXAlignment = Enum.TextXAlignment.Left, Text = value or "",
     }, parent)
 end
@@ -59,7 +60,7 @@ end
 local function button(parent, value)
     return create("TextButton", {
         BackgroundTransparency = 1, BorderSizePixel = 0, AutoButtonColor = false,
-        Font = Enum.Font.Code, TextSize = 14, TextColor3 = C.text,
+        Font = Enum.Font.Arial, TextSize = 12, TextColor3 = C.text,
         Text = value or "",
     }, parent)
 end
@@ -80,44 +81,64 @@ end
 function Plague.new(options)
     options = options or {}
     local self = setmetatable({
-        Accent = options.Accent or C.accent, ToggleKey = options.ToggleKey or Enum.KeyCode.RightShift,
+        Accent = options.Accent or C.accent, ToggleKey = options.ToggleKey or Enum.KeyCode.Insert,
         Flags = {}, Tabs = {}, Connections = {}, Visible = true, Destroyed = false,
     }, Window)
     local player = Players.LocalPlayer
     assert(player, "Plague must run on the client")
-    local parent = options.Parent or player:WaitForChild("PlayerGui")
-    local gui = create("ScreenGui", {Name = options.Name or "Plague", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling}, parent)
+    -- CoreGui requires an environment with permission to parent GUIs there.
+    -- In a normal LocalScript, callers can pass PlayerGui explicitly instead.
+    local gui = create("ScreenGui", {Name = options.Name or "Plague", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling})
+    local ok, err = pcall(function() gui.Parent = options.Parent or CoreGui end)
+    if not ok then
+        gui:Destroy()
+        error("Plague: cannot parent to CoreGui; pass Parent = Players.LocalPlayer.PlayerGui in Studio. " .. tostring(err))
+    end
     self.Gui = gui
     local root = create("Frame", {
-        Name = "Window", Size = options.Size or UDim2.fromOffset(720, 520),
+        Name = "Window", Size = options.Size or UDim2.fromOffset(490, 420),
         Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5),
         BackgroundColor3 = C.background, BorderSizePixel = 0,
     }, gui)
     self.Root = root
     border(root, Color3.fromRGB(60, 60, 62))
-    local header = create("Frame", {Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = C.header, BorderSizePixel = 0, Active = true}, root)
-    local title = text(header, options.Title or "Plague", 14, C.text)
-    title.Position = UDim2.fromOffset(10, 0)
-    title.Size = UDim2.new(0, 145, 1, 0)
+    local header = create("Frame", {Size = UDim2.new(1, 0, 0, 25), BackgroundColor3 = C.header, BorderSizePixel = 0, Active = true}, root)
+    local title = text(header, options.Title or "Plaguecheat.cc", 12, C.text)
+    title.Position = UDim2.fromOffset(7, 0)
+    title.Size = UDim2.new(0, 135, 1, 0)
     title.TextTruncate = Enum.TextTruncate.AtEnd
     local tabBar = create("ScrollingFrame", {
-        Position = UDim2.fromOffset(155, 0), Size = UDim2.new(1, -165, 1, 0),
+        Position = UDim2.fromOffset(142, 0), Size = UDim2.new(1, -149, 1, 0),
         BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 0,
-        ScrollingDirection = Enum.ScrollingDirection.X, AutomaticCanvasSize = Enum.AutomaticSize.X,
-        CanvasSize = UDim2.new(),
+        ScrollingDirection = Enum.ScrollingDirection.X, CanvasSize = UDim2.new(),
     }, header)
-    list(tabBar, 2, true)
+    local tabLayout = list(tabBar, 0, true)
+    tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
     self.TabBar = tabBar
-    create("Frame", {Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = self.Accent, BorderSizePixel = 0}, root)
+    -- Keep the tabs flush to the right, while still allowing overflow to scroll.
+    local function resizeTabs()
+        local width = math.max(tabBar.AbsoluteSize.X, tabLayout.AbsoluteContentSize.X)
+        tabBar.CanvasSize = UDim2.fromOffset(width, 0)
+        tabBar.CanvasPosition = Vector2.new(math.max(0, width - tabBar.AbsoluteSize.X), 0)
+    end
+    self:_connect(tabBar:GetPropertyChangedSignal("AbsoluteSize"), resizeTabs)
+    self:_connect(tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"), resizeTabs)
+    resizeTabs()
+    create("Frame", {Position = UDim2.fromOffset(0, 25), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = self.Accent, BorderSizePixel = 0}, root)
+    local subLayer = create("Frame", {
+        Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 25),
+        BackgroundColor3 = C.header, BorderSizePixel = 0,
+    }, root)
     local subBar = create("ScrollingFrame", {
-        Position = UDim2.fromOffset(10, 40), Size = UDim2.new(1, -20, 0, 27),
+        Position = UDim2.fromOffset(7, 0), Size = UDim2.new(1, -14, 1, 0),
         BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 0,
         ScrollingDirection = Enum.ScrollingDirection.X, AutomaticCanvasSize = Enum.AutomaticSize.X,
         CanvasSize = UDim2.new(),
-    }, root)
-    list(subBar, 5, true)
+    }, subLayer)
+    list(subBar, 0, true)
     self.SubBar = subBar
-    self.Content = create("Frame", {Position = UDim2.fromOffset(10, 72), Size = UDim2.new(1, -20, 1, -82), BackgroundTransparency = 1, BorderSizePixel = 0}, root)
+    create("Frame", {Position = UDim2.fromOffset(0, 51), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = C.border, BorderSizePixel = 0}, root)
+    self.Content = create("Frame", {Position = UDim2.fromOffset(12, 63), Size = UDim2.new(1, -24, 1, -75), BackgroundTransparency = 1, BorderSizePixel = 0}, root)
 
     self:_connect(header.InputBegan, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -147,8 +168,9 @@ function Plague.new(options)
             end
             return
         end
-        if processed or UserInputService:GetFocusedTextBox() then return end
+        if UserInputService:GetFocusedTextBox() then return end
         if input.KeyCode == self.ToggleKey then self:Toggle() return end
+        if processed then return end
         for _, bind in ipairs(self.Keybinds or {}) do
             if bind.key and input.KeyCode == bind.key then safeCall(bind.callback, bind.key) end
         end
@@ -179,7 +201,7 @@ end
 function Window:Tab(name)
     local tab = setmetatable({Window = self, Name = name, Subtabs = {}}, Tab)
     local nav = button(self.TabBar, name)
-    nav.Size = UDim2.fromOffset(math.max(55, #name * 8 + 16), 34)
+    nav.Size = UDim2.fromOffset(math.max(35, #name * 6 + 12), 25)
     nav.TextColor3 = C.muted
     tab.Button = nav
     self:_connect(nav.MouseButton1Click, function() self:SelectTab(tab) end)
@@ -205,11 +227,8 @@ function Tab:Subtab(name)
     local window = self.Window
     local sub = setmetatable({Tab = self, Window = window, Name = name}, Subtab)
     local nav = button(window.SubBar, name)
-    nav.Size = UDim2.fromOffset(math.max(65, #name * 8 + 20), 25)
-    nav.BackgroundTransparency = 0
-    nav.BackgroundColor3 = C.panel
+    nav.Size = UDim2.fromOffset(math.max(35, #name * 6 + 12), 25)
     nav.TextColor3 = C.muted
-    border(nav)
     sub.Button = nav
     local page = create("ScrollingFrame", {
         Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0,
@@ -241,7 +260,6 @@ function Tab:SelectSubtab(sub)
     for _, item in ipairs(self.Subtabs) do
         local active = item == sub
         item.Button.TextColor3 = active and C.text or C.muted
-        item.Button.BackgroundColor3 = active and self.Window.Accent or C.panel
         item.Page.Visible = active and self.Window.ActiveTab == self
     end
 end
@@ -250,15 +268,15 @@ function Subtab:Section(name, side)
     local parent = (side == "Right" or side == "right" or side == 2) and self.Right or self.Left
     local frame = create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = C.panel, BorderSizePixel = 0}, parent)
     border(frame)
-    create("UIPadding", {PaddingTop = UDim.new(0, 7), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 9), PaddingRight = UDim.new(0, 9)}, frame)
-    list(frame, 5)
-    local heading = text(frame, name, 13, C.muted)
-    heading.Size = UDim2.new(1, 0, 0, 17)
+    create("UIPadding", {PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5)}, frame)
+    list(frame, 1)
+    local heading = text(frame, name, 11, C.muted)
+    heading.Size = UDim2.new(1, 0, 0, 16)
     return setmetatable({Frame = frame, Window = self.Window}, Section)
 end
 
 local function row(section, height)
-    return create("Frame", {Size = UDim2.new(1, 0, 0, height or 22), BackgroundTransparency = 1, BorderSizePixel = 0}, section.Frame)
+    return create("Frame", {Size = UDim2.new(1, 0, 0, height or 19), BackgroundTransparency = 1, BorderSizePixel = 0}, section.Frame)
 end
 
 local function register(section, options, value)
@@ -271,7 +289,7 @@ local function register(section, options, value)
 end
 
 function Section:Label(value)
-    local label = text(self.Frame, value, 14, C.muted)
+    local label = text(self.Frame, value, 12, C.muted)
     label.Size = UDim2.new(1, 0, 0, 20)
     label.TextTruncate = Enum.TextTruncate.AtEnd
     return {Set = function(_, newValue) label.Text = tostring(newValue) end}
@@ -293,21 +311,45 @@ function Section:Toggle(options)
     local r = row(self)
     local b = button(r, "")
     b.Size = UDim2.fromScale(1, 1)
-    local box = create("Frame", {Size = UDim2.fromOffset(9, 9), Position = UDim2.new(0, 0, 0.5, -4), BackgroundColor3 = C.field, BorderSizePixel = 0}, b)
+    local box = create("Frame", {Size = UDim2.fromOffset(7, 7), Position = UDim2.new(0, 5, 0.5, -3), BackgroundColor3 = C.field, BorderSizePixel = 0}, b)
     border(box)
-    local label = text(b, options.Name or "Toggle", 14)
-    label.Position = UDim2.fromOffset(18, 0)
-    label.Size = UDim2.new(1, -18, 1, 0)
+    local label = text(b, options.Name or "Toggle", 12)
+    label.Position = UDim2.fromOffset(23, 0)
+    label.Size = UDim2.new(1, -23, 1, 0)
     local control = {}
     function control:Set(newValue, silent)
         value = newValue == true
         box.BackgroundColor3 = value and self._accent or C.field
+        label.TextColor3 = value and C.text or C.muted
         if silent then if options.Flag then self._window.Flags[options.Flag] = value end else changed(value) end
     end
     function control:Get() return value end
     control._accent, control._window = self.Window.Accent, self.Window
     self.Window:_connect(b.MouseButton1Click, function() control:Set(not value) end)
     control:Set(value, true)
+    if options.Color then
+        -- Optional right-aligned swatch, like the color controls in the reference menu.
+        local swatch = button(r, "")
+        swatch.Position = UDim2.new(1, -20, 0.5, -4)
+        swatch.Size = UDim2.fromOffset(16, 8)
+        swatch.BackgroundTransparency = 0
+        swatch.BackgroundColor3 = options.Color
+        border(swatch)
+        label.Size = UDim2.new(1, -48, 1, 0)
+        local pickerHolder = create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Visible = false}, self.Frame)
+        list(pickerHolder, 0)
+        local inner = setmetatable({Frame = pickerHolder, Window = self.Window}, Section)
+        local picker = inner:ColorPicker({Default = options.Color, Flag = options.ColorFlag, Inline = true, Callback = function(color)
+            swatch.BackgroundColor3 = color
+            safeCall(options.ColorCallback, color)
+        end})
+        self.Window:_connect(swatch.MouseButton1Click, function() pickerHolder.Visible = not pickerHolder.Visible end)
+        function control:SetColor(color, silent)
+            picker:Set(color, silent)
+            swatch.BackgroundColor3 = color
+        end
+        function control:GetColor() return picker:Get() end
+    end
     return control
 end
 
@@ -319,9 +361,9 @@ function Section:Slider(options)
     local value
     local changed = register(self, options, nil)
     local r = row(self, 35)
-    local label = text(r, options.Name or "Slider", 14)
+    local label = text(r, options.Name or "Slider", 12)
     label.Size = UDim2.new(1, -65, 0, 18)
-    local number = text(r, "", 13, C.muted)
+    local number = text(r, "", 11, C.muted)
     number.TextXAlignment = Enum.TextXAlignment.Right
     number.Position = UDim2.new(1, -65, 0, 0)
     number.Size = UDim2.fromOffset(65, 18)
@@ -361,7 +403,7 @@ function Section:Dropdown(options)
     local changed = register(self, options, nil)
     local container = create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1}, self.Frame)
     list(container, 3)
-    local label = text(container, options.Name or "Dropdown", 14)
+    local label = text(container, options.Name or "Dropdown", 12)
     label.Size = UDim2.new(1, 0, 0, 18)
     local main = button(container, "")
     main.Size = UDim2.new(1, 0, 0, 24)
@@ -423,11 +465,11 @@ end
 
 function Section:Textbox(options)
     local r = row(self, 45)
-    local label = text(r, options.Name or "Text", 14)
+    local label = text(r, options.Name or "Text", 12)
     label.Size = UDim2.new(1, 0, 0, 18)
     local box = create("TextBox", {
         Position = UDim2.fromOffset(0, 20), Size = UDim2.new(1, 0, 0, 24),
-        BackgroundColor3 = C.field, BorderSizePixel = 0, Font = Enum.Font.Code, TextSize = 14,
+        BackgroundColor3 = C.field, BorderSizePixel = 0, Font = Enum.Font.Arial, TextSize = 12,
         TextColor3 = C.text, PlaceholderColor3 = C.muted, PlaceholderText = options.Placeholder or "",
         Text = tostring(options.Default or ""), ClearTextOnFocus = false, TextXAlignment = Enum.TextXAlignment.Left,
     }, r)
@@ -447,7 +489,7 @@ end
 
 function Section:Keybind(options)
     local r = row(self)
-    local label = text(r, options.Name or "Keybind", 14)
+    local label = text(r, options.Name or "Keybind", 12)
     label.Size = UDim2.new(1, -100, 1, 0)
     local keyButton = button(r, "")
     keyButton.Position = UDim2.new(1, -100, 0, 0)
@@ -487,7 +529,8 @@ function Section:ColorPicker(options)
     top.TextXAlignment = Enum.TextXAlignment.Left
     local swatch = create("Frame", {Size = UDim2.fromOffset(20, 10), Position = UDim2.new(1, -20, 0.5, -5), BackgroundColor3 = color, BorderSizePixel = 0}, top)
     border(swatch)
-    local channels = create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Visible = false}, holder)
+    local channels = create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Visible = options.Inline == true}, holder)
+    if options.Inline then top.Visible = false end
     list(channels, 3)
     local inner = setmetatable({Frame = channels, Window = window}, Section)
     local sliders = {}

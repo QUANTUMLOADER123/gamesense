@@ -4,51 +4,70 @@
 local Plague = loadstring(game:HttpGet("https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/62b0e5ca-gamesense/plague.lua"))()
 
 local window = Plague.new({
-    Title = "Plague | Roblox",
+    Title = "Plaguecheat.cc",
     Accent = Color3.fromRGB(77, 122, 181),
-    ToggleKey = Enum.KeyCode.RightShift,
+    -- CoreGui and Insert are the defaults. For a Studio LocalScript, use:
+    -- Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"),
 })
 
+local rage = window:Tab("Rage")
+local legit = window:Tab("Legit")
 local visuals = window:Tab("Visuals")
+local skins = window:Tab("Skins")
+local misc = window:Tab("Misc")
+
+rage:Subtab("General"):Section("Rage", "Left"):Label("Your settings here")
+legit:Subtab("General"):Section("Legit", "Left"):Label("Your settings here")
+skins:Subtab("General"):Section("Skins", "Left"):Label("Your settings here")
+
 local players = visuals:Subtab("Players")
 local world = visuals:Subtab("World")
 local esp = players:Section("Player ESP", "Left")
-local appearance = players:Section("Appearance", "Right")
+local chams = players:Section("Chams", "Left")
+local other = players:Section("Other ESP", "Right")
+local effects = players:Section("Effects", "Right")
 
--- These callbacks are examples only; the library does not add ESP or other game features.
-esp:Toggle({Name = "Enabled", Flag = "esp_enabled", Default = false, Callback = function(value)
-    print("ESP enabled:", value)
-end})
-esp:Toggle({Name = "Name", Flag = "show_name", Default = true})
-esp:Toggle({Name = "Health", Flag = "show_health", Default = true})
-esp:Slider({Name = "Distance", Flag = "distance", Min = 0, Max = 1000, Default = 250, Step = 10, Suffix = "m", Callback = function(value)
-    print("Distance:", value)
-end})
-esp:Dropdown({Name = "Elements", Flag = "elements", Options = {"Box", "Name", "Health", "Weapon"}, Default = {"Box", "Name"}, Multi = true, Callback = function(values)
-    print("Selected:", table.concat(values, ", "))
-end})
-appearance:ColorPicker({Name = "Color", Flag = "esp_color", Default = Color3.fromRGB(77, 122, 181), Callback = function(color)
-    print("Color:", color)
-end})
-appearance:Dropdown({Name = "Style", Flag = "style", Options = {"Simple", "Outlined", "Corner"}, Default = "Simple"})
-appearance:Keybind({Name = "Action key", Flag = "action_key", Default = Enum.KeyCode.F, Callback = function(key)
-    print("Pressed:", key.Name)
-end, Changed = function(key)
-    print("Key changed:", key and key.Name or "None")
-end})
+-- These controls demonstrate the UI only; they do not add game features.
+local blue = Color3.fromRGB(77, 122, 181)
+local white = Color3.fromRGB(220, 220, 220)
+esp:Toggle({Name = "Box", Flag = "box", Color = blue})
+esp:Toggle({Name = "Health", Flag = "health", Default = true, Color = blue})
+esp:Toggle({Name = "Name", Flag = "name", Default = true, Color = white})
+esp:Toggle({Name = "Weapon", Flag = "weapon", Color = white})
+esp:Toggle({Name = "Weapon icon", Flag = "weapon_icon", Default = true, Color = white})
+esp:Toggle({Name = "Ammo", Flag = "ammo", Default = true, Color = blue})
+esp:Toggle({Name = "Out of view indicator", Flag = "indicator", Default = true, Color = blue})
+esp:Toggle({Name = "Skeleton", Flag = "skeleton", Default = true, Color = white})
+chams:Dropdown({Name = "Material", Flag = "material", Options = {"Textured", "Flat", "Wireframe"}, Default = "Textured"})
+chams:Toggle({Name = "Visible", Flag = "visible", Default = true, Color = blue})
+chams:Toggle({Name = "Occluded", Flag = "occluded", Color = Color3.fromRGB(0, 0, 0)})
+chams:Toggle({Name = "Local player", Flag = "local_player", Color = white})
+chams:Toggle({Name = "Viewmodel", Flag = "viewmodel", Color = white})
+other:Toggle({Name = "Dropped weapons", Flag = "dropped", Default = true, Color = white})
+other:Dropdown({Name = "Display", Flag = "display", Options = {"Text", "Icon"}, Default = "Text"})
+other:Toggle({Name = "Dropped weapons ammo", Flag = "dropped_ammo", Default = true, Color = blue})
+other:Toggle({Name = "Projectile prediction", Flag = "prediction", Default = true, Color = blue})
+effects:Toggle({Name = "Remove smoke", Flag = "smoke"})
+effects:Toggle({Name = "Remove flashbang", Flag = "flashbang"})
+effects:Toggle({Name = "Remove legs", Flag = "legs"})
+effects:Toggle({Name = "Remove visual punch", Flag = "punch"})
+effects:Dropdown({Name = "Scope", Options = {"Default", "Remove"}, Default = "Default"})
+effects:Keybind({Name = "Third person", Flag = "third_person_key", Callback = function(key) print("Pressed:", key.Name) end})
+effects:Toggle({Name = "Nightmode", Flag = "nightmode", Default = true})
+effects:Slider({Name = "Intensity", Flag = "intensity", Min = 0, Max = 100, Default = 30, Suffix = "%"})
+effects:Toggle({Name = "Bullet tracers", Flag = "tracers", Default = true, Color = blue})
 world:Section("World", "Left"):Label("Add your own world settings here")
 
-local misc = window:Tab("Misc")
-local general = misc:Subtab("General")
-local settings = general:Section("Settings", "Left")
-settings:Textbox({Name = "Profile name", Flag = "profile", Default = "Default", Callback = function(value)
-    print("Profile:", value)
-end})
+local settings = misc:Subtab("General"):Section("Settings", "Left")
+settings:Textbox({Name = "Profile name", Flag = "profile", Default = "Default"})
+settings:Dropdown({Name = "Elements", Flag = "elements", Options = {"Box", "Name", "Health"}, Default = {"Box", "Name"}, Multi = true})
+settings:ColorPicker({Name = "Accent example", Default = blue})
 settings:Button({Name = "Print flags", Callback = function()
     for flag, value in pairs(window.Flags) do print(flag, value) end
 end})
 settings:Button({Name = "Unload menu", Callback = function() window:Destroy() end})
 
--- Right Shift hides/shows the menu. Click the header and drag to move it.
--- Controls return objects with :Set(value, silent) and :Get(); Button returns its UI object.
--- Example: local toggle = section:Toggle({Name = "Enabled"}); toggle:Set(true)
+window:SelectTab(visuals)
+-- Insert hides/shows the menu. Click and drag the top bar to move it.
+-- Controls return objects with :Set(value, silent) and :Get().
+-- Click the small swatch beside a toggle to edit its RGB color.
