@@ -13,7 +13,27 @@ local function enumGroup(name)
 end
 Enum=setmetatable({}, {__index=function(t,k) local v=enumGroup(k); rawset(t,k,v); return v end})
 function typeof(v) if type(v)=='table' and v._enum then return 'EnumItem' end; if type(v)=='table' and v._color then return 'Color3' end; return type(v) end
-Color3={fromRGB=function(r,g,b) return {R=r/255,G=g/255,B=b/255,_color=true} end}
+local colorMeta={}
+function colorMeta:ToHSV()
+ local r,g,b=self.R,self.G,self.B
+ local maxv,minv=math.max(r,g,b),math.min(r,g,b)
+ local d=maxv-minv; local h=0
+ if d>0 then
+  if maxv==r then h=((g-b)/d)%6 elseif maxv==g then h=(b-r)/d+2 else h=(r-g)/d+4 end
+  h=h/6
+ end
+ return h, maxv==0 and 0 or d/maxv, maxv
+end
+local function color(r,g,b) return setmetatable({R=r,G=g,B=b,_color=true},{__index=colorMeta}) end
+Color3={fromRGB=function(r,g,b) return color(r/255,g/255,b/255) end,
+ fromHSV=function(h,s,v)
+  h=h%1; local i=math.floor(h*6); local f=h*6-i
+  local p,q,t=v*(1-s),v*(1-f*s),v*(1-(1-f)*s)
+  if i==0 then return color(v,t,p) elseif i==1 then return color(q,v,p) elseif i==2 then return color(p,v,t) elseif i==3 then return color(p,q,v) elseif i==4 then return color(t,p,v) else return color(v,p,q) end
+ end}
+NumberSequence={new=function(...) return {...} end}
+ColorSequenceKeypoint={new=function(...) return {...} end}
+ColorSequence={new=function(...) return {...} end}
 UDim={new=function(s,o) return {Scale=s,Offset=o} end}
 UDim2={new=function(xs,xo,ys,yo) return {X={Scale=xs,Offset=xo},Y={Scale=ys,Offset=yo}} end}
 function UDim2.fromOffset(x,y) return UDim2.new(0,x,0,y) end
@@ -37,17 +57,19 @@ local input={InputBegan=signal(), InputChanged=signal(), InputEnded=signal(), Ge
 game={GetService=function(_,name) if name=='Players' then return {LocalPlayer={WaitForChild=function() return playerGui end}} elseif name=='UserInputService' then return input elseif name=='CoreGui' then return coreGui end end}
 local Plague=dofile('plague.lua')
 local w=Plague.new({})
-local a=w:Tab('Visuals', {Icon='eye'}); local b=w:Tab('Misc', {Icon='settings'})
+local a=w:Tab('Visuals', {Icon='eye'}); local b=w:Tab('Misc', {Icon='settings'}); assert(not w.SubLayer.Visible)
 assert(a.Button.Text == '' and a.Tint and #a.Button.children > 1)
-local sub=a:Subtab('Players', {Icon='user'}); local other=a:Subtab('World', {Icon='globe'}); local bsub=b:Subtab('General')
+local sub=a:Subtab('Players', {Icon='user'}); assert(not w.SubLayer.Visible and sub.Button.Text=='Players' and not sub.Tint)
+local other=a:Subtab('World', {Icon='globe'}); assert(w.SubLayer.Visible)
+local bsub=b:Subtab('General')
 assert(sub.Page.Visible and not other.Page.Visible and not bsub.Page.Visible)
 a:SelectSubtab(other); assert(other.Page.Visible and not sub.Page.Visible)
-w:SelectTab(b); assert(bsub.Page.Visible and not other.Page.Visible)
-w:SelectTab(a); assert(other.Page.Visible)
+w:SelectTab(b); assert(bsub.Page.Visible and not other.Page.Visible and not w.SubLayer.Visible)
+w:SelectTab(a); assert(other.Page.Visible and w.SubLayer.Visible)
 local s=sub:Section('Player ESP','Left')
 assert(w.Gui.Parent == coreGui)
 assert(w.Root.Size.X.Offset == 490 and w.Root.Size.Y.Offset == 420)
-assert(w.Scale.Scale==1)
+assert(w.Scale.Scale==1 and w.Root.BorderMode==Enum.BorderMode.Inset)
 local customScale=Plague.new({Scale=1.2}); assert(customScale.Scale.Scale==1.2); customScale:Destroy()
 local fixed=sub:Section('Fixed','Right',{Height=100})
 assert(fixed.Container.Size.Y.Offset==100 and fixed.Frame.ClassName=='ScrollingFrame')
@@ -66,13 +88,28 @@ local count=0
 local toggle=s:Toggle({Name='Enabled',Flag='t',Default=true,Callback=function(v) count=count+1 end})
 assert(toggle:Get() and w.Flags.t); toggle:Set(false); assert(not toggle:Get() and count==1); toggle:Set(true,true); assert(count==1 and w.Flags.t)
 local colorChanges=0
-local colorToggle=s:Toggle({Name='Box',Color=Color3.fromRGB(1,2,3),ColorFlag='box_color',ColorCallback=function() colorChanges=colorChanges+1 end})
+local colorToggle=s:Toggle({Name='Box',Color=Color3.fromRGB(1,2,3),ColorFlag='box_color',ColorAlphaFlag='box_alpha',ColorCallback=function() colorChanges=colorChanges+1 end})
 local targetColor=Color3.fromRGB(100,20,10)
 colorToggle:SetColor(targetColor,true); assert(math.floor(w.Flags.box_color.R*255+0.5)==100); assert(colorToggle:GetColor()==w.Flags.box_color)
 local swatch
 for _,o in ipairs(all) do if o.ClassName=='TextButton' and o.BackgroundColor3==targetColor then swatch=o end end
 assert(swatch); local before=#all; swatch.MouseButton1Click:Fire(); assert(#all>before); assert(colorChanges==0)
-colorToggle:SetColor(Color3.fromRGB(101,20,10)); assert(colorChanges==1)
+assert(w.OpenPopup and w.OpenPopup.frame.Name=='ColorPopup' and w.OpenPopup.frame.Parent==w.PopupLayer)
+local field,hue,alpha
+for i=before+1,#all do if all[i].Name=='SaturationValue' then field=all[i] elseif all[i].Name=='Hue' then hue=all[i] elseif all[i].Name=='Alpha' then alpha=all[i] end end
+assert(field and hue and alpha)
+field.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=75,Y=25}})
+assert(colorChanges==1); input.InputEnded:Fire({UserInputType=Enum.UserInputType.MouseButton1})
+alpha.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=50,Y=0}})
+assert(math.abs(colorToggle:GetAlpha()-0.5)<0.001 and w.Flags.box_alpha==0.5 and colorChanges==2)
+input.InputChanged:Fire({UserInputType=Enum.UserInputType.MouseMovement,Position={X=80,Y=0}})
+assert(math.abs(colorToggle:GetAlpha()-0.8)<0.001 and colorChanges==3)
+input.InputEnded:Fire({UserInputType=Enum.UserInputType.MouseButton1})
+colorToggle:SetColor(Color3.fromRGB(101,20,10)); assert(colorChanges==4)
+local countBeforeReopen=#all
+input.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=1000,Y=1000}},false); assert(not w.OpenPopup)
+swatch.MouseButton1Click:Fire(); assert(w.OpenPopup and #all==countBeforeReopen)
+input.InputBegan:Fire({UserInputType=Enum.UserInputType.Keyboard,KeyCode=Enum.KeyCode.Escape},false); assert(not w.OpenPopup)
 local beforeSlider=#all
 local slider=s:Slider({Flag='s',Min=-10,Max=10,Step=2,Default=3}); assert(slider:Get()==4)
 local minus,plus
@@ -91,14 +128,36 @@ for i=dropdownStart+1,#all do
  if o.ClassName=='ScrollingFrame' then dropdownItems=o end
  if o.Text=='Second choice' then second=o.Parent end
 end
-assert(opener and dropdownItems and second and not dropdownItems.Visible)
+assert(opener and dropdownItems and second and not dropdownItems.Visible and dropdownItems.Parent==w.PopupLayer)
 opener.MouseButton1Click:Fire(); assert(dropdownItems.Visible)
+assert(w.OpenPopup.anchor==opener)
+local oldPosition=dropdownItems.Position
+opener:GetPropertyChangedSignal('AbsolutePosition'):Fire(); assert(dropdownItems.Position~=oldPosition)
+-- Opening a second popup closes the first, with neither inserted into the section.
+colorToggle:SetAlpha(0.6, true); swatch.MouseButton1Click:Fire(); assert(not dropdownItems.Visible and w.OpenPopup.frame.Name=='ColorPopup')
+opener.MouseButton1Click:Fire(); assert(dropdownItems.Visible and w.OpenPopup.anchor==opener)
 second.MouseButton1Click:Fire(); assert(not dropdownItems.Visible and clickable:Get()=='Second choice' and w.Flags.clickable=='Second choice' and dropdownCallback==1)
 local start=#all; local listbox=s:Listbox({Flag='list',Options={'One','Two'},Default='One',Height=80})
 assert(listbox:Get()=='One'); local two
 for i=start+1,#all do if all[i].Text=='Two' then two=all[i].Parent end end
 assert(two); two.MouseButton1Click:Fire(); assert(listbox:Get()=='Two' and w.Flags.list=='Two')
-local color=s:ColorPicker({Flag='color',Default=Color3.fromRGB(1,2,3)}); color:Set(Color3.fromRGB(20,30,40)); assert(math.floor(w.Flags.color.R*255+0.5)==20)
+local color=s:ColorPicker({Flag='color',AlphaFlag='opacity',Default=Color3.fromRGB(1,2,3)}); color:Set(Color3.fromRGB(20,30,40)); assert(math.floor(w.Flags.color.R*255+0.5)==20)
+color:SetAlpha(0.25); assert(color:GetAlpha()==0.25 and w.Flags.opacity==0.25)
+color:Set(Color3.fromRGB(255,0,0),true)
+local pickerStart=#all; color:Open(); assert(w.OpenPopup.frame.Name=='ColorPopup')
+local sv,hueBar
+for i=pickerStart+1,#all do if all[i].Name=='SaturationValue' then sv=all[i] elseif all[i].Name=='Hue' then hueBar=all[i] end end
+assert(sv and hueBar)
+sv.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=0,Y=0}})
+assert(color:Get().R==1 and color:Get().G==1 and color:Get().B==1)
+sv.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=100,Y=0}})
+assert(color:Get().R==1 and color:Get().G==0 and color:Get().B==0)
+sv.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=100,Y=100}})
+assert(color:Get().R==0 and color:Get().G==0 and color:Get().B==0)
+sv.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=100,Y=0}})
+hueBar.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=50,Y=0}})
+assert(color:Get().R==0 and color:Get().G==1 and color:Get().B==1)
+w:Toggle(false); assert(not w.OpenPopup); w:Toggle(true)
 local text=s:Textbox({Flag='text',Default='abc'}); text:Set('xyz'); assert(w.Flags.text=='xyz')
 local pressed=0; local key=s:Keybind({Name='Bind',Default=Enum.KeyCode.F,Flag='key',Callback=function() pressed=pressed+1 end})
 input.InputBegan:Fire({KeyCode=Enum.KeyCode.F,UserInputType=Enum.UserInputType.Keyboard}, false); assert(pressed==1)

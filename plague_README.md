@@ -17,7 +17,7 @@ local Plague = loadstring(game:HttpGet("https://raw.githubusercontent.com/QUANTU
 ```lua
 local window = Plague.new({Title = "Plague"})
 local tab = window:Tab("Visuals", {Icon = "eye"})
-local sub = tab:Subtab("Players", {Icon = "user"})
+local sub = tab:Subtab("Players")
 local section = sub:Section("Player ESP", "Left", {Height = 195}) -- также "Right"
 
 local enabled = section:Toggle({Name = "Enabled", Flag = "enabled", Default = false,
@@ -28,7 +28,8 @@ section:Slider({Name = "Distance", Min = 0, Max = 100, Step = 1, Default = 50})
 section:Dropdown({Name = "Mode", Options = {"Simple", "Full"}, Default = "Simple"})
 section:Dropdown({Name = "Parts", Options = {"Name", "Health"}, Default = {"Name"}, Multi = true})
 section:Listbox({Name = "Profiles", Options = {"Default", "Custom"}, Default = "Default", Height = 120})
-section:ColorPicker({Name = "Color", Default = Color3.fromRGB(77, 122, 181)})
+section:ColorPicker({Name = "Color", Flag = "color", AlphaFlag = "opacity", Alpha = 1,
+    Default = Color3.fromRGB(80, 115, 164), Callback = function(color, alpha) print(color, alpha) end})
 section:Textbox({Name = "Name", Default = "Player", Placeholder = "Enter name"})
 section:Keybind({Name = "Action", Default = Enum.KeyCode.F,
     Callback = function(key) print("Pressed", key.Name) end,
@@ -45,11 +46,11 @@ print(window.Flags.enabled)
 
 Контролы значения возвращают `:Get()` и `:Set(value, silent)`; при `silent = true` callback не вызывается, но `Flags` обновляется. Начальные значения callbacks не вызывают. `Keybind.Callback` срабатывает при нажатии, `Changed` — при смене клавиши; Escape снимает привязку. Имена `Flag` должны быть уникальными в пределах окна. `Button` возвращает Roblox `TextButton`, а `Label` поддерживает `:Set(text)`.
 
-У `Toggle` можно задать `Color`, `ColorFlag` и `ColorCallback`: справа появится цветной квадрат, по нажатию открывающий RGB-палитру. Такой контрол также поддерживает `:SetColor(color, silent)` и `:GetColor()`.
+У `Toggle` можно задать `Color`, `ColorFlag` и `ColorCallback`: справа появится цветной квадрат, по нажатию открывающий HSV-пикер. Для прозрачности используйте `Alpha` (по умолчанию 1), `ColorAlphaFlag`, а также `:SetAlpha(alpha, silent)` и `:GetAlpha()`. `ColorCallback(color, alpha)` вызывается при изменении цвета или альфы. Также доступны `:SetColor(color, silent)` и `:GetColor()`. Значение альфы — непрозрачность: 0 полностью прозрачно, 1 непрозрачно.
 
 ## Иконки и списки
 
-У вкладок, сабтабов и кнопок параметр `Icon` необязателен. Встроенные имена: `target`, `eye`, `user`, `globe`, `settings`, `palette`, `layers`, `folder`, `sliders`, `check`, `down`. Они рисуются из Roblox Frames, поэтому не требуют загрузки изображений или asset ID. `Listbox` и открытый `Dropdown` прокручиваются; выбранный пункт подсвечивается. Слайдер можно перемещать мышью или менять кнопками «−»/«+».
+У вкладок и кнопок параметр `Icon` необязателен; сабтабы текстовые. Полоса сабтабов появляется только если их больше одного. Встроенные имена: `target`, `eye`, `user`, `globe`, `settings`, `palette`, `layers`, `folder`, `sliders`, `check`, `down`. Они рисуются из Roblox Frames, поэтому не требуют загрузки изображений или asset ID. `Listbox` и открытый `Dropdown` прокручиваются; раскрывающиеся списки и пикер показываются поверх меню, не раздвигая секции; выбранный пункт подсвечивается. Слайдер можно перемещать мышью или менять кнопками «−»/«+».
 
 Референсы: [CS2 Rage/Visuals](https://en.exloader.net/tree/modifications/plaguecheat-cc-cs2/), [CS2 Misc](https://modvault.net/plaguecheat/), [старые версии](https://cheatermad.com/free-cs2-cheating-plaguecheat-cc-release/). Дизайн разных версий отличается; за основу взята компактная тёмная CS2-версия.
 
@@ -58,3 +59,7 @@ print(window.Flags.enabled)
 Из корня репозитория: `npx --yes --package=fengari-node-cli -c "fengari tests/plague_mock.lua"`. Это тесты взаимодействий на моках Roblox, не визуальный тест в Studio или игре.
 
 Масштаб окна по умолчанию `Scale = 1` (490 × 420 пикселей при стандартном размере). Масштаб можно изменить, например `Plague.new({Scale = 1.2})` для более крупного меню или `Scale = 0.85` для компактного. У секции можно задать `{Height = 195}`: содержимое будет прокручиваться внутри неё, не сдвигая соседние секции. Без `Height` секция растёт по содержимому, как раньше. Для раскрывающегося списка доступны `Name = ""` (без подписи) и `FullWidth = true` (полная ширина). Для компактного слайдера — `Compact = true`.
+
+У `ColorPicker` есть `:Set(color, silent)`, `:Get()`, `:SetAlpha(alpha, silent)`, `:GetAlpha()` и `:Open()`. `Flag` хранит `Color3`, `AlphaFlag` — число 0–1. Попапы закрываются по Escape, нажатию вне попапа, смене вкладки или скрытию окна.
+
+Палитра приближена к цветам, замеренным на присланном CS2-скриншоте: фон `#0e0e0e`, панели `#151515`, поля `#0c0c0c`, границы `#1d1d1d`, текст `#d2d2d2`, акцент `#5073a4`. Из-за сжатия исходного скрина это приближение, а не исходные значения приложения.

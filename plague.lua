@@ -14,15 +14,16 @@ Subtab.__index = Subtab
 local Section = {}
 Section.__index = Section
 
+-- Sampled from the CS2 reference screenshot; text remains readable at 1x.
 local C = {
-    background = Color3.fromRGB(12, 12, 13),
-    header = Color3.fromRGB(17, 17, 18),
-    panel = Color3.fromRGB(18, 18, 19),
-    field = Color3.fromRGB(13, 13, 14),
-    border = Color3.fromRGB(36, 36, 38),
-    text = Color3.fromRGB(220, 220, 222),
-    muted = Color3.fromRGB(155, 155, 159),
-    accent = Color3.fromRGB(77, 122, 181),
+    background = Color3.fromRGB(14, 14, 14),
+    header = Color3.fromRGB(20, 20, 20),
+    panel = Color3.fromRGB(21, 21, 21),
+    field = Color3.fromRGB(12, 12, 12),
+    border = Color3.fromRGB(29, 29, 29),
+    text = Color3.fromRGB(210, 210, 210),
+    muted = Color3.fromRGB(137, 137, 137),
+    accent = Color3.fromRGB(80, 115, 164),
 }
 
 local childOrder = setmetatable({}, {__mode = "k"})
@@ -38,7 +39,11 @@ local function create(class, properties, parent)
 end
 
 local function border(parent, color)
-    return create("UIStroke", {Color = color or C.border, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, parent)
+    -- Draw inside the object instead of centering a stroke outside its bounds.
+    -- This keeps all four edges visible even inside a clipping ScrollingFrame.
+    parent.BorderSizePixel = 1
+    parent.BorderColor3 = color or C.border
+    parent.BorderMode = Enum.BorderMode.Inset
 end
 
 local function list(parent, padding, horizontal)
@@ -119,9 +124,21 @@ local function decorateButton(buttonObject, name, iconName, color)
     return function(newColor) caption.TextColor3 = newColor; tint(newColor) end
 end
 
-local function safeCall(callback, value)
+local function swatchChecker(parent, position, size)
+    local base = create("Frame", {Position = position, Size = size, BackgroundColor3 = Color3.fromRGB(65, 65, 65), BorderSizePixel = 0}, parent)
+    for y = 0, 1 do
+        for x = 0, 3 do
+            if (x + y) % 2 == 0 then
+                create("Frame", {Position = UDim2.fromScale(x / 4, y / 2), Size = UDim2.fromScale(0.25, 0.5), BackgroundColor3 = Color3.fromRGB(145, 145, 145), BorderSizePixel = 0}, base)
+            end
+        end
+    end
+    return base
+end
+
+local function safeCall(callback, ...)
     if callback then
-        local ok, err = pcall(callback, value)
+        local ok, err = pcall(callback, ...)
         if not ok then warn("[Plague] callback: " .. tostring(err)) end
     end
 end
@@ -158,7 +175,7 @@ function Plague.new(options)
     }, gui)
     self.Root = root
     self.Scale = create("UIScale", {Scale = scale}, root)
-    border(root, Color3.fromRGB(52, 52, 54))
+    border(root, Color3.fromRGB(43, 43, 43))
     local header = create("Frame", {Size = UDim2.new(1, 0, 0, 25), BackgroundColor3 = C.header, BorderSizePixel = 0, Active = true}, root)
     local title = text(header, options.Title or "Plaguecheat.cc", 13, C.text)
     title.Position = UDim2.fromOffset(7, 0)
@@ -193,9 +210,13 @@ function Plague.new(options)
         CanvasSize = UDim2.new(),
     }, subLayer)
     list(subBar, 0, true)
-    self.SubBar = subBar
-    create("Frame", {Position = UDim2.fromOffset(0, 45), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = C.border, BorderSizePixel = 0}, root)
+    self.SubBar, self.SubLayer = subBar, subLayer
+    self.SubDivider = create("Frame", {Position = UDim2.fromOffset(0, 45), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = C.border, BorderSizePixel = 0}, root)
     self.Content = create("Frame", {Position = UDim2.fromOffset(12, 55), Size = UDim2.new(1, -24, 1, -65), BackgroundTransparency = 1, BorderSizePixel = 0}, root)
+    -- Popups are direct high-Z children of the window, never children of a
+    -- clipping section. No full-size transparent overlay blocks normal clicks.
+    self.PopupLayer = root
+    self:_layoutSubtabs()
 
     self:_connect(header.InputBegan, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -211,12 +232,25 @@ function Plague.new(options)
         if self.SliderDrag and (input == self.SliderDrag.input or input.UserInputType == Enum.UserInputType.MouseMovement) then
             self.SliderDrag.update(input.Position.X)
         end
+        if self.PopupDrag and (input == self.PopupDrag.input or input.UserInputType == Enum.UserInputType.MouseMovement) then
+            self.PopupDrag.update(input.Position)
+        end
     end)
     self:_connect(UserInputService.InputEnded, function(input)
         if self.Drag and (input == self.Drag.input or input.UserInputType == Enum.UserInputType.MouseButton1) then self.Drag = nil end
         if self.SliderDrag and (input == self.SliderDrag.input or input.UserInputType == Enum.UserInputType.MouseButton1) then self.SliderDrag = nil end
+        if self.PopupDrag and (input == self.PopupDrag.input or input.UserInputType == Enum.UserInputType.MouseButton1) then self.PopupDrag = nil end
     end)
     self:_connect(UserInputService.InputBegan, function(input, processed)
+        if self.OpenPopup and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+            local p = input.Position
+            local function inside(object)
+                local pos, size = object.AbsolutePosition, object.AbsoluteSize
+                return p.X >= pos.X and p.X <= pos.X + size.X and p.Y >= pos.Y and p.Y <= pos.Y + size.Y
+            end
+            if not inside(self.OpenPopup.frame) and not inside(self.OpenPopup.anchor) then self:_closePopup() end
+        end
+        if self.OpenPopup and input.KeyCode == Enum.KeyCode.Escape and not self.CapturingKey then self:_closePopup(); return end
         if self.CapturingKey then
             if input.UserInputType == Enum.UserInputType.Keyboard then
                 local capture = self.CapturingKey
@@ -241,16 +275,63 @@ function Window:_connect(signal, callback)
     return connection
 end
 
+function Window:_layoutSubtabs()
+    local show = self.ActiveTab ~= nil and #self.ActiveTab.Subtabs > 1
+    self.SubLayer.Visible = show
+    self.SubDivider.Visible = show
+    self.Content.Position = UDim2.fromOffset(12, show and 55 or 36)
+    self.Content.Size = UDim2.new(1, -24, 1, show and -65 or -46)
+end
+
+function Window:_closePopup()
+    if self.OpenPopup then self.OpenPopup.frame.Visible = false end
+    self.OpenPopup = nil
+    self.PopupDrag = nil
+end
+
+function Window:_positionPopup()
+    local current = self.OpenPopup
+    if not current then return end
+    local anchor, popup = current.anchor, current.frame
+    local scale = self.Scale.Scale
+    local rootPos, rootSize = self.Root.AbsolutePosition, self.Root.AbsoluteSize
+    local anchorPos, anchorSize = anchor.AbsolutePosition, anchor.AbsoluteSize
+    local width = popup.Size.X.Offset
+    local height = popup.Size.Y.Offset
+    local maxX = math.max(0, rootSize.X / scale - width)
+    local maxY = math.max(0, rootSize.Y / scale - height)
+    local x = math.clamp((anchorPos.X - rootPos.X) / scale, 0, maxX)
+    local y = (anchorPos.Y - rootPos.Y + anchorSize.Y) / scale + 2
+    if y > maxY then y = (anchorPos.Y - rootPos.Y) / scale - height - 2 end
+    y = math.clamp(y, 0, maxY)
+    popup.Position = UDim2.fromOffset(x, y)
+end
+
+function Window:_attachPopup(anchor, popup)
+    self:_connect(anchor:GetPropertyChangedSignal("AbsolutePosition"), function() if self.OpenPopup and self.OpenPopup.frame == popup then self:_positionPopup() end end)
+    self:_connect(anchor:GetPropertyChangedSignal("AbsoluteSize"), function() if self.OpenPopup and self.OpenPopup.frame == popup then self:_positionPopup() end end)
+end
+
+function Window:_togglePopup(anchor, popup)
+    if self.OpenPopup and self.OpenPopup.frame == popup then self:_closePopup(); return end
+    self:_closePopup()
+    self.OpenPopup = {anchor = anchor, frame = popup}
+    popup.Visible = true
+    self:_positionPopup()
+end
+
 function Window:Toggle(value)
     if value == nil then value = not self.Visible end
     self.Visible = value == true
     self.Root.Visible = self.Visible
+    if not self.Visible then self:_closePopup() end
 end
 
 function Window:Destroy()
     if self.Destroyed then return end
     self.Destroyed = true
-    self.Drag, self.SliderDrag, self.CapturingKey = nil, nil, nil
+    self:_closePopup()
+    self.Drag, self.SliderDrag, self.PopupDrag, self.CapturingKey = nil, nil, nil, nil
     for _, connection in ipairs(self.Connections) do connection:Disconnect() end
     self.Gui:Destroy()
 end
@@ -280,7 +361,9 @@ end
 
 function Window:SelectTab(tab)
     assert(tab.Window == self, "Tab belongs to another window")
+    self:_closePopup()
     self.ActiveTab = tab
+    self:_layoutSubtabs()
     for _, item in ipairs(self.Tabs) do
         local active = item == tab
         item.Button.TextColor3 = active and C.text or C.muted
@@ -292,14 +375,13 @@ function Window:SelectTab(tab)
     end
 end
 
-function Tab:Subtab(name, options)
-    options = options or {}
+function Tab:Subtab(name)
     local window = self.Window
     local sub = setmetatable({Tab = self, Window = window, Name = name}, Subtab)
     local nav = button(window.SubBar, name)
-    nav.Size = UDim2.fromOffset(math.max(35, #name * 6 + 12) + (options.Icon and 14 or 0), 19)
+    -- CS2 reference uses plain text subtabs; no icon column.
+    nav.Size = UDim2.fromOffset(math.max(35, #name * 6 + 12), 19)
     nav.TextColor3 = C.muted
-    if options.Icon then sub.Tint = decorateButton(nav, name, options.Icon, C.muted) end
     sub.Button = nav
     local page = create("ScrollingFrame", {
         Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0,
@@ -321,14 +403,13 @@ function Tab:Subtab(name, options)
     window:_connect(nav.MouseButton1Click, function() self:SelectSubtab(sub) end)
     window:_connect(nav.MouseEnter, function()
         nav.TextColor3 = C.text
-        if sub.Tint then sub.Tint(C.text) end
     end)
     window:_connect(nav.MouseLeave, function()
         local color = self.ActiveSubtab == sub and C.text or C.muted
         nav.TextColor3 = color
-        if sub.Tint then sub.Tint(color) end
     end)
     if not self.ActiveSubtab then self:SelectSubtab(sub) end
+    if window.ActiveTab == self then window:_layoutSubtabs() end
     nav.Visible = window.ActiveTab == self
     page.Visible = window.ActiveTab == self and self.ActiveSubtab == sub
     return sub
@@ -336,11 +417,11 @@ end
 
 function Tab:SelectSubtab(sub)
     assert(sub.Tab == self, "Subtab belongs to another tab")
+    self.Window:_closePopup()
     self.ActiveSubtab = sub
     for _, item in ipairs(self.Subtabs) do
         local active = item == sub
         item.Button.TextColor3 = active and C.text or C.muted
-        if item.Tint then item.Tint(active and C.text or C.muted) end
         item.Page.Visible = active and self.Window.ActiveTab == self
     end
 end
@@ -431,6 +512,9 @@ function Section:Button(options)
     return b
 end
 
+-- Assigned below; both standalone pickers and toggle swatches share the same popup.
+local createColorControl
+
 function Section:Toggle(options)
     local value = option(options, "Default", false) == true
     local changed = register(self, options, value)
@@ -455,36 +539,25 @@ function Section:Toggle(options)
     control:Set(value, true)
     if options.Color then
         -- Optional right-aligned swatch, like the color controls in the reference menu.
+        local swatchPosition = UDim2.new(1, -20, 0.5, -4)
+        local swatchSize = UDim2.fromOffset(16, 8)
+        swatchChecker(r, swatchPosition, swatchSize)
         local swatch = button(r, "")
-        swatch.Position = UDim2.new(1, -20, 0.5, -4)
-        swatch.Size = UDim2.fromOffset(16, 8)
+        swatch.Position = swatchPosition
+        swatch.Size = swatchSize
         swatch.BackgroundTransparency = 0
         swatch.BackgroundColor3 = options.Color
         border(swatch)
         label.Size = UDim2.new(1, -48, 1, 0)
-        local pickerHolder = create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Visible = false}, self.Frame)
-        list(pickerHolder, 0)
-        local inner = setmetatable({Frame = pickerHolder, Window = self.Window}, Section)
-        local picker, color = nil, options.Color
-        local window = self.Window
-        if options.ColorFlag then window.Flags[options.ColorFlag] = color end
-        function control:SetColor(newColor, silent)
-            assert(typeof(newColor) == "Color3", "Toggle color expects a Color3")
-            color = newColor
-            swatch.BackgroundColor3 = color
-            if picker then picker:Set(color, true) end
-            if options.ColorFlag then window.Flags[options.ColorFlag] = color end
-            if not silent then safeCall(options.ColorCallback, color) end
-        end
-        function control:GetColor() return color end
-        self.Window:_connect(swatch.MouseButton1Click, function()
-            if not picker then
-                picker = inner:ColorPicker({Default = color, Inline = true, Callback = function(newColor)
-                    control:SetColor(newColor)
-                end})
-            end
-            pickerHolder.Visible = not pickerHolder.Visible
-        end)
+        local picker = createColorControl(self.Window, swatch, swatch, {
+            Default = options.Color, Flag = options.ColorFlag,
+            Alpha = options.Alpha, AlphaFlag = options.ColorAlphaFlag, Callback = options.ColorCallback,
+        })
+        function control:SetColor(color, silent) picker:Set(color, silent) end
+        function control:GetColor() return picker:Get() end
+        function control:SetAlpha(alpha, silent) picker:SetAlpha(alpha, silent) end
+        function control:GetAlpha() return picker:GetAlpha() end
+        self.Window:_connect(swatch.MouseButton1Click, function() picker:Open() end)
     end
     return control
 end
@@ -569,14 +642,15 @@ function Section:Dropdown(options)
     local arrow = icon(main, "down", C.muted)
     arrow.Position = UDim2.new(1, -16, 0.5, -4)
     local items = create("ScrollingFrame", {
-        Size = UDim2.new(1, 0, 0, math.min(math.max(#choices * 21, 21), 126)),
-        BackgroundColor3 = C.field, BorderSizePixel = 0, Visible = false,
-        ScrollBarThickness = 3, ScrollBarImageColor3 = self.Window.Accent,
+        Name = "DropdownPopup", Size = UDim2.fromOffset(150, math.min(math.max(#choices * 21, 21), 126)),
+        BackgroundColor3 = C.field, BorderSizePixel = 0, Visible = false, ZIndex = 101,
+        ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(65, 65, 65),
         ScrollingDirection = Enum.ScrollingDirection.Y, AutomaticCanvasSize = Enum.AutomaticSize.Y,
         CanvasSize = UDim2.new(),
-    }, container)
+    }, self.Window.PopupLayer)
     border(items)
     list(items, 1)
+    self.Window:_attachPopup(main, items)
     local rows = {}
     local control = {}
     local function contains(choice)
@@ -611,7 +685,10 @@ function Section:Dropdown(options)
     end
     function control:Get() return multi and copySelected() or value end
     control._window = self.Window
-    self.Window:_connect(main.MouseButton1Click, function() items.Visible = not items.Visible end)
+    self.Window:_connect(main.MouseButton1Click, function()
+        items.Size = UDim2.fromOffset(math.max(120, main.AbsoluteSize.X / self.Window.Scale.Scale), items.Size.Y.Offset)
+        self.Window:_togglePopup(main, items)
+    end)
     for _, choice in ipairs(choices) do
         local item = button(items, "")
         item.Size = UDim2.new(1, -3, 0, 20)
@@ -628,7 +705,7 @@ function Section:Dropdown(options)
                 control:Set(copySelected())
             else
                 control:Set(choice)
-                items.Visible = false
+                self.Window:_closePopup()
             end
         end)
     end
@@ -744,43 +821,149 @@ function Section:Keybind(options)
     return control
 end
 
--- The picker uses three inline RGB sliders, with no external image assets.
-function Section:ColorPicker(options)
+-- HSV/opacity picker. Everything is drawn with native gradients and GUI objects.
+-- Alpha is opacity: 0 = transparent, 1 = opaque.
+createColorControl = function(window, anchor, swatch, options)
     local color = options.Default or Color3.fromRGB(255, 255, 255)
-    local window = self.Window
-    local changed = register(self, options, color)
-    local holder = create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1}, self.Frame)
-    list(holder, 4)
-    local top = button(holder, options.Name or "Color")
-    top.Size = UDim2.new(1, 0, 0, 22)
-    top.TextXAlignment = Enum.TextXAlignment.Left
-    local swatch = create("Frame", {Size = UDim2.fromOffset(20, 10), Position = UDim2.new(1, -20, 0.5, -5), BackgroundColor3 = color, BorderSizePixel = 0}, top)
-    border(swatch)
-    local channels = create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Visible = options.Inline == true}, holder)
-    if options.Inline then top.Visible = false end
-    list(channels, 3)
-    local inner = setmetatable({Frame = channels, Window = window}, Section)
-    local sliders = {}
+    assert(typeof(color) == "Color3", "ColorPicker expects a Color3")
+    local alpha = math.clamp(tonumber(option(options, "Alpha", 1)) or 1, 0, 1)
+    local hue, saturation, brightness = color:ToHSV()
+    local popup, field, satCursor, hueCursor, alphaCursor, alphaFill, preview, alphaLabel
     local control = {}
+
+    local function refresh()
+        swatch.BackgroundColor3 = color
+        swatch.BackgroundTransparency = 1 - alpha
+        if options.Flag then window.Flags[options.Flag] = color end
+        if options.AlphaFlag then window.Flags[options.AlphaFlag] = alpha end
+        if popup then
+            field.BackgroundColor3 = Color3.fromHSV(hue, 1, 1)
+            satCursor.Position = UDim2.fromScale(saturation, 1 - brightness)
+            hueCursor.Position = UDim2.fromScale(hue, 0.5)
+            alphaCursor.Position = UDim2.fromScale(alpha, 0.5)
+            alphaFill.BackgroundColor3 = color
+            preview.BackgroundColor3 = color
+            preview.BackgroundTransparency = 1 - alpha
+            alphaLabel.Text = "A  " .. tostring(math.floor(alpha * 100 + 0.5)) .. "%"
+        end
+    end
+    local function emit(silent)
+        refresh()
+        if not silent then safeCall(options.Callback, color, alpha) end
+    end
     function control:Set(newColor, silent)
         assert(typeof(newColor) == "Color3", "ColorPicker expects a Color3")
         color = newColor
-        swatch.BackgroundColor3 = color
-        if sliders[1] then
-            sliders[1]:Set(math.floor(color.R * 255 + 0.5), true)
-            sliders[2]:Set(math.floor(color.G * 255 + 0.5), true)
-            sliders[3]:Set(math.floor(color.B * 255 + 0.5), true)
-        end
-        if silent then if options.Flag then window.Flags[options.Flag] = color end else changed(color) end
+        local h, s, v = color:ToHSV()
+        -- Preserve the selected hue for white, grey and black.
+        if s > 0 and v > 0 then hue = h end
+        saturation, brightness = s, v
+        emit(silent)
     end
     function control:Get() return color end
-    for i, name in ipairs({"R", "G", "B"}) do
-        sliders[i] = inner:Slider({Name = name, Min = 0, Max = 255, Default = 0, Callback = function()
-            control:Set(Color3.fromRGB(sliders[1]:Get(), sliders[2]:Get(), sliders[3]:Get()))
-        end})
+    function control:SetAlpha(newAlpha, silent)
+        assert(type(newAlpha) == "number", "ColorPicker alpha expects a number")
+        alpha = math.clamp(newAlpha, 0, 1)
+        emit(silent)
     end
-    self.Window:_connect(top.MouseButton1Click, function() channels.Visible = not channels.Visible end)
-    control:Set(color, true)
+    function control:GetAlpha() return alpha end
+
+    local function startDrag(object, update)
+        window:_connect(object.InputBegan, function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                window.PopupDrag = {input = input, update = update}
+                update(input.Position)
+            end
+        end)
+    end
+    local function ratio(value, start, size)
+        if size <= 0 then return 0 end
+        return math.clamp((value - start) / size, 0, 1)
+    end
+    local function build()
+        popup = create("Frame", {
+            Name = "ColorPopup", Size = UDim2.fromOffset(208, 193),
+            BackgroundColor3 = C.panel, BorderSizePixel = 0, Visible = false, ZIndex = 101,
+        }, window.PopupLayer)
+        border(popup, Color3.fromRGB(42, 42, 42))
+        field = create("Frame", {
+            Name = "SaturationValue", Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(192, 110),
+            BackgroundColor3 = Color3.fromHSV(hue, 1, 1), BorderSizePixel = 0, Active = true, ZIndex = 102,
+        }, popup)
+        -- White -> chosen hue from left to right; transparent -> black top to bottom.
+        local white = create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 103}, field)
+        create("UIGradient", {Transparency = NumberSequence.new(0, 1)}, white)
+        local black = create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, ZIndex = 104}, field)
+        create("UIGradient", {Rotation = 90, Transparency = NumberSequence.new(1, 0)}, black)
+        satCursor = create("Frame", {Size = UDim2.fromOffset(6, 6), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 105}, field)
+        border(satCursor, Color3.fromRGB(0, 0, 0))
+
+        local hueBar = create("Frame", {Name = "Hue", Position = UDim2.fromOffset(8, 125), Size = UDim2.fromOffset(192, 12), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, Active = true, ZIndex = 102}, popup)
+        local hueKeys = {}
+        for i = 0, 6 do hueKeys[#hueKeys + 1] = ColorSequenceKeypoint.new(i / 6, Color3.fromHSV(i / 6, 1, 1)) end
+        create("UIGradient", {Color = ColorSequence.new(hueKeys)}, hueBar)
+        border(hueBar, C.border)
+        hueCursor = create("Frame", {Size = UDim2.fromOffset(3, 14), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 104}, hueBar)
+        border(hueCursor, Color3.fromRGB(0, 0, 0))
+
+        local alphaBar = create("Frame", {Name = "Alpha", Position = UDim2.fromOffset(8, 145), Size = UDim2.fromOffset(192, 12), BackgroundColor3 = Color3.fromRGB(70, 70, 70), BorderSizePixel = 0, Active = true, ClipsDescendants = true, ZIndex = 102}, popup)
+        for y = 0, 1 do
+            for x = 0, 23 do
+                if (x + y) % 2 == 0 then
+                    create("Frame", {Position = UDim2.fromOffset(x * 8, y * 6), Size = UDim2.fromOffset(8, 6), BackgroundColor3 = Color3.fromRGB(150, 150, 150), BorderSizePixel = 0, ZIndex = 103}, alphaBar)
+                end
+            end
+        end
+        alphaFill = create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BorderSizePixel = 0, ZIndex = 104}, alphaBar)
+        create("UIGradient", {Transparency = NumberSequence.new(1, 0)}, alphaFill)
+        border(alphaBar, C.border)
+        alphaCursor = create("Frame", {Size = UDim2.fromOffset(3, 12), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 105}, alphaBar)
+        border(alphaCursor, Color3.fromRGB(0, 0, 0))
+        alphaLabel = text(popup, "", 12, C.muted)
+        alphaLabel.Position = UDim2.fromOffset(8, 163)
+        alphaLabel.Size = UDim2.fromOffset(100, 20)
+        alphaLabel.ZIndex = 102
+        local previewBack = create("Frame", {Position = UDim2.fromOffset(166, 166), Size = UDim2.fromOffset(34, 14), BackgroundColor3 = Color3.fromRGB(85, 85, 85), BorderSizePixel = 0, ZIndex = 102}, popup)
+        preview = create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BorderSizePixel = 0, ZIndex = 103}, previewBack)
+        border(previewBack, C.border)
+
+        startDrag(field, function(pos)
+            saturation = ratio(pos.X, field.AbsolutePosition.X, field.AbsoluteSize.X)
+            brightness = 1 - ratio(pos.Y, field.AbsolutePosition.Y, field.AbsoluteSize.Y)
+            color = Color3.fromHSV(hue, saturation, brightness)
+            emit(false)
+        end)
+        startDrag(hueBar, function(pos)
+            hue = ratio(pos.X, hueBar.AbsolutePosition.X, hueBar.AbsoluteSize.X)
+            color = Color3.fromHSV(hue, saturation, brightness)
+            emit(false)
+        end)
+        startDrag(alphaBar, function(pos)
+            alpha = ratio(pos.X, alphaBar.AbsolutePosition.X, alphaBar.AbsoluteSize.X)
+            emit(false)
+        end)
+        window:_attachPopup(anchor, popup)
+        refresh()
+    end
+    function control:Open()
+        if not popup then build() end
+        window:_togglePopup(anchor, popup)
+    end
+    refresh()
+    return control
+end
+
+function Section:ColorPicker(options)
+    local r = row(self, 22)
+    local top = button(r, options.Name or "Color")
+    top.Size = UDim2.fromScale(1, 1)
+    top.TextXAlignment = Enum.TextXAlignment.Left
+    local swatchPosition, swatchSize = UDim2.new(1, -20, 0.5, -5), UDim2.fromOffset(20, 10)
+    swatchChecker(top, swatchPosition, swatchSize)
+    local swatch = create("Frame", {Size = swatchSize, Position = swatchPosition, BackgroundColor3 = options.Default or Color3.fromRGB(255, 255, 255), BorderSizePixel = 0}, top)
+    border(swatch)
+    local control = createColorControl(self.Window, top, swatch, options)
+    self.Window:_connect(top.MouseButton1Click, function() control:Open() end)
     return control
 end
 
