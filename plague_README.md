@@ -10,7 +10,7 @@ local Plague = loadstring(game:HttpGet("https://raw.githubusercontent.com/QUANTU
 
 Для Roblox Studio сохраните `plague.lua` как ModuleScript и используйте `require(...)` из LocalScript. В Studio `loadstring`/`game:HttpGet` не являются обычным способом загрузки клиентского кода.
 
-Полный пример: [`plague_example.lua`](plague_example.lua). По умолчанию окно создаётся в `CoreGui`, закрывается/открывается на Insert и перетаскивается за верхнюю панель. Доступ к `CoreGui` нужен со стороны среды выполнения; в обычном LocalScript Studio передайте `Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")`. `Parent`, `Title`, `Name`, `Size`, `Accent` и `ToggleKey` задаются в `Plague.new({...})`.
+Полный пример: [`plague_example.lua`](plague_example.lua). По умолчанию окно создаётся в `CoreGui`, закрывается/открывается на Insert и перетаскивается за верхнюю панель. Доступ к `CoreGui` нужен со стороны среды выполнения; в обычном LocalScript Studio передайте `Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")`. `Parent`, `Title`, `Name`, `Size`, `Scale`, `Accent` и `ToggleKey` задаются в `Plague.new({...})`.
 
 ## Структура и элементы
 
@@ -18,7 +18,7 @@ local Plague = loadstring(game:HttpGet("https://raw.githubusercontent.com/QUANTU
 local window = Plague.new({Title = "Plague"})
 local tab = window:Tab("Visuals", {Icon = "eye"})
 local sub = tab:Subtab("Players", {Icon = "user"})
-local section = sub:Section("Player ESP", "Left") -- также "Right"
+local section = sub:Section("Player ESP", "Left", {Height = 195}) -- также "Right"
 
 local enabled = section:Toggle({Name = "Enabled", Flag = "enabled", Default = false,
     Callback = function(value) print(value) end})
@@ -56,3 +56,5 @@ print(window.Flags.enabled)
 ## Проверка
 
 Из корня репозитория: `npx --yes --package=fengari-node-cli -c "fengari tests/plague_mock.lua"`. Это тесты взаимодействий на моках Roblox, не визуальный тест в Studio или игре.
+
+Масштаб окна по умолчанию `Scale = 0.73` (примерно 358 × 307 пикселей при стандартном размере). Для прежнего размера используйте `Plague.new({Scale = 1})`. У секции можно задать `{Height = 195}`: содержимое будет прокручиваться внутри неё, не сдвигая соседние секции. Без `Height` секция растёт по содержимому, как раньше. Для раскрывающегося списка доступны `Name = ""` (без подписи) и `FullWidth = true` (полная ширина). Для компактного слайдера — `Compact = true`.

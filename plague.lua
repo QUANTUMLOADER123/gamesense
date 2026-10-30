@@ -19,7 +19,7 @@ local C = {
     header = Color3.fromRGB(17, 17, 18),
     panel = Color3.fromRGB(18, 18, 19),
     field = Color3.fromRGB(13, 13, 14),
-    border = Color3.fromRGB(36, 36, 38),
+    border = Color3.fromRGB(30, 30, 32),
     text = Color3.fromRGB(220, 220, 222),
     muted = Color3.fromRGB(133, 133, 137),
     accent = Color3.fromRGB(77, 122, 181),
@@ -134,6 +134,8 @@ end
 
 function Plague.new(options)
     options = options or {}
+    local scale = option(options, "Scale", 0.73)
+    assert(type(scale) == "number" and scale > 0, "Plague Scale must be a positive number")
     local self = setmetatable({
         Accent = options.Accent or C.accent, ToggleKey = options.ToggleKey or Enum.KeyCode.Insert,
         Flags = {}, Tabs = {}, Connections = {}, Visible = true, Destroyed = false,
@@ -155,7 +157,8 @@ function Plague.new(options)
         BackgroundColor3 = C.background, BorderSizePixel = 0,
     }, gui)
     self.Root = root
-    border(root, Color3.fromRGB(60, 60, 62))
+    self.Scale = create("UIScale", {Scale = scale}, root)
+    border(root, Color3.fromRGB(40, 40, 42))
     local header = create("Frame", {Size = UDim2.new(1, 0, 0, 25), BackgroundColor3 = C.header, BorderSizePixel = 0, Active = true}, root)
     local title = text(header, options.Title or "Plaguecheat.cc", 12, C.text)
     title.Position = UDim2.fromOffset(7, 0)
@@ -180,7 +183,7 @@ function Plague.new(options)
     resizeTabs()
     create("Frame", {Position = UDim2.fromOffset(0, 25), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = self.Accent, BorderSizePixel = 0}, root)
     local subLayer = create("Frame", {
-        Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 25),
+        Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 19),
         BackgroundColor3 = C.header, BorderSizePixel = 0,
     }, root)
     local subBar = create("ScrollingFrame", {
@@ -191,8 +194,8 @@ function Plague.new(options)
     }, subLayer)
     list(subBar, 0, true)
     self.SubBar = subBar
-    create("Frame", {Position = UDim2.fromOffset(0, 51), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = C.border, BorderSizePixel = 0}, root)
-    self.Content = create("Frame", {Position = UDim2.fromOffset(12, 63), Size = UDim2.new(1, -24, 1, -75), BackgroundTransparency = 1, BorderSizePixel = 0}, root)
+    create("Frame", {Position = UDim2.fromOffset(0, 45), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = C.border, BorderSizePixel = 0}, root)
+    self.Content = create("Frame", {Position = UDim2.fromOffset(12, 55), Size = UDim2.new(1, -24, 1, -65), BackgroundTransparency = 1, BorderSizePixel = 0}, root)
 
     self:_connect(header.InputBegan, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -294,13 +297,13 @@ function Tab:Subtab(name, options)
     local window = self.Window
     local sub = setmetatable({Tab = self, Window = window, Name = name}, Subtab)
     local nav = button(window.SubBar, name)
-    nav.Size = UDim2.fromOffset(math.max(35, #name * 6 + 12) + (options.Icon and 14 or 0), 25)
+    nav.Size = UDim2.fromOffset(math.max(35, #name * 6 + 12) + (options.Icon and 14 or 0), 19)
     nav.TextColor3 = C.muted
     if options.Icon then sub.Tint = decorateButton(nav, name, options.Icon, C.muted) end
     sub.Button = nav
     local page = create("ScrollingFrame", {
         Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0,
-        ScrollBarThickness = 3, ScrollBarImageColor3 = window.Accent,
+        ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(65, 65, 68),
         ScrollingDirection = Enum.ScrollingDirection.Y, AutomaticCanvasSize = Enum.AutomaticSize.Y,
         CanvasSize = UDim2.new(), Visible = false,
     }, window.Content)
@@ -342,15 +345,57 @@ function Tab:SelectSubtab(sub)
     end
 end
 
-function Subtab:Section(name, side)
+function Subtab:Section(name, side, options)
+    options = options or {}
     local parent = (side == "Right" or side == "right" or side == 2) and self.Right or self.Left
-    local frame = create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = C.panel, BorderSizePixel = 0}, parent)
+    local height = options.Height
+    if height ~= nil then assert(type(height) == "number" and height >= 40, "Section Height must be at least 40") end
+    local frame = create("Frame", {
+        Size = UDim2.new(1, 0, 0, height or 0),
+        AutomaticSize = height and Enum.AutomaticSize.None or Enum.AutomaticSize.Y,
+        BackgroundColor3 = C.panel, BorderSizePixel = 0,
+    }, parent)
     border(frame)
-    create("UIPadding", {PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5)}, frame)
-    list(frame, 1)
-    local heading = text(frame, name, 11, C.muted)
-    heading.Size = UDim2.new(1, 0, 0, 16)
-    return setmetatable({Frame = frame, Window = self.Window}, Section)
+    local content
+    if height then
+        local heading = text(frame, name, 11, C.muted)
+        heading.Position = UDim2.fromOffset(5, 3)
+        heading.Size = UDim2.new(1, -10, 0, 16)
+        content = create("ScrollingFrame", {
+            Name = "SectionContent", Position = UDim2.fromOffset(5, 19),
+            Size = UDim2.new(1, -10, 1, -23), BackgroundTransparency = 1, BorderSizePixel = 0,
+            ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(69, 69, 72),
+            ScrollingDirection = Enum.ScrollingDirection.Y, AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            CanvasSize = UDim2.new(),
+        }, frame)
+        list(content, 1)
+        -- A real scroll control, only shown if there is content below the viewport.
+        local down = button(frame, "")
+        down.Name = "ScrollDown"
+        down.Size = UDim2.fromOffset(14, 14)
+        down.Position = UDim2.new(1, -15, 1, -14)
+        local arrow = icon(down, "down", C.muted)
+        arrow.Position = UDim2.fromOffset(2, 2)
+        local function updateArrow()
+            down.Visible = content.AbsoluteCanvasSize.Y > content.AbsoluteSize.Y + 1
+                and content.CanvasPosition.Y < content.AbsoluteCanvasSize.Y - content.AbsoluteSize.Y - 1
+        end
+        self.Window:_connect(content:GetPropertyChangedSignal("AbsoluteCanvasSize"), updateArrow)
+        self.Window:_connect(content:GetPropertyChangedSignal("AbsoluteSize"), updateArrow)
+        self.Window:_connect(content:GetPropertyChangedSignal("CanvasPosition"), updateArrow)
+        self.Window:_connect(down.MouseButton1Click, function()
+            local maxY = math.max(0, content.AbsoluteCanvasSize.Y - content.AbsoluteSize.Y)
+            content.CanvasPosition = Vector2.new(0, math.min(maxY, content.CanvasPosition.Y + 60))
+        end)
+        updateArrow()
+    else
+        content = frame
+        create("UIPadding", {PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5)}, frame)
+        list(frame, 1)
+        local heading = text(frame, name, 11, C.muted)
+        heading.Size = UDim2.new(1, 0, 0, 16)
+    end
+    return setmetatable({Frame = content, Container = frame, Window = self.Window}, Section)
 end
 
 local function row(section, height)
@@ -449,22 +494,25 @@ function Section:Slider(options)
     assert(max > min and step > 0, "Slider requires Max > Min and Step > 0")
     local value
     local changed = register(self, options, nil)
-    local r = row(self, 35)
+    local r = row(self, options.Compact and 18 or 35)
+    local lineY = options.Compact and 1 or 18
     local label = text(r, options.Name or "Slider", 12)
+    label.Visible = not options.Compact
     label.Size = UDim2.new(1, -65, 0, 18)
     local number = text(r, "", 11, C.muted)
     number.TextXAlignment = Enum.TextXAlignment.Right
     number.Position = UDim2.new(1, -65, 0, 0)
     number.Size = UDim2.fromOffset(65, 18)
+    number.Visible = not options.Compact and not options.HideValue
     local minus = button(r, "-")
-    minus.Position = UDim2.fromOffset(0, 18)
+    minus.Position = UDim2.fromOffset(0, lineY)
     minus.Size = UDim2.fromOffset(14, 16)
     minus.TextColor3 = C.muted
     local plus = button(r, "+")
-    plus.Position = UDim2.new(1, -14, 0, 18)
+    plus.Position = UDim2.new(1, -14, 0, lineY)
     plus.Size = UDim2.fromOffset(14, 16)
     plus.TextColor3 = C.muted
-    local track = create("Frame", {Position = UDim2.fromOffset(16, 19), Size = UDim2.new(1, -32, 0, 16), BackgroundTransparency = 1, BorderSizePixel = 0, Active = true}, r)
+    local track = create("Frame", {Position = UDim2.fromOffset(16, lineY + 1), Size = UDim2.new(1, -32, 0, 16), BackgroundTransparency = 1, BorderSizePixel = 0, Active = true}, r)
     local rail = create("Frame", {Position = UDim2.fromOffset(0, 5), Size = UDim2.new(1, 0, 0, 5), BackgroundColor3 = C.field, BorderSizePixel = 0}, track)
     border(rail)
     local fill = create("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = self.Window.Accent, BorderSizePixel = 0}, rail)
@@ -500,11 +548,15 @@ function Section:Dropdown(options)
     local selected, value = {}, nil
     local changed = register(self, options, nil)
     local container = create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1}, self.Frame)
-    list(container, 3)
+    if options.FullWidth ~= true then
+        create("UIPadding", {PaddingLeft = UDim.new(0, 18), PaddingRight = UDim.new(0.13, 0)}, container)
+    end
+    list(container, 2)
     local label = text(container, options.Name or "Dropdown", 12)
-    label.Size = UDim2.new(1, 0, 0, 18)
+    label.Size = UDim2.new(1, 0, 0, 16)
+    label.Visible = options.Name ~= ""
     local main = button(container, "")
-    main.Size = UDim2.new(1, 0, 0, 22)
+    main.Size = UDim2.new(1, 0, 0, 20)
     main.BackgroundTransparency = 0
     main.BackgroundColor3 = C.field
     border(main)

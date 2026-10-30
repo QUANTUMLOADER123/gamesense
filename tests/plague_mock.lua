@@ -23,11 +23,11 @@ math.clamp=function(x,a,b) return math.min(b,math.max(a,x)) end
 warn=print
 local all={}
 Instance={new=function(class)
- local obj={ClassName=class, Name=class, children={}, AbsoluteSize={X=100,Y=100}, AbsoluteContentSize={X=100,Y=0}, AbsolutePosition={X=0,Y=0},
+ local obj={ClassName=class, Name=class, children={}, AbsoluteSize={X=100,Y=100}, AbsoluteContentSize={X=100,Y=0}, AbsoluteCanvasSize={X=100,Y=100}, CanvasPosition={X=0,Y=0}, AbsolutePosition={X=0,Y=0}, propertySignals={},
  InputBegan=signal(), InputChanged=signal(), InputEnded=signal(), MouseButton1Click=signal(), MouseEnter=signal(), MouseLeave=signal(), FocusLost=signal()}
  function obj:IsA(name) return name=='GuiObject' and (self.ClassName=='Frame' or self.ClassName=='ScrollingFrame' or self.ClassName=='TextButton' or self.ClassName=='TextLabel' or self.ClassName=='TextBox') end
  function obj:Destroy() self.destroyed=true end
- function obj:GetPropertyChangedSignal() return signal() end
+ function obj:GetPropertyChangedSignal(name) self.propertySignals[name]=self.propertySignals[name] or signal(); return self.propertySignals[name] end
  setmetatable(obj,{__newindex=function(t,k,v) rawset(t,k,v); if k=='Parent' and v then table.insert(v.children,t) end end})
  table.insert(all,obj); return obj
 end}
@@ -47,6 +47,17 @@ w:SelectTab(a); assert(other.Page.Visible)
 local s=sub:Section('Player ESP','Left')
 assert(w.Gui.Parent == coreGui)
 assert(w.Root.Size.X.Offset == 490 and w.Root.Size.Y.Offset == 420)
+assert(w.Scale.Scale==0.73)
+local fixed=sub:Section('Fixed','Right',{Height=100})
+assert(fixed.Container.Size.Y.Offset==100 and fixed.Frame.ClassName=='ScrollingFrame')
+local down
+for _,o in ipairs(fixed.Container.children) do if o.Name=='ScrollDown' then down=o end end
+assert(down and not down.Visible)
+fixed.Frame.AbsoluteCanvasSize={X=100,Y=300}
+fixed.Frame:GetPropertyChangedSignal('AbsoluteCanvasSize'):Fire()
+assert(down.Visible); down.MouseButton1Click:Fire(); assert(fixed.Frame.CanvasPosition.Y==60)
+fixed.Frame.CanvasPosition=Vector2.new(0,195); down.MouseButton1Click:Fire(); assert(fixed.Frame.CanvasPosition.Y==200)
+fixed.Frame:GetPropertyChangedSignal('CanvasPosition'):Fire(); assert(not down.Visible)
 local count=0
 local toggle=s:Toggle({Name='Enabled',Flag='t',Default=true,Callback=function(v) count=count+1 end})
 assert(toggle:Get() and w.Flags.t); toggle:Set(false); assert(not toggle:Get() and count==1); toggle:Set(true,true); assert(count==1 and w.Flags.t)
