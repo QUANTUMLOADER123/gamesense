@@ -19,9 +19,9 @@ local C = {
     header = Color3.fromRGB(17, 17, 18),
     panel = Color3.fromRGB(18, 18, 19),
     field = Color3.fromRGB(13, 13, 14),
-    border = Color3.fromRGB(30, 30, 32),
+    border = Color3.fromRGB(36, 36, 38),
     text = Color3.fromRGB(220, 220, 222),
-    muted = Color3.fromRGB(133, 133, 137),
+    muted = Color3.fromRGB(155, 155, 159),
     accent = Color3.fromRGB(77, 122, 181),
 }
 
@@ -52,7 +52,7 @@ end
 local function text(parent, value, size, color)
     return create("TextLabel", {
         BackgroundTransparency = 1, BorderSizePixel = 0,
-        Font = Enum.Font.Arial, TextSize = size or 12, TextColor3 = color or C.text,
+        Font = Enum.Font.Arial, TextSize = size or 13, TextColor3 = color or C.text,
         TextXAlignment = Enum.TextXAlignment.Left, Text = value or "",
     }, parent)
 end
@@ -60,7 +60,7 @@ end
 local function button(parent, value)
     return create("TextButton", {
         BackgroundTransparency = 1, BorderSizePixel = 0, AutoButtonColor = false,
-        Font = Enum.Font.Arial, TextSize = 12, TextColor3 = C.text,
+        Font = Enum.Font.Arial, TextSize = 13, TextColor3 = C.text,
         Text = value or "",
     }, parent)
 end
@@ -111,7 +111,7 @@ end
 local function decorateButton(buttonObject, name, iconName, color)
     local picture, tint = icon(buttonObject, iconName, color)
     picture.Position = UDim2.new(0, 5, 0.5, -4)
-    local caption = text(buttonObject, name, 12, color)
+    local caption = text(buttonObject, name, 13, color)
     caption.Position = UDim2.fromOffset(18, 0)
     caption.Size = UDim2.new(1, -21, 1, 0)
     caption.TextTruncate = Enum.TextTruncate.AtEnd
@@ -134,7 +134,7 @@ end
 
 function Plague.new(options)
     options = options or {}
-    local scale = option(options, "Scale", 0.73)
+    local scale = option(options, "Scale", 1)
     assert(type(scale) == "number" and scale > 0, "Plague Scale must be a positive number")
     local self = setmetatable({
         Accent = options.Accent or C.accent, ToggleKey = options.ToggleKey or Enum.KeyCode.Insert,
@@ -158,9 +158,9 @@ function Plague.new(options)
     }, gui)
     self.Root = root
     self.Scale = create("UIScale", {Scale = scale}, root)
-    border(root, Color3.fromRGB(40, 40, 42))
+    border(root, Color3.fromRGB(52, 52, 54))
     local header = create("Frame", {Size = UDim2.new(1, 0, 0, 25), BackgroundColor3 = C.header, BorderSizePixel = 0, Active = true}, root)
-    local title = text(header, options.Title or "Plaguecheat.cc", 12, C.text)
+    local title = text(header, options.Title or "Plaguecheat.cc", 13, C.text)
     title.Position = UDim2.fromOffset(7, 0)
     title.Size = UDim2.new(0, 135, 1, 0)
     title.TextTruncate = Enum.TextTruncate.AtEnd
@@ -358,7 +358,7 @@ function Subtab:Section(name, side, options)
     border(frame)
     local content
     if height then
-        local heading = text(frame, name, 11, C.muted)
+        local heading = text(frame, name, 12, C.muted)
         heading.Position = UDim2.fromOffset(5, 3)
         heading.Size = UDim2.new(1, -10, 0, 16)
         content = create("ScrollingFrame", {
@@ -368,6 +368,8 @@ function Subtab:Section(name, side, options)
             ScrollingDirection = Enum.ScrollingDirection.Y, AutomaticCanvasSize = Enum.AutomaticSize.Y,
             CanvasSize = UDim2.new(),
         }, frame)
+        -- Leave space for the scroll bar, so right-aligned swatches and keybinds are not clipped.
+        create("UIPadding", {PaddingRight = UDim.new(0, 6)}, content)
         list(content, 1)
         -- A real scroll control, only shown if there is content below the viewport.
         local down = button(frame, "")
@@ -392,7 +394,7 @@ function Subtab:Section(name, side, options)
         content = frame
         create("UIPadding", {PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5)}, frame)
         list(frame, 1)
-        local heading = text(frame, name, 11, C.muted)
+        local heading = text(frame, name, 12, C.muted)
         heading.Size = UDim2.new(1, 0, 0, 16)
     end
     return setmetatable({Frame = content, Container = frame, Window = self.Window}, Section)
@@ -412,7 +414,7 @@ local function register(section, options, value)
 end
 
 function Section:Label(value)
-    local label = text(self.Frame, value, 12, C.muted)
+    local label = text(self.Frame, value, 13, C.muted)
     label.Size = UDim2.new(1, 0, 0, 20)
     label.TextTruncate = Enum.TextTruncate.AtEnd
     return {Set = function(_, newValue) label.Text = tostring(newValue) end}
@@ -437,7 +439,7 @@ function Section:Toggle(options)
     b.Size = UDim2.fromScale(1, 1)
     local box = create("Frame", {Size = UDim2.fromOffset(7, 7), Position = UDim2.new(0, 5, 0.5, -3), BackgroundColor3 = C.field, BorderSizePixel = 0}, b)
     border(box)
-    local label = text(b, options.Name or "Toggle", 12)
+    local label = text(b, options.Name or "Toggle", 13)
     label.Position = UDim2.fromOffset(23, 0)
     label.Size = UDim2.new(1, -23, 1, 0)
     local control = {}
@@ -496,10 +498,10 @@ function Section:Slider(options)
     local changed = register(self, options, nil)
     local r = row(self, options.Compact and 18 or 35)
     local lineY = options.Compact and 1 or 18
-    local label = text(r, options.Name or "Slider", 12)
+    local label = text(r, options.Name or "Slider", 13)
     label.Visible = not options.Compact
     label.Size = UDim2.new(1, -65, 0, 18)
-    local number = text(r, "", 11, C.muted)
+    local number = text(r, "", 12, C.muted)
     number.TextXAlignment = Enum.TextXAlignment.Right
     number.Position = UDim2.new(1, -65, 0, 0)
     number.Size = UDim2.fromOffset(65, 18)
@@ -552,7 +554,7 @@ function Section:Dropdown(options)
         create("UIPadding", {PaddingLeft = UDim.new(0, 18), PaddingRight = UDim.new(0.13, 0)}, container)
     end
     list(container, 2)
-    local label = text(container, options.Name or "Dropdown", 12)
+    local label = text(container, options.Name or "Dropdown", 13)
     label.Size = UDim2.new(1, 0, 0, 16)
     label.Visible = options.Name ~= ""
     local main = button(container, "")
@@ -560,7 +562,7 @@ function Section:Dropdown(options)
     main.BackgroundTransparency = 0
     main.BackgroundColor3 = C.field
     border(main)
-    local display = text(main, "", 12, C.muted)
+    local display = text(main, "", 13, C.muted)
     display.Position = UDim2.fromOffset(7, 0)
     display.Size = UDim2.new(1, -25, 1, 0)
     display.TextTruncate = Enum.TextTruncate.AtEnd
@@ -613,7 +615,7 @@ function Section:Dropdown(options)
     for _, choice in ipairs(choices) do
         local item = button(items, "")
         item.Size = UDim2.new(1, -3, 0, 20)
-        local itemLabel = text(item, tostring(choice), 12, C.muted)
+        local itemLabel = text(item, tostring(choice), 13, C.muted)
         itemLabel.Position = UDim2.fromOffset(7, 0)
         itemLabel.Size = UDim2.new(1, -25, 1, 0)
         itemLabel.TextTruncate = Enum.TextTruncate.AtEnd
@@ -631,7 +633,7 @@ function Section:Dropdown(options)
         end)
     end
     if #choices == 0 then
-        local empty = text(items, "  No options", 12, C.muted)
+        local empty = text(items, "  No options", 13, C.muted)
         empty.Size = UDim2.new(1, 0, 0, 20)
     end
     control:Set(options.Default, true)
@@ -643,7 +645,7 @@ function Section:Listbox(options)
     local choices = options.Options or {}
     local value
     local changed = register(self, options, nil)
-    local label = text(self.Frame, options.Name or "List", 12, C.muted)
+    local label = text(self.Frame, options.Name or "List", 13, C.muted)
     label.Size = UDim2.new(1, 0, 0, 18)
     local items = create("ScrollingFrame", {
         Size = UDim2.new(1, 0, 0, math.max(40, options.Height or 120)),
@@ -671,7 +673,7 @@ function Section:Listbox(options)
     for _, choice in ipairs(choices) do
         local item = button(items, "")
         item.Size = UDim2.new(1, -3, 0, 20)
-        local itemLabel = text(item, tostring(choice), 12, C.muted)
+        local itemLabel = text(item, tostring(choice), 13, C.muted)
         itemLabel.Position = UDim2.fromOffset(8, 0)
         itemLabel.Size = UDim2.new(1, -24, 1, 0)
         itemLabel.TextTruncate = Enum.TextTruncate.AtEnd
@@ -681,7 +683,7 @@ function Section:Listbox(options)
         window:_connect(item.MouseButton1Click, function() control:Set(choice) end)
     end
     if #choices == 0 then
-        local empty = text(items, "  No options", 12, C.muted)
+        local empty = text(items, "  No options", 13, C.muted)
         empty.Size = UDim2.new(1, 0, 0, 20)
     end
     control:Set(options.Default, true)
@@ -690,11 +692,11 @@ end
 
 function Section:Textbox(options)
     local r = row(self, 45)
-    local label = text(r, options.Name or "Text", 12)
+    local label = text(r, options.Name or "Text", 13)
     label.Size = UDim2.new(1, 0, 0, 18)
     local box = create("TextBox", {
         Position = UDim2.fromOffset(0, 20), Size = UDim2.new(1, 0, 0, 24),
-        BackgroundColor3 = C.field, BorderSizePixel = 0, Font = Enum.Font.Arial, TextSize = 12,
+        BackgroundColor3 = C.field, BorderSizePixel = 0, Font = Enum.Font.Arial, TextSize = 13,
         TextColor3 = C.text, PlaceholderColor3 = C.muted, PlaceholderText = options.Placeholder or "",
         Text = tostring(options.Default or ""), ClearTextOnFocus = false, TextXAlignment = Enum.TextXAlignment.Left,
     }, r)
@@ -714,11 +716,11 @@ end
 
 function Section:Keybind(options)
     local r = row(self)
-    local label = text(r, options.Name or "Keybind", 12)
+    local label = text(r, options.Name or "Keybind", 13)
     label.Size = UDim2.new(1, -100, 1, 0)
     local keyButton = button(r, "")
-    keyButton.Position = UDim2.new(1, -100, 0, 0)
-    keyButton.Size = UDim2.fromOffset(100, 22)
+    keyButton.Position = UDim2.new(1, -104, 0, 0)
+    keyButton.Size = UDim2.fromOffset(98, 19)
     keyButton.TextXAlignment = Enum.TextXAlignment.Right
     keyButton.TextColor3 = C.muted
     local binding = {key = options.Default, callback = options.Callback}

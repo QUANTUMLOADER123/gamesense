@@ -47,9 +47,13 @@ w:SelectTab(a); assert(other.Page.Visible)
 local s=sub:Section('Player ESP','Left')
 assert(w.Gui.Parent == coreGui)
 assert(w.Root.Size.X.Offset == 490 and w.Root.Size.Y.Offset == 420)
-assert(w.Scale.Scale==0.73)
+assert(w.Scale.Scale==1)
+local customScale=Plague.new({Scale=1.2}); assert(customScale.Scale.Scale==1.2); customScale:Destroy()
 local fixed=sub:Section('Fixed','Right',{Height=100})
 assert(fixed.Container.Size.Y.Offset==100 and fixed.Frame.ClassName=='ScrollingFrame')
+local padding
+for _,child in ipairs(fixed.Frame.children) do if child.ClassName=='UIPadding' then padding=child end end
+assert(padding and padding.PaddingRight.Offset==6)
 local down
 for _,o in ipairs(fixed.Container.children) do if o.Name=='ScrollDown' then down=o end end
 assert(down and not down.Visible)
@@ -100,7 +104,7 @@ local pressed=0; local key=s:Keybind({Name='Bind',Default=Enum.KeyCode.F,Flag='k
 input.InputBegan:Fire({KeyCode=Enum.KeyCode.F,UserInputType=Enum.UserInputType.Keyboard}, false); assert(pressed==1)
 local keyButton
 for _,o in ipairs(all) do if o.Text=='[F]' then keyButton=o end end
-assert(keyButton); keyButton.MouseButton1Click:Fire(); input.InputBegan:Fire({KeyCode=Enum.KeyCode.Escape,UserInputType=Enum.UserInputType.Keyboard},false); assert(key:Get()==nil)
+assert(keyButton and keyButton.Size.X.Offset==98); keyButton.MouseButton1Click:Fire(); input.InputBegan:Fire({KeyCode=Enum.KeyCode.Escape,UserInputType=Enum.UserInputType.Keyboard},false); assert(key:Get()==nil)
 input.InputBegan:Fire({KeyCode=Enum.KeyCode.Insert,UserInputType=Enum.UserInputType.Keyboard},false); assert(not w.Visible)
 w:Destroy(); assert(w.Gui.destroyed); assert(not input.InputBegan.handlers[1].connected)
 print('mock smoke tests passed')
