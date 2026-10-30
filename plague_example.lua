@@ -5,7 +5,7 @@ local Plague = loadstring(game:HttpGet("https://raw.githubusercontent.com/QUANTU
 
 local window = Plague.new({
     Title = "plaguecheat.cc - kult",
-    Accent = Color3.fromRGB(80, 115, 164),
+    Accent = Color3.fromRGB(111, 129, 148),
     -- CoreGui and Insert are the defaults. For a Studio LocalScript, use:
     -- Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"),
 })
@@ -33,7 +33,7 @@ local other = players:Section("Other ESP", "Right", {Height = 125})
 local effects = players:Section("Effects", "Right", {Height = 220})
 
 -- These controls demonstrate the UI only; they do not add game features.
-local blue = Color3.fromRGB(80, 115, 164)
+local blue = Color3.fromRGB(111, 129, 148)
 local white = Color3.fromRGB(220, 220, 220)
 esp:Toggle({Name = "Box", Flag = "box", Default = true, Color = blue,
     ColorFlag = "box_color", ColorAlphaFlag = "box_opacity", Alpha = 1,
@@ -81,4 +81,4 @@ settings:Button({Name = "Unload menu", Icon = "settings", Callback = function() 
 window:SelectTab(visuals)
 -- Insert hides/shows the menu. Click and drag the top bar to move it.
 -- Controls return objects with :Set(value, silent) and :Get().
--- Click a swatch to open the HSV and opacity picker. Dropdowns also open above the menu.
+-- Click a swatch for square HSV, vertical hue, horizontal opacity and copy. Dropdowns also open above the menu.

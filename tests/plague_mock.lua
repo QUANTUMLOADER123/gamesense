@@ -41,12 +41,15 @@ function UDim2.fromScale(x,y) return UDim2.new(x,0,y,0) end
 Vector2={new=function(x,y) return {X=x,Y=y} end}
 math.clamp=function(x,a,b) return math.min(b,math.max(a,x)) end
 warn=print
+task={defer=function(fn) fn() end}
 local all={}
 Instance={new=function(class)
  local obj={ClassName=class, Name=class, children={}, AbsoluteSize={X=100,Y=100}, AbsoluteContentSize={X=100,Y=0}, AbsoluteCanvasSize={X=100,Y=100}, CanvasPosition={X=0,Y=0}, AbsolutePosition={X=0,Y=0}, propertySignals={},
- InputBegan=signal(), InputChanged=signal(), InputEnded=signal(), MouseButton1Click=signal(), MouseEnter=signal(), MouseLeave=signal(), FocusLost=signal()}
- function obj:IsA(name) return name=='GuiObject' and (self.ClassName=='Frame' or self.ClassName=='ScrollingFrame' or self.ClassName=='TextButton' or self.ClassName=='TextLabel' or self.ClassName=='TextBox') end
+ InputBegan=signal(), InputChanged=signal(), InputEnded=signal(), MouseButton1Click=signal(), MouseEnter=signal(), MouseLeave=signal(), FocusLost=signal(), Focused=signal()}
+ function obj:IsA(name) return name=='GuiObject' and (self.ClassName=='Frame' or self.ClassName=='ScrollingFrame' or self.ClassName=='TextButton' or self.ClassName=='TextLabel' or self.ClassName=='TextBox' or self.ClassName=='ImageLabel') end
  function obj:Destroy() self.destroyed=true end
+ function obj:CaptureFocus() self.focused=true end
+ function obj:ReleaseFocus() self.focused=false end
  function obj:GetPropertyChangedSignal(name) self.propertySignals[name]=self.propertySignals[name] or signal(); return self.propertySignals[name] end
  setmetatable(obj,{__newindex=function(t,k,v) rawset(t,k,v); if k=='Parent' and v then table.insert(v.children,t) end end})
  table.insert(all,obj); return obj
@@ -67,7 +70,10 @@ a:SelectSubtab(other); assert(other.Page.Visible and not sub.Page.Visible)
 w:SelectTab(b); assert(bsub.Page.Visible and not other.Page.Visible and not w.SubLayer.Visible)
 w:SelectTab(a); assert(other.Page.Visible and w.SubLayer.Visible)
 local s=sub:Section('Player ESP','Left')
-assert(w.Gui.Parent == coreGui)
+assert(w.Gui.Parent == coreGui and w.Gui.IgnoreGuiInset)
+local pattern
+for _,object in ipairs(w.Content.children) do if object.Name=='BackgroundPattern' then pattern=object end end
+assert(pattern and pattern.Image=='rbxassetid://8547666218' and pattern.TileSize.X.Offset==8)
 assert(w.Root.Size.X.Offset == 490 and w.Root.Size.Y.Offset == 420)
 assert(w.Scale.Scale==1 and w.Root.BorderMode==Enum.BorderMode.Inset)
 local customScale=Plague.new({Scale=1.2}); assert(customScale.Scale.Scale==1.2); customScale:Destroy()
@@ -85,7 +91,11 @@ assert(down.Visible); down.MouseButton1Click:Fire(); assert(fixed.Frame.CanvasPo
 fixed.Frame.CanvasPosition=Vector2.new(0,195); down.MouseButton1Click:Fire(); assert(fixed.Frame.CanvasPosition.Y==200)
 fixed.Frame:GetPropertyChangedSignal('CanvasPosition'):Fire(); assert(not down.Visible)
 local count=0
+local toggleStart=#all
 local toggle=s:Toggle({Name='Enabled',Flag='t',Default=true,Callback=function(v) count=count+1 end})
+local toggleButton, checkbox
+for i=toggleStart+1,#all do if all[i].ClassName=='TextButton' then toggleButton=all[i] elseif all[i].Size and all[i].Size.X.Offset==7 and all[i].Size.Y.Offset==7 then checkbox=all[i] end end
+assert(toggleButton and checkbox and checkbox.children[1].Size.X.Offset==5 and checkbox.children[1].Size.Y.Offset==5)
 assert(toggle:Get() and w.Flags.t); toggle:Set(false); assert(not toggle:Get() and count==1); toggle:Set(true,true); assert(count==1 and w.Flags.t)
 local colorChanges=0
 local colorToggle=s:Toggle({Name='Box',Color=Color3.fromRGB(1,2,3),ColorFlag='box_color',ColorAlphaFlag='box_alpha',ColorCallback=function() colorChanges=colorChanges+1 end})
@@ -98,6 +108,28 @@ assert(w.OpenPopup and w.OpenPopup.frame.Name=='ColorPopup' and w.OpenPopup.fram
 local field,hue,alpha
 for i=before+1,#all do if all[i].Name=='SaturationValue' then field=all[i] elseif all[i].Name=='Hue' then hue=all[i] elseif all[i].Name=='Alpha' then alpha=all[i] end end
 assert(field and hue and alpha)
+assert(field.Size.X.Offset==160 and field.Size.Y.Offset==160)
+assert(hue.Size.X.Offset==12 and hue.Size.Y.Offset==160 and hue.Position.X.Offset==174)
+assert(alpha.Size.X.Offset==160 and alpha.Size.Y.Offset==12 and alpha.Position.Y.Offset==174)
+local copyButton, shield
+for i=before+1,#all do if all[i].Name=='CopyColor' then copyButton=all[i] elseif all[i].Name=='PopupShield' then shield=all[i] end end
+assert(copyButton and shield and copyButton.Size.X.Offset==12 and copyButton.Size.Y.Offset==12)
+-- Even if a GuiButton underneath receives a click, a pointer pressed in the popup is captured.
+local pointer={UserInputType=Enum.UserInputType.MouseButton1,Position={X=50,Y=50}}
+input.InputBegan:Fire(pointer,false); assert(w.PopupCapturedInput==pointer)
+local stateBefore=toggle:Get(); toggleButton.MouseButton1Click:Fire(); assert(toggle:Get()==stateBefore)
+-- A click on release in the same event cycle must remain blocked as well.
+local deferred={}; task.defer=function(fn) table.insert(deferred,fn) end
+input.InputEnded:Fire(pointer); toggleButton.MouseButton1Click:Fire(); assert(toggle:Get()==stateBefore)
+for _,fn in ipairs(deferred) do fn() end; task.defer=function(fn) fn() end
+assert(not w.PopupCapturedInput)
+local copied; setclipboard=function(v) copied=v end
+copyButton.MouseButton1Click:Fire(); assert(copied=='#64140AFF'); setclipboard=nil
+copyButton.MouseButton1Click:Fire()
+local manual
+for i=before+1,#all do if all[i].Name=='ManualCopy' then manual=all[i] end end
+assert(manual and manual.Visible and manual.Text=='#64140AFF' and manual.focused)
+manual.FocusLost:Fire(); assert(not manual.Visible)
 field.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=75,Y=25}})
 assert(colorChanges==1); input.InputEnded:Fire({UserInputType=Enum.UserInputType.MouseButton1})
 alpha.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=50,Y=0}})
@@ -121,22 +153,26 @@ assert(table.concat(multi:Get())=='AC'); multi:Set({'B','X'}); assert(table.conc
 local drop=s:Dropdown({Options={'A','B'},Default='A'}); drop:Set('bad'); assert(drop:Get()==nil)
 local dropdownStart=#all; local dropdownCallback=0
 local clickable=s:Dropdown({Flag='clickable',Options={'First choice','Second choice'},Default='First choice',Callback=function() dropdownCallback=dropdownCallback+1 end})
-local opener, dropdownItems, second
+local opener, dropdownItems, dropdownPopup, second
 for i=dropdownStart+1,#all do
  local o=all[i]
  if o.Name=='Icon_down' then opener=o.Parent end
- if o.ClassName=='ScrollingFrame' then dropdownItems=o end
+ if o.Name=='DropdownItems' then dropdownItems=o elseif o.Name=='DropdownPopup' then dropdownPopup=o end
  if o.Text=='Second choice' then second=o.Parent end
 end
-assert(opener and dropdownItems and second and not dropdownItems.Visible and dropdownItems.Parent==w.PopupLayer)
-opener.MouseButton1Click:Fire(); assert(dropdownItems.Visible)
+assert(opener and dropdownItems and dropdownPopup and second and not dropdownPopup.Visible and dropdownPopup.Parent==w.PopupLayer and dropdownItems.Parent==dropdownPopup)
+opener.MouseButton1Click:Fire(); assert(dropdownPopup.Visible)
 assert(w.OpenPopup.anchor==opener)
-local oldPosition=dropdownItems.Position
-opener:GetPropertyChangedSignal('AbsolutePosition'):Fire(); assert(dropdownItems.Position~=oldPosition)
+local oldPosition=dropdownPopup.Position
+opener:GetPropertyChangedSignal('AbsolutePosition'):Fire(); assert(dropdownPopup.Position~=oldPosition)
 -- Opening a second popup closes the first, with neither inserted into the section.
-colorToggle:SetAlpha(0.6, true); swatch.MouseButton1Click:Fire(); assert(not dropdownItems.Visible and w.OpenPopup.frame.Name=='ColorPopup')
-opener.MouseButton1Click:Fire(); assert(dropdownItems.Visible and w.OpenPopup.anchor==opener)
-second.MouseButton1Click:Fire(); assert(not dropdownItems.Visible and clickable:Get()=='Second choice' and w.Flags.clickable=='Second choice' and dropdownCallback==1)
+colorToggle:SetAlpha(0.6, true); swatch.MouseButton1Click:Fire(); assert(not dropdownPopup.Visible and w.OpenPopup.frame.Name=='ColorPopup')
+opener.MouseButton1Click:Fire(); assert(dropdownPopup.Visible and w.OpenPopup.anchor==opener)
+local dropdownClick={UserInputType=Enum.UserInputType.MouseButton1,Position={X=25,Y=25}}
+second.InputBegan:Fire(dropdownClick)
+second.MouseButton1Click:Fire(); assert(not dropdownPopup.Visible and clickable:Get()=='Second choice' and w.Flags.clickable=='Second choice' and dropdownCallback==1)
+local preserved=toggle:Get(); toggleButton.MouseButton1Click:Fire(); assert(toggle:Get()==preserved)
+input.InputEnded:Fire(dropdownClick); assert(not w.PopupCapturedInput)
 local start=#all; local listbox=s:Listbox({Flag='list',Options={'One','Two'},Default='One',Height=80})
 assert(listbox:Get()=='One'); local two
 for i=start+1,#all do if all[i].Text=='Two' then two=all[i].Parent end end
@@ -155,9 +191,9 @@ assert(color:Get().R==1 and color:Get().G==0 and color:Get().B==0)
 sv.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=100,Y=100}})
 assert(color:Get().R==0 and color:Get().G==0 and color:Get().B==0)
 sv.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=100,Y=0}})
-hueBar.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=50,Y=0}})
+hueBar.InputBegan:Fire({UserInputType=Enum.UserInputType.MouseButton1,Position={X=0,Y=50}})
 assert(color:Get().R==0 and color:Get().G==1 and color:Get().B==1)
-w:Toggle(false); assert(not w.OpenPopup); w:Toggle(true)
+input.InputEnded:Fire({UserInputType=Enum.UserInputType.MouseButton1}); w:Toggle(false); assert(not w.OpenPopup); w:Toggle(true)
 local text=s:Textbox({Flag='text',Default='abc'}); text:Set('xyz'); assert(w.Flags.text=='xyz')
 local pressed=0; local key=s:Keybind({Name='Bind',Default=Enum.KeyCode.F,Flag='key',Callback=function() pressed=pressed+1 end})
 input.InputBegan:Fire({KeyCode=Enum.KeyCode.F,UserInputType=Enum.UserInputType.Keyboard}, false); assert(pressed==1)

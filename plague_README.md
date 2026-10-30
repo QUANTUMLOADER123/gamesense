@@ -22,14 +22,14 @@ local section = sub:Section("Player ESP", "Left", {Height = 195}) -- также 
 
 local enabled = section:Toggle({Name = "Enabled", Flag = "enabled", Default = false,
     Callback = function(value) print(value) end})
-section:Toggle({Name = "Box", Default = true, Color = Color3.fromRGB(77, 122, 181),
+section:Toggle({Name = "Box", Default = true, Color = Color3.fromRGB(111, 129, 148),
     ColorFlag = "box_color", ColorCallback = function(color) print(color) end})
 section:Slider({Name = "Distance", Min = 0, Max = 100, Step = 1, Default = 50})
 section:Dropdown({Name = "Mode", Options = {"Simple", "Full"}, Default = "Simple"})
 section:Dropdown({Name = "Parts", Options = {"Name", "Health"}, Default = {"Name"}, Multi = true})
 section:Listbox({Name = "Profiles", Options = {"Default", "Custom"}, Default = "Default", Height = 120})
 section:ColorPicker({Name = "Color", Flag = "color", AlphaFlag = "opacity", Alpha = 1,
-    Default = Color3.fromRGB(80, 115, 164), Callback = function(color, alpha) print(color, alpha) end})
+    Default = Color3.fromRGB(111, 129, 148), Callback = function(color, alpha) print(color, alpha) end})
 section:Textbox({Name = "Name", Default = "Player", Placeholder = "Enter name"})
 section:Keybind({Name = "Action", Default = Enum.KeyCode.F,
     Callback = function(key) print("Pressed", key.Name) end,
@@ -50,7 +50,7 @@ print(window.Flags.enabled)
 
 ## Иконки и списки
 
-У вкладок и кнопок параметр `Icon` необязателен; сабтабы текстовые. Полоса сабтабов появляется только если их больше одного. Встроенные имена: `target`, `eye`, `user`, `globe`, `settings`, `palette`, `layers`, `folder`, `sliders`, `check`, `down`. Они рисуются из Roblox Frames, поэтому не требуют загрузки изображений или asset ID. `Listbox` и открытый `Dropdown` прокручиваются; раскрывающиеся списки и пикер показываются поверх меню, не раздвигая секции; выбранный пункт подсвечивается. Слайдер можно перемещать мышью или менять кнопками «−»/«+».
+У вкладок и кнопок параметр `Icon` необязателен; сабтабы текстовые. Полоса сабтабов появляется только если их больше одного. Встроенные имена: `target`, `eye`, `user`, `globe`, `settings`, `palette`, `layers`, `folder`, `sliders`, `check`, `down`, `copy`. Они рисуются из Roblox Frames, поэтому не требуют загрузки изображений или asset ID. `Listbox` и открытый `Dropdown` прокручиваются; раскрывающиеся списки и пикер показываются поверх меню, не раздвигая секции; выбранный пункт подсвечивается. Слайдер можно перемещать мышью или менять кнопками «−»/«+».
 
 Референсы: [CS2 Rage/Visuals](https://en.exloader.net/tree/modifications/plaguecheat-cc-cs2/), [CS2 Misc](https://modvault.net/plaguecheat/), [старые версии](https://cheatermad.com/free-cs2-cheating-plaguecheat-cc-release/). Дизайн разных версий отличается; за основу взята компактная тёмная CS2-версия.
 
@@ -62,4 +62,6 @@ print(window.Flags.enabled)
 
 У `ColorPicker` есть `:Set(color, silent)`, `:Get()`, `:SetAlpha(alpha, silent)`, `:GetAlpha()` и `:Open()`. `Flag` хранит `Color3`, `AlphaFlag` — число 0–1. Попапы закрываются по Escape, нажатию вне попапа, смене вкладки или скрытию окна.
 
-Палитра приближена к цветам, замеренным на присланном CS2-скриншоте: фон `#0e0e0e`, панели `#151515`, поля `#0c0c0c`, границы `#1d1d1d`, текст `#d2d2d2`, акцент `#5073a4`. Из-за сжатия исходного скрина это приближение, а не исходные значения приложения.
+Цвета по запросу: фон `#0d0d0d`, панели `#141414`, неактивный текст `#8c8c8c`, акцент `#6f8194`. Фон содержит ту же тайловую текстуру `rbxassetid://8547666218`, что в `gamesense.lua` (её загрузка зависит от доступности Roblox asset).
+
+Квадрат справа внизу HSV-пикера копирует `#RRGGBBAA`, где `AA` — непрозрачность. При доступном `setclipboard`/`toclipboard` копирование происходит автоматически; если функция отсутствует, появляется выделенный текст для ручного копирования.

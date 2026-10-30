@@ -16,14 +16,14 @@ Section.__index = Section
 
 -- Sampled from the CS2 reference screenshot; text remains readable at 1x.
 local C = {
-    background = Color3.fromRGB(14, 14, 14),
+    background = Color3.fromRGB(13, 13, 13),
     header = Color3.fromRGB(20, 20, 20),
-    panel = Color3.fromRGB(21, 21, 21),
+    panel = Color3.fromRGB(20, 20, 20),
     field = Color3.fromRGB(12, 12, 12),
     border = Color3.fromRGB(29, 29, 29),
     text = Color3.fromRGB(210, 210, 210),
-    muted = Color3.fromRGB(137, 137, 137),
-    accent = Color3.fromRGB(80, 115, 164),
+    muted = Color3.fromRGB(140, 140, 140),
+    accent = Color3.fromRGB(111, 129, 148),
 }
 
 local childOrder = setmetatable({}, {__mode = "k"})
@@ -84,6 +84,7 @@ local Icons = {
     sliders = {"010001000", "010001000", "111001111", "010001000", "010001000", "010111000", "010001000", "010001000", "010001000"},
     check = {"000000000", "000000001", "000000010", "100000100", "010001000", "001010000", "000100000", "000000000", "000000000"},
     down = {"000000000", "000000000", "010000010", "001000100", "000101000", "000010000", "000000000", "000000000", "000000000"},
+    copy = {"001111110", "001000010", "111111010", "100001010", "100001110", "100001000", "100001000", "111111000", "000000000"},
 }
 Plague.Icons = Icons
 
@@ -161,7 +162,7 @@ function Plague.new(options)
     assert(player, "Plague must run on the client")
     -- CoreGui requires an environment with permission to parent GUIs there.
     -- In a normal LocalScript, callers can pass PlayerGui explicitly instead.
-    local gui = create("ScreenGui", {Name = options.Name or "Plague", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling})
+    local gui = create("ScreenGui", {Name = options.Name or "Plague", ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling})
     local ok, err = pcall(function() gui.Parent = options.Parent or CoreGui end)
     if not ok then
         gui:Destroy()
@@ -213,12 +214,18 @@ function Plague.new(options)
     self.SubBar, self.SubLayer = subBar, subLayer
     self.SubDivider = create("Frame", {Position = UDim2.fromOffset(0, 45), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = C.border, BorderSizePixel = 0}, root)
     self.Content = create("Frame", {Position = UDim2.fromOffset(12, 55), Size = UDim2.new(1, -24, 1, -65), BackgroundTransparency = 1, BorderSizePixel = 0}, root)
+    -- The same 8x8 tiled texture used by gamesense.lua, behind the panels.
+    create("ImageLabel", {Name = "BackgroundPattern", Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1, BorderSizePixel = 0, Image = "rbxassetid://8547666218",
+        ImageColor3 = Color3.fromRGB(12, 12, 12), ImageTransparency = 0.3,
+        ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.fromOffset(8, 8)}, self.Content)
     -- Popups are direct high-Z children of the window, never children of a
     -- clipping section. No full-size transparent overlay blocks normal clicks.
     self.PopupLayer = root
     self:_layoutSubtabs()
 
     self:_connect(header.InputBegan, function(input)
+        if self:_popupBlocks(input) then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             self.Drag = {input = input, start = input.Position, position = root.Position}
         end
@@ -240,6 +247,11 @@ function Plague.new(options)
         if self.Drag and (input == self.Drag.input or input.UserInputType == Enum.UserInputType.MouseButton1) then self.Drag = nil end
         if self.SliderDrag and (input == self.SliderDrag.input or input.UserInputType == Enum.UserInputType.MouseButton1) then self.SliderDrag = nil end
         if self.PopupDrag and (input == self.PopupDrag.input or input.UserInputType == Enum.UserInputType.MouseButton1) then self.PopupDrag = nil end
+        local captured = self.PopupCapturedInput
+        if captured and (input == captured or (captured.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseButton1)) then
+            -- GuiButton click events may fire after InputEnded; release after this event cycle.
+            task.defer(function() if self.PopupCapturedInput == captured then self.PopupCapturedInput = nil end end)
+        end
     end)
     self:_connect(UserInputService.InputBegan, function(input, processed)
         if self.OpenPopup and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
@@ -248,7 +260,11 @@ function Plague.new(options)
                 local pos, size = object.AbsolutePosition, object.AbsoluteSize
                 return p.X >= pos.X and p.X <= pos.X + size.X and p.Y >= pos.Y and p.Y <= pos.Y + size.Y
             end
-            if not inside(self.OpenPopup.frame) and not inside(self.OpenPopup.anchor) then self:_closePopup() end
+            if inside(self.OpenPopup.frame) then
+                self.PopupCapturedInput = input
+            elseif not inside(self.OpenPopup.anchor) then
+                self:_closePopup()
+            end
         end
         if self.OpenPopup and input.KeyCode == Enum.KeyCode.Escape and not self.CapturingKey then self:_closePopup(); return end
         if self.CapturingKey then
@@ -273,6 +289,36 @@ function Window:_connect(signal, callback)
     local connection = signal:Connect(callback)
     table.insert(self.Connections, connection)
     return connection
+end
+
+local function pointInside(object, position)
+    local p, size = object.AbsolutePosition, object.AbsoluteSize
+    return position.X >= p.X and position.X <= p.X + size.X
+        and position.Y >= p.Y and position.Y <= p.Y + size.Y
+end
+
+function Window:_popupBlocks(input)
+    if self.PopupCapturedInput then return true end
+    return self.OpenPopup ~= nil and input ~= nil and input.Position ~= nil
+        and pointInside(self.OpenPopup.frame, input.Position)
+end
+
+function Window:_capturePopupInput(input)
+    if self.OpenPopup and input.Position and pointInside(self.OpenPopup.frame, input.Position)
+        and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+        self.PopupCapturedInput = input
+    end
+end
+
+-- A GuiButton consumes pointer input over the popup background.
+function Window:_popupShield(popup)
+    local shield = button(popup, "")
+    shield.Name = "PopupShield"
+    shield.Size = UDim2.fromScale(1, 1)
+    shield.Active = true
+    shield.ZIndex = 102
+    self:_connect(shield.InputBegan, function(input) self:_capturePopupInput(input) end)
+    return shield
 end
 
 function Window:_layoutSubtabs()
@@ -331,7 +377,7 @@ function Window:Destroy()
     if self.Destroyed then return end
     self.Destroyed = true
     self:_closePopup()
-    self.Drag, self.SliderDrag, self.PopupDrag, self.CapturingKey = nil, nil, nil, nil
+    self.Drag, self.SliderDrag, self.PopupDrag, self.CapturingKey, self.PopupCapturedInput = nil, nil, nil, nil, nil
     for _, connection in ipairs(self.Connections) do connection:Disconnect() end
     self.Gui:Destroy()
 end
@@ -344,7 +390,7 @@ function Window:Tab(name, options)
     nav.TextColor3 = C.muted
     if options.Icon then tab.Tint = decorateButton(nav, name, options.Icon, C.muted) end
     tab.Button = nav
-    self:_connect(nav.MouseButton1Click, function() self:SelectTab(tab) end)
+    self:_connect(nav.MouseButton1Click, function() if not self:_popupBlocks() then self:SelectTab(tab) end end)
     self:_connect(nav.MouseEnter, function()
         nav.TextColor3 = C.text
         if tab.Tint then tab.Tint(C.text) end
@@ -400,7 +446,7 @@ function Tab:Subtab(name)
         if i == 1 then sub.Left = column else sub.Right = column end
     end
     table.insert(self.Subtabs, sub)
-    window:_connect(nav.MouseButton1Click, function() self:SelectSubtab(sub) end)
+    window:_connect(nav.MouseButton1Click, function() if not window:_popupBlocks() then self:SelectSubtab(sub) end end)
     window:_connect(nav.MouseEnter, function()
         nav.TextColor3 = C.text
     end)
@@ -439,6 +485,10 @@ function Subtab:Section(name, side, options)
     border(frame)
     local content
     if height then
+        -- Keep the same subtle gamesense texture beneath fixed-height panel contents.
+        create("ImageLabel", {Name = "PanelPattern", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+            BorderSizePixel = 0, Image = "rbxassetid://8547666218", ImageColor3 = Color3.fromRGB(12, 12, 12),
+            ImageTransparency = 0.6, ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.fromOffset(8, 8)}, frame)
         local heading = text(frame, name, 12, C.muted)
         heading.Position = UDim2.fromOffset(5, 3)
         heading.Size = UDim2.new(1, -10, 0, 16)
@@ -467,6 +517,7 @@ function Subtab:Section(name, side, options)
         self.Window:_connect(content:GetPropertyChangedSignal("AbsoluteSize"), updateArrow)
         self.Window:_connect(content:GetPropertyChangedSignal("CanvasPosition"), updateArrow)
         self.Window:_connect(down.MouseButton1Click, function()
+            if self.Window:_popupBlocks() then return end
             local maxY = math.max(0, content.AbsoluteCanvasSize.Y - content.AbsoluteSize.Y)
             content.CanvasPosition = Vector2.new(0, math.min(maxY, content.CanvasPosition.Y + 60))
         end)
@@ -508,7 +559,7 @@ function Section:Button(options)
     b.BackgroundColor3 = C.field
     border(b)
     if options.Icon then decorateButton(b, options.Name or "Button", options.Icon, C.text) end
-    self.Window:_connect(b.MouseButton1Click, function() safeCall(options.Callback) end)
+    self.Window:_connect(b.MouseButton1Click, function() if not self.Window:_popupBlocks() then safeCall(options.Callback) end end)
     return b
 end
 
@@ -523,19 +574,20 @@ function Section:Toggle(options)
     b.Size = UDim2.fromScale(1, 1)
     local box = create("Frame", {Size = UDim2.fromOffset(7, 7), Position = UDim2.new(0, 5, 0.5, -3), BackgroundColor3 = C.field, BorderSizePixel = 0}, b)
     border(box)
+    local fill = create("Frame", {Position = UDim2.fromOffset(1, 1), Size = UDim2.fromOffset(5, 5), BackgroundColor3 = C.field, BorderSizePixel = 0}, box)
     local label = text(b, options.Name or "Toggle", 13)
     label.Position = UDim2.fromOffset(23, 0)
     label.Size = UDim2.new(1, -23, 1, 0)
     local control = {}
     function control:Set(newValue, silent)
         value = newValue == true
-        box.BackgroundColor3 = value and self._accent or C.field
+        fill.BackgroundColor3 = value and self._accent or C.field
         label.TextColor3 = value and C.text or C.muted
         if silent then if options.Flag then self._window.Flags[options.Flag] = value end else changed(value) end
     end
     function control:Get() return value end
     control._accent, control._window = self.Window.Accent, self.Window
-    self.Window:_connect(b.MouseButton1Click, function() control:Set(not value) end)
+    self.Window:_connect(b.MouseButton1Click, function() if not self.Window:_popupBlocks() then control:Set(not value) end end)
     control:Set(value, true)
     if options.Color then
         -- Optional right-aligned swatch, like the color controls in the reference menu.
@@ -557,7 +609,7 @@ function Section:Toggle(options)
         function control:GetColor() return picker:Get() end
         function control:SetAlpha(alpha, silent) picker:SetAlpha(alpha, silent) end
         function control:GetAlpha() return picker:GetAlpha() end
-        self.Window:_connect(swatch.MouseButton1Click, function() picker:Open() end)
+        self.Window:_connect(swatch.MouseButton1Click, function() if not self.Window:_popupBlocks() then picker:Open() end end)
     end
     return control
 end
@@ -605,9 +657,10 @@ function Section:Slider(options)
     local function update(x)
         if track.AbsoluteSize.X > 0 then control:Set(min + math.clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1) * (max - min)) end
     end
-    self.Window:_connect(minus.MouseButton1Click, function() control:Set(value - step) end)
-    self.Window:_connect(plus.MouseButton1Click, function() control:Set(value + step) end)
+    self.Window:_connect(minus.MouseButton1Click, function() if not self.Window:_popupBlocks() then control:Set(value - step) end end)
+    self.Window:_connect(plus.MouseButton1Click, function() if not self.Window:_popupBlocks() then control:Set(value + step) end end)
     self.Window:_connect(track.InputBegan, function(input)
+        if self.Window:_popupBlocks(input) then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             self.Window.SliderDrag = {input = input, update = update}
             update(input.Position.X)
@@ -641,16 +694,22 @@ function Section:Dropdown(options)
     display.TextTruncate = Enum.TextTruncate.AtEnd
     local arrow = icon(main, "down", C.muted)
     arrow.Position = UDim2.new(1, -16, 0.5, -4)
-    local items = create("ScrollingFrame", {
+    local popup = create("Frame", {
         Name = "DropdownPopup", Size = UDim2.fromOffset(150, math.min(math.max(#choices * 21, 21), 126)),
-        BackgroundColor3 = C.field, BorderSizePixel = 0, Visible = false, ZIndex = 101,
+        BackgroundColor3 = C.panel, BorderSizePixel = 0, Visible = false, ZIndex = 101,
+    }, self.Window.PopupLayer)
+    border(popup)
+    self.Window:_popupShield(popup)
+    local items = create("ScrollingFrame", {
+        Name = "DropdownItems", Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 103,
         ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(65, 65, 65),
         ScrollingDirection = Enum.ScrollingDirection.Y, AutomaticCanvasSize = Enum.AutomaticSize.Y,
         CanvasSize = UDim2.new(),
-    }, self.Window.PopupLayer)
-    border(items)
+    }, popup)
     list(items, 1)
-    self.Window:_attachPopup(main, items)
+    self.Window:_connect(items.InputBegan, function(input) self.Window:_capturePopupInput(input) end)
+    self.Window:_attachPopup(main, popup)
     local rows = {}
     local control = {}
     local function contains(choice)
@@ -686,8 +745,9 @@ function Section:Dropdown(options)
     function control:Get() return multi and copySelected() or value end
     control._window = self.Window
     self.Window:_connect(main.MouseButton1Click, function()
-        items.Size = UDim2.fromOffset(math.max(120, main.AbsoluteSize.X / self.Window.Scale.Scale), items.Size.Y.Offset)
-        self.Window:_togglePopup(main, items)
+        if self.Window:_popupBlocks() then return end
+        popup.Size = UDim2.fromOffset(math.max(120, main.AbsoluteSize.X / self.Window.Scale.Scale), popup.Size.Y.Offset)
+        self.Window:_togglePopup(main, popup)
     end)
     for _, choice in ipairs(choices) do
         local item = button(items, "")
@@ -699,6 +759,7 @@ function Section:Dropdown(options)
         local mark = icon(item, "check", self.Window.Accent)
         mark.Position = UDim2.new(1, -14, 0.5, -4)
         table.insert(rows, {choice = choice, label = itemLabel, check = mark})
+        self.Window:_connect(item.InputBegan, function(input) self.Window:_capturePopupInput(input) end)
         self.Window:_connect(item.MouseButton1Click, function()
             if multi then
                 selected[choice] = not selected[choice]
@@ -757,7 +818,7 @@ function Section:Listbox(options)
         local mark = icon(item, "check", window.Accent)
         mark.Position = UDim2.new(1, -15, 0.5, -4)
         table.insert(rows, {choice = choice, label = itemLabel, mark = mark})
-        window:_connect(item.MouseButton1Click, function() control:Set(choice) end)
+        window:_connect(item.MouseButton1Click, function() if not window:_popupBlocks() then control:Set(choice) end end)
     end
     if #choices == 0 then
         local empty = text(items, "  No options", 13, C.muted)
@@ -787,7 +848,8 @@ function Section:Textbox(options)
     end
     function control:Get() return box.Text end
     control._window = self.Window
-    self.Window:_connect(box.FocusLost, function() changed(box.Text) end)
+    self.Window:_connect(box.Focused, function() if self.Window:_popupBlocks() then box:ReleaseFocus() end end)
+    self.Window:_connect(box.FocusLost, function() if not self.Window:_popupBlocks() then changed(box.Text) end end)
     return control
 end
 
@@ -814,6 +876,7 @@ function Section:Keybind(options)
     end
     function control:Get() return binding.key end
     self.Window:_connect(keyButton.MouseButton1Click, function()
+        if window:_popupBlocks() then return end
         keyButton.Text = "[press key]"
         window.CapturingKey = function(key) control:Set(key) end
     end)
@@ -828,7 +891,7 @@ createColorControl = function(window, anchor, swatch, options)
     assert(typeof(color) == "Color3", "ColorPicker expects a Color3")
     local alpha = math.clamp(tonumber(option(options, "Alpha", 1)) or 1, 0, 1)
     local hue, saturation, brightness = color:ToHSV()
-    local popup, field, satCursor, hueCursor, alphaCursor, alphaFill, preview, alphaLabel
+    local popup, field, satCursor, hueCursor, alphaCursor, alphaFill
     local control = {}
 
     local function refresh()
@@ -839,12 +902,9 @@ createColorControl = function(window, anchor, swatch, options)
         if popup then
             field.BackgroundColor3 = Color3.fromHSV(hue, 1, 1)
             satCursor.Position = UDim2.fromScale(saturation, 1 - brightness)
-            hueCursor.Position = UDim2.fromScale(hue, 0.5)
+            hueCursor.Position = UDim2.fromScale(0.5, hue)
             alphaCursor.Position = UDim2.fromScale(alpha, 0.5)
             alphaFill.BackgroundColor3 = color
-            preview.BackgroundColor3 = color
-            preview.BackgroundTransparency = 1 - alpha
-            alphaLabel.Text = "A  " .. tostring(math.floor(alpha * 100 + 0.5)) .. "%"
         end
     end
     local function emit(silent)
@@ -870,6 +930,7 @@ createColorControl = function(window, anchor, swatch, options)
 
     local function startDrag(object, update)
         window:_connect(object.InputBegan, function(input)
+            window:_capturePopupInput(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 window.PopupDrag = {input = input, update = update}
                 update(input.Position)
@@ -882,50 +943,78 @@ createColorControl = function(window, anchor, swatch, options)
     end
     local function build()
         popup = create("Frame", {
-            Name = "ColorPopup", Size = UDim2.fromOffset(208, 193),
+            Name = "ColorPopup", Size = UDim2.fromOffset(194, 194),
             BackgroundColor3 = C.panel, BorderSizePixel = 0, Visible = false, ZIndex = 101,
         }, window.PopupLayer)
         border(popup, Color3.fromRGB(42, 42, 42))
+        window:_popupShield(popup)
         field = create("Frame", {
-            Name = "SaturationValue", Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(192, 110),
-            BackgroundColor3 = Color3.fromHSV(hue, 1, 1), BorderSizePixel = 0, Active = true, ZIndex = 102,
+            Name = "SaturationValue", Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(160, 160),
+            BackgroundColor3 = Color3.fromHSV(hue, 1, 1), BorderSizePixel = 0, Active = true, ZIndex = 103,
         }, popup)
-        -- White -> chosen hue from left to right; transparent -> black top to bottom.
-        local white = create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 103}, field)
+        -- White -> hue left-to-right; transparent -> black top-to-bottom.
+        local white = create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 104}, field)
         create("UIGradient", {Transparency = NumberSequence.new(0, 1)}, white)
-        local black = create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, ZIndex = 104}, field)
+        local black = create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, ZIndex = 105}, field)
         create("UIGradient", {Rotation = 90, Transparency = NumberSequence.new(1, 0)}, black)
-        satCursor = create("Frame", {Size = UDim2.fromOffset(6, 6), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 105}, field)
+        satCursor = create("Frame", {Size = UDim2.fromOffset(6, 6), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 106}, field)
         border(satCursor, Color3.fromRGB(0, 0, 0))
 
-        local hueBar = create("Frame", {Name = "Hue", Position = UDim2.fromOffset(8, 125), Size = UDim2.fromOffset(192, 12), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, Active = true, ZIndex = 102}, popup)
+        local hueBar = create("Frame", {Name = "Hue", Position = UDim2.fromOffset(174, 8), Size = UDim2.fromOffset(12, 160), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, Active = true, ZIndex = 103}, popup)
         local hueKeys = {}
         for i = 0, 6 do hueKeys[#hueKeys + 1] = ColorSequenceKeypoint.new(i / 6, Color3.fromHSV(i / 6, 1, 1)) end
-        create("UIGradient", {Color = ColorSequence.new(hueKeys)}, hueBar)
+        create("UIGradient", {Rotation = 90, Color = ColorSequence.new(hueKeys)}, hueBar)
         border(hueBar, C.border)
-        hueCursor = create("Frame", {Size = UDim2.fromOffset(3, 14), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 104}, hueBar)
+        hueCursor = create("Frame", {Size = UDim2.fromOffset(14, 3), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 104}, hueBar)
         border(hueCursor, Color3.fromRGB(0, 0, 0))
 
-        local alphaBar = create("Frame", {Name = "Alpha", Position = UDim2.fromOffset(8, 145), Size = UDim2.fromOffset(192, 12), BackgroundColor3 = Color3.fromRGB(70, 70, 70), BorderSizePixel = 0, Active = true, ClipsDescendants = true, ZIndex = 102}, popup)
+        local alphaBar = create("Frame", {Name = "Alpha", Position = UDim2.fromOffset(8, 174), Size = UDim2.fromOffset(160, 12), BackgroundColor3 = Color3.fromRGB(70, 70, 70), BorderSizePixel = 0, Active = true, ClipsDescendants = true, ZIndex = 103}, popup)
         for y = 0, 1 do
-            for x = 0, 23 do
+            for x = 0, 19 do
                 if (x + y) % 2 == 0 then
-                    create("Frame", {Position = UDim2.fromOffset(x * 8, y * 6), Size = UDim2.fromOffset(8, 6), BackgroundColor3 = Color3.fromRGB(150, 150, 150), BorderSizePixel = 0, ZIndex = 103}, alphaBar)
+                    create("Frame", {Position = UDim2.fromOffset(x * 8, y * 6), Size = UDim2.fromOffset(8, 6), BackgroundColor3 = Color3.fromRGB(150, 150, 150), BorderSizePixel = 0, ZIndex = 104}, alphaBar)
                 end
             end
         end
-        alphaFill = create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BorderSizePixel = 0, ZIndex = 104}, alphaBar)
+        alphaFill = create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BorderSizePixel = 0, ZIndex = 105}, alphaBar)
         create("UIGradient", {Transparency = NumberSequence.new(1, 0)}, alphaFill)
         border(alphaBar, C.border)
-        alphaCursor = create("Frame", {Size = UDim2.fromOffset(3, 12), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 105}, alphaBar)
+        alphaCursor = create("Frame", {Size = UDim2.fromOffset(3, 12), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 106}, alphaBar)
         border(alphaCursor, Color3.fromRGB(0, 0, 0))
-        alphaLabel = text(popup, "", 12, C.muted)
-        alphaLabel.Position = UDim2.fromOffset(8, 163)
-        alphaLabel.Size = UDim2.fromOffset(100, 20)
-        alphaLabel.ZIndex = 102
-        local previewBack = create("Frame", {Position = UDim2.fromOffset(166, 166), Size = UDim2.fromOffset(34, 14), BackgroundColor3 = Color3.fromRGB(85, 85, 85), BorderSizePixel = 0, ZIndex = 102}, popup)
-        preview = create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BorderSizePixel = 0, ZIndex = 103}, previewBack)
-        border(previewBack, C.border)
+
+        local copyButton = button(popup, "")
+        copyButton.Name = "CopyColor"
+        copyButton.Position = UDim2.fromOffset(174, 174)
+        copyButton.Size = UDim2.fromOffset(12, 12)
+        copyButton.BackgroundTransparency = 0
+        copyButton.BackgroundColor3 = C.field
+        copyButton.ZIndex = 103
+        border(copyButton)
+        local copyIcon = icon(copyButton, "copy", C.text)
+        copyIcon.Position = UDim2.fromOffset(1, 1)
+        -- If the execution environment has no clipboard function, show selectable hex.
+        local manualCopy = create("TextBox", {
+            Name = "ManualCopy", Position = UDim2.fromOffset(8, 145), Size = UDim2.fromOffset(160, 22),
+            BackgroundColor3 = C.field, BorderSizePixel = 0, TextColor3 = C.text, Font = Enum.Font.Arial,
+            TextSize = 12, ClearTextOnFocus = false, Visible = false, ZIndex = 110,
+        }, popup)
+        border(manualCopy, C.border)
+        window:_connect(manualCopy.FocusLost, function() manualCopy.Visible = false end)
+        window:_connect(copyButton.InputBegan, function(input) window:_capturePopupInput(input) end)
+        window:_connect(copyButton.MouseButton1Click, function()
+            local hex = string.format("#%02X%02X%02X%02X", math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5), math.floor(alpha * 255 + 0.5))
+            local clipboard = type(setclipboard) == "function" and setclipboard or (type(toclipboard) == "function" and toclipboard or nil)
+            local copied = clipboard and pcall(clipboard, hex)
+            if not copied then
+                manualCopy.Text = hex
+                manualCopy.Visible = true
+                pcall(function()
+                    manualCopy:CaptureFocus()
+                    manualCopy.CursorPosition = #hex + 1
+                    manualCopy.SelectionStart = 1
+                end)
+            end
+        end)
 
         startDrag(field, function(pos)
             saturation = ratio(pos.X, field.AbsolutePosition.X, field.AbsoluteSize.X)
@@ -934,7 +1023,7 @@ createColorControl = function(window, anchor, swatch, options)
             emit(false)
         end)
         startDrag(hueBar, function(pos)
-            hue = ratio(pos.X, hueBar.AbsolutePosition.X, hueBar.AbsoluteSize.X)
+            hue = ratio(pos.Y, hueBar.AbsolutePosition.Y, hueBar.AbsoluteSize.Y)
             color = Color3.fromHSV(hue, saturation, brightness)
             emit(false)
         end)
@@ -963,7 +1052,7 @@ function Section:ColorPicker(options)
     local swatch = create("Frame", {Size = swatchSize, Position = swatchPosition, BackgroundColor3 = options.Default or Color3.fromRGB(255, 255, 255), BorderSizePixel = 0}, top)
     border(swatch)
     local control = createColorControl(self.Window, top, swatch, options)
-    self.Window:_connect(top.MouseButton1Click, function() control:Open() end)
+    self.Window:_connect(top.MouseButton1Click, function() if not self.Window:_popupBlocks() then control:Open() end end)
     return control
 end
 
