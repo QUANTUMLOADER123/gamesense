@@ -10,18 +10,23 @@ local window = Plague.new({
     -- Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"),
 })
 
-local rage = window:Tab("Rage")
-local legit = window:Tab("Legit")
-local visuals = window:Tab("Visuals")
-local skins = window:Tab("Skins")
-local misc = window:Tab("Misc")
+local rage = window:Tab("Rage", {Icon = "target"})
+local legit = window:Tab("Legit", {Icon = "user"})
+local visuals = window:Tab("Visuals", {Icon = "eye"})
+local skins = window:Tab("Skins", {Icon = "palette"})
+local misc = window:Tab("Misc", {Icon = "settings"})
 
 rage:Subtab("General"):Section("Rage", "Left"):Label("Your settings here")
 legit:Subtab("General"):Section("Legit", "Left"):Label("Your settings here")
-skins:Subtab("General"):Section("Skins", "Left"):Label("Your settings here")
+local skinTab = skins:Subtab("Selection", {Icon = "layers"})
+local skinLeft = skinTab:Section("Weapon Selection", "Left")
+local skinRight = skinTab:Section("Skin Selection", "Right")
+skinLeft:Listbox({Name = "Items", Flag = "item", Height = 220, Options = {"Default", "Pistol", "Rifle", "Gloves", "Knife"}, Default = "Default"})
+skinRight:Listbox({Name = "Styles", Flag = "skin", Height = 220, Options = {"Default", "Blue", "Red", "Gold"}, Default = "Default"})
+skinRight:Slider({Name = "Wear", Flag = "wear", Min = 0, Max = 100, Default = 0, Suffix = "%"})
 
-local players = visuals:Subtab("Players")
-local world = visuals:Subtab("World")
+local players = visuals:Subtab("Players", {Icon = "user"})
+local world = visuals:Subtab("World", {Icon = "globe"})
 local esp = players:Section("Player ESP", "Left")
 local chams = players:Section("Chams", "Left")
 local other = players:Section("Other ESP", "Right")
@@ -58,14 +63,14 @@ effects:Slider({Name = "Intensity", Flag = "intensity", Min = 0, Max = 100, Defa
 effects:Toggle({Name = "Bullet tracers", Flag = "tracers", Default = true, Color = blue})
 world:Section("World", "Left"):Label("Add your own world settings here")
 
-local settings = misc:Subtab("General"):Section("Settings", "Left")
+local settings = misc:Subtab("General", {Icon = "settings"}):Section("Settings", "Left")
 settings:Textbox({Name = "Profile name", Flag = "profile", Default = "Default"})
 settings:Dropdown({Name = "Elements", Flag = "elements", Options = {"Box", "Name", "Health"}, Default = {"Box", "Name"}, Multi = true})
 settings:ColorPicker({Name = "Accent example", Default = blue})
-settings:Button({Name = "Print flags", Callback = function()
+settings:Button({Name = "Print flags", Icon = "folder", Callback = function()
     for flag, value in pairs(window.Flags) do print(flag, value) end
 end})
-settings:Button({Name = "Unload menu", Callback = function() window:Destroy() end})
+settings:Button({Name = "Unload menu", Icon = "settings", Callback = function() window:Destroy() end})
 
 window:SelectTab(visuals)
 -- Insert hides/shows the menu. Click and drag the top bar to move it.

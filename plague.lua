@@ -65,6 +65,60 @@ local function button(parent, value)
     }, parent)
 end
 
+-- Pixel icons are drawn with native Frames, not downloaded assets or font glyphs.
+-- This makes them usable offline and avoids private/deleted Roblox image IDs.
+local Icons = {
+    target = {"000010000", "001111100", "010010010", "010010010", "111111111", "010010010", "010010010", "001111100", "000010000"},
+    eye = {"000000000", "000111000", "011000110", "100111001", "101111101", "100111001", "011000110", "000111000", "000000000"},
+    user = {"001111100", "010000010", "010000010", "001111100", "000000000", "001111100", "010000010", "100000001", "111111111"},
+    globe = {"001111100", "010111010", "101010101", "101010101", "111111111", "101010101", "101010101", "010111010", "001111100"},
+    settings = {"000111000", "100111001", "111000111", "011010110", "110000011", "011010110", "111000111", "100111001", "000111000"},
+    palette = {"001111100", "010000010", "101010101", "100000001", "101010101", "100000001", "010001110", "001110000", "000000000"},
+    layers = {"000010000", "000111000", "011111110", "110101011", "011111110", "110101011", "011111110", "001111100", "000100000"},
+    folder = {"111100000", "100011111", "100000001", "100000001", "100000001", "100000001", "100000001", "111111111", "000000000"},
+    sliders = {"010001000", "010001000", "111001111", "010001000", "010001000", "010111000", "010001000", "010001000", "010001000"},
+    check = {"000000000", "000000001", "000000010", "100000100", "010001000", "001010000", "000100000", "000000000", "000000000"},
+    down = {"000000000", "000000000", "010000010", "001000100", "000101000", "000010000", "000000000", "000000000", "000000000"},
+}
+Plague.Icons = Icons
+
+local function icon(parent, name, color)
+    local pattern = Icons[name]
+    assert(pattern, "Plague: unknown icon '" .. tostring(name) .. "'")
+    local holder = create("Frame", {Name = "Icon_" .. name, Size = UDim2.fromOffset(9, 9), BackgroundTransparency = 1, BorderSizePixel = 0}, parent)
+    local pixels = {}
+    for y, line in ipairs(pattern) do
+        local x = 1
+        while x <= #line do
+            if line:sub(x, x) == "1" then
+                local first = x
+                while x <= #line and line:sub(x, x) == "1" do x = x + 1 end
+                table.insert(pixels, create("Frame", {
+                    Position = UDim2.fromOffset(first - 1, y - 1), Size = UDim2.fromOffset(x - first, 1),
+                    BackgroundColor3 = color, BorderSizePixel = 0,
+                }, holder))
+            else
+                x = x + 1
+            end
+        end
+    end
+    local function tint(newColor)
+        for _, pixel in ipairs(pixels) do pixel.BackgroundColor3 = newColor end
+    end
+    return holder, tint
+end
+
+local function decorateButton(buttonObject, name, iconName, color)
+    local picture, tint = icon(buttonObject, iconName, color)
+    picture.Position = UDim2.new(0, 5, 0.5, -4)
+    local caption = text(buttonObject, name, 12, color)
+    caption.Position = UDim2.fromOffset(18, 0)
+    caption.Size = UDim2.new(1, -21, 1, 0)
+    caption.TextTruncate = Enum.TextTruncate.AtEnd
+    buttonObject.Text = ""
+    return function(newColor) caption.TextColor3 = newColor; tint(newColor) end
+end
+
 local function safeCall(callback, value)
     if callback then
         local ok, err = pcall(callback, value)
@@ -198,13 +252,24 @@ function Window:Destroy()
     self.Gui:Destroy()
 end
 
-function Window:Tab(name)
+function Window:Tab(name, options)
+    options = options or {}
     local tab = setmetatable({Window = self, Name = name, Subtabs = {}}, Tab)
     local nav = button(self.TabBar, name)
-    nav.Size = UDim2.fromOffset(math.max(35, #name * 6 + 12), 25)
+    nav.Size = UDim2.fromOffset(math.max(35, #name * 6 + 12) + (options.Icon and 14 or 0), 25)
     nav.TextColor3 = C.muted
+    if options.Icon then tab.Tint = decorateButton(nav, name, options.Icon, C.muted) end
     tab.Button = nav
     self:_connect(nav.MouseButton1Click, function() self:SelectTab(tab) end)
+    self:_connect(nav.MouseEnter, function()
+        nav.TextColor3 = C.text
+        if tab.Tint then tab.Tint(C.text) end
+    end)
+    self:_connect(nav.MouseLeave, function()
+        local color = self.ActiveTab == tab and C.text or C.muted
+        nav.TextColor3 = color
+        if tab.Tint then tab.Tint(color) end
+    end)
     table.insert(self.Tabs, tab)
     if not self.ActiveTab then self:SelectTab(tab) end
     return tab
@@ -216,6 +281,7 @@ function Window:SelectTab(tab)
     for _, item in ipairs(self.Tabs) do
         local active = item == tab
         item.Button.TextColor3 = active and C.text or C.muted
+        if item.Tint then item.Tint(active and C.text or C.muted) end
         for _, sub in ipairs(item.Subtabs) do
             sub.Button.Visible = active
             sub.Page.Visible = active and item.ActiveSubtab == sub
@@ -223,12 +289,14 @@ function Window:SelectTab(tab)
     end
 end
 
-function Tab:Subtab(name)
+function Tab:Subtab(name, options)
+    options = options or {}
     local window = self.Window
     local sub = setmetatable({Tab = self, Window = window, Name = name}, Subtab)
     local nav = button(window.SubBar, name)
-    nav.Size = UDim2.fromOffset(math.max(35, #name * 6 + 12), 25)
+    nav.Size = UDim2.fromOffset(math.max(35, #name * 6 + 12) + (options.Icon and 14 or 0), 25)
     nav.TextColor3 = C.muted
+    if options.Icon then sub.Tint = decorateButton(nav, name, options.Icon, C.muted) end
     sub.Button = nav
     local page = create("ScrollingFrame", {
         Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0,
@@ -248,6 +316,15 @@ function Tab:Subtab(name)
     end
     table.insert(self.Subtabs, sub)
     window:_connect(nav.MouseButton1Click, function() self:SelectSubtab(sub) end)
+    window:_connect(nav.MouseEnter, function()
+        nav.TextColor3 = C.text
+        if sub.Tint then sub.Tint(C.text) end
+    end)
+    window:_connect(nav.MouseLeave, function()
+        local color = self.ActiveSubtab == sub and C.text or C.muted
+        nav.TextColor3 = color
+        if sub.Tint then sub.Tint(color) end
+    end)
     if not self.ActiveSubtab then self:SelectSubtab(sub) end
     nav.Visible = window.ActiveTab == self
     page.Visible = window.ActiveTab == self and self.ActiveSubtab == sub
@@ -260,6 +337,7 @@ function Tab:SelectSubtab(sub)
     for _, item in ipairs(self.Subtabs) do
         local active = item == sub
         item.Button.TextColor3 = active and C.text or C.muted
+        if item.Tint then item.Tint(active and C.text or C.muted) end
         item.Page.Visible = active and self.Window.ActiveTab == self
     end
 end
@@ -301,6 +379,7 @@ function Section:Button(options)
     b.BackgroundTransparency = 0
     b.BackgroundColor3 = C.field
     border(b)
+    if options.Icon then decorateButton(b, options.Name or "Button", options.Icon, C.text) end
     self.Window:_connect(b.MouseButton1Click, function() safeCall(options.Callback) end)
     return b
 end
@@ -339,16 +418,26 @@ function Section:Toggle(options)
         local pickerHolder = create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Visible = false}, self.Frame)
         list(pickerHolder, 0)
         local inner = setmetatable({Frame = pickerHolder, Window = self.Window}, Section)
-        local picker = inner:ColorPicker({Default = options.Color, Flag = options.ColorFlag, Inline = true, Callback = function(color)
+        local picker, color = nil, options.Color
+        local window = self.Window
+        if options.ColorFlag then window.Flags[options.ColorFlag] = color end
+        function control:SetColor(newColor, silent)
+            assert(typeof(newColor) == "Color3", "Toggle color expects a Color3")
+            color = newColor
             swatch.BackgroundColor3 = color
-            safeCall(options.ColorCallback, color)
-        end})
-        self.Window:_connect(swatch.MouseButton1Click, function() pickerHolder.Visible = not pickerHolder.Visible end)
-        function control:SetColor(color, silent)
-            picker:Set(color, silent)
-            swatch.BackgroundColor3 = color
+            if picker then picker:Set(color, true) end
+            if options.ColorFlag then window.Flags[options.ColorFlag] = color end
+            if not silent then safeCall(options.ColorCallback, color) end
         end
-        function control:GetColor() return picker:Get() end
+        function control:GetColor() return color end
+        self.Window:_connect(swatch.MouseButton1Click, function()
+            if not picker then
+                picker = inner:ColorPicker({Default = color, Inline = true, Callback = function(newColor)
+                    control:SetColor(newColor)
+                end})
+            end
+            pickerHolder.Visible = not pickerHolder.Visible
+        end)
     end
     return control
 end
@@ -367,7 +456,15 @@ function Section:Slider(options)
     number.TextXAlignment = Enum.TextXAlignment.Right
     number.Position = UDim2.new(1, -65, 0, 0)
     number.Size = UDim2.fromOffset(65, 18)
-    local track = create("Frame", {Position = UDim2.fromOffset(0, 19), Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1, BorderSizePixel = 0, Active = true}, r)
+    local minus = button(r, "-")
+    minus.Position = UDim2.fromOffset(0, 18)
+    minus.Size = UDim2.fromOffset(14, 16)
+    minus.TextColor3 = C.muted
+    local plus = button(r, "+")
+    plus.Position = UDim2.new(1, -14, 0, 18)
+    plus.Size = UDim2.fromOffset(14, 16)
+    plus.TextColor3 = C.muted
+    local track = create("Frame", {Position = UDim2.fromOffset(16, 19), Size = UDim2.new(1, -32, 0, 16), BackgroundTransparency = 1, BorderSizePixel = 0, Active = true}, r)
     local rail = create("Frame", {Position = UDim2.fromOffset(0, 5), Size = UDim2.new(1, 0, 0, 5), BackgroundColor3 = C.field, BorderSizePixel = 0}, track)
     border(rail)
     local fill = create("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = self.Window.Accent, BorderSizePixel = 0}, rail)
@@ -385,6 +482,8 @@ function Section:Slider(options)
     local function update(x)
         if track.AbsoluteSize.X > 0 then control:Set(min + math.clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1) * (max - min)) end
     end
+    self.Window:_connect(minus.MouseButton1Click, function() control:Set(value - step) end)
+    self.Window:_connect(plus.MouseButton1Click, function() control:Set(value + step) end)
     self.Window:_connect(track.InputBegan, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             self.Window.SliderDrag = {input = input, update = update}
@@ -398,21 +497,33 @@ end
 function Section:Dropdown(options)
     local choices = options.Options or {}
     local multi = options.Multi == true
-    local selected = {}
-    local value = nil
+    local selected, value = {}, nil
     local changed = register(self, options, nil)
     local container = create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1}, self.Frame)
     list(container, 3)
     local label = text(container, options.Name or "Dropdown", 12)
     label.Size = UDim2.new(1, 0, 0, 18)
     local main = button(container, "")
-    main.Size = UDim2.new(1, 0, 0, 24)
+    main.Size = UDim2.new(1, 0, 0, 22)
     main.BackgroundTransparency = 0
     main.BackgroundColor3 = C.field
-    main.TextXAlignment = Enum.TextXAlignment.Left
     border(main)
-    local items = create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Visible = false}, container)
+    local display = text(main, "", 12, C.muted)
+    display.Position = UDim2.fromOffset(7, 0)
+    display.Size = UDim2.new(1, -25, 1, 0)
+    display.TextTruncate = Enum.TextTruncate.AtEnd
+    local arrow = icon(main, "down", C.muted)
+    arrow.Position = UDim2.new(1, -16, 0.5, -4)
+    local items = create("ScrollingFrame", {
+        Size = UDim2.new(1, 0, 0, math.min(math.max(#choices * 21, 21), 126)),
+        BackgroundColor3 = C.field, BorderSizePixel = 0, Visible = false,
+        ScrollBarThickness = 3, ScrollBarImageColor3 = self.Window.Accent,
+        ScrollingDirection = Enum.ScrollingDirection.Y, AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        CanvasSize = UDim2.new(),
+    }, container)
+    border(items)
     list(items, 1)
+    local rows = {}
     local control = {}
     local function contains(choice)
         for _, item in ipairs(choices) do if item == choice then return true end end
@@ -424,9 +535,13 @@ function Section:Dropdown(options)
         return out
     end
     local function refresh()
-        local display = multi and table.concat(copySelected(), ", ") or (value and tostring(value) or "None")
-        if display == "" then display = "None" end
-        main.Text = "  " .. display .. "  ▾"
+        local shown = multi and table.concat(copySelected(), ", ") or (value and tostring(value) or "None")
+        display.Text = shown == "" and "None" or shown
+        for _, entry in ipairs(rows) do
+            local active = multi and selected[entry.choice] or (not multi and value == entry.choice)
+            entry.label.TextColor3 = active and self.Window.Accent or C.muted
+            entry.check.Visible = active and true or false
+        end
     end
     function control:Set(newValue, silent)
         if multi then
@@ -444,11 +559,15 @@ function Section:Dropdown(options)
     control._window = self.Window
     self.Window:_connect(main.MouseButton1Click, function() items.Visible = not items.Visible end)
     for _, choice in ipairs(choices) do
-        local item = button(items, "  " .. tostring(choice))
-        item.Size = UDim2.new(1, 0, 0, 22)
-        item.BackgroundTransparency = 0
-        item.BackgroundColor3 = C.field
-        item.TextXAlignment = Enum.TextXAlignment.Left
+        local item = button(items, "")
+        item.Size = UDim2.new(1, -3, 0, 20)
+        local itemLabel = text(item, tostring(choice), 12, C.muted)
+        itemLabel.Position = UDim2.fromOffset(7, 0)
+        itemLabel.Size = UDim2.new(1, -25, 1, 0)
+        itemLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        local mark = icon(item, "check", self.Window.Accent)
+        mark.Position = UDim2.new(1, -14, 0.5, -4)
+        table.insert(rows, {choice = choice, label = itemLabel, check = mark})
         self.Window:_connect(item.MouseButton1Click, function()
             if multi then
                 selected[choice] = not selected[choice]
@@ -458,6 +577,60 @@ function Section:Dropdown(options)
                 items.Visible = false
             end
         end)
+    end
+    if #choices == 0 then
+        local empty = text(items, "  No options", 12, C.muted)
+        empty.Size = UDim2.new(1, 0, 0, 20)
+    end
+    control:Set(options.Default, true)
+    return control
+end
+
+-- A permanently visible, scrollable single-select list, used by skins/config pages.
+function Section:Listbox(options)
+    local choices = options.Options or {}
+    local value
+    local changed = register(self, options, nil)
+    local label = text(self.Frame, options.Name or "List", 12, C.muted)
+    label.Size = UDim2.new(1, 0, 0, 18)
+    local items = create("ScrollingFrame", {
+        Size = UDim2.new(1, 0, 0, math.max(40, options.Height or 120)),
+        BackgroundColor3 = C.field, BorderSizePixel = 0,
+        ScrollBarThickness = 3, ScrollBarImageColor3 = self.Window.Accent,
+        ScrollingDirection = Enum.ScrollingDirection.Y, AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        CanvasSize = UDim2.new(),
+    }, self.Frame)
+    border(items)
+    list(items, 0)
+    local rows, window = {}, self.Window
+    local control = {}
+    function control:Set(newValue, silent)
+        value = nil
+        for _, choice in ipairs(choices) do if choice == newValue then value = choice; break end end
+        for _, entry in ipairs(rows) do
+            local active = entry.choice == value
+            entry.label.TextColor3 = active and C.text or C.muted
+            entry.mark.Visible = active
+        end
+        if options.Flag then window.Flags[options.Flag] = value end
+        if not silent then safeCall(options.Callback, value) end
+    end
+    function control:Get() return value end
+    for _, choice in ipairs(choices) do
+        local item = button(items, "")
+        item.Size = UDim2.new(1, -3, 0, 20)
+        local itemLabel = text(item, tostring(choice), 12, C.muted)
+        itemLabel.Position = UDim2.fromOffset(8, 0)
+        itemLabel.Size = UDim2.new(1, -24, 1, 0)
+        itemLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        local mark = icon(item, "check", window.Accent)
+        mark.Position = UDim2.new(1, -15, 0.5, -4)
+        table.insert(rows, {choice = choice, label = itemLabel, mark = mark})
+        window:_connect(item.MouseButton1Click, function() control:Set(choice) end)
+    end
+    if #choices == 0 then
+        local empty = text(items, "  No options", 12, C.muted)
+        empty.Size = UDim2.new(1, 0, 0, 20)
     end
     control:Set(options.Default, true)
     return control
