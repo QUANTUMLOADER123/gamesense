@@ -56,8 +56,10 @@ Instance={new=function(class)
 end}
 local playerGui={children={}}
 local coreGui={children={}}
+local player={Name='MockPlayer',WaitForChild=function() return playerGui end}
+local textService={GetTextSize=function(_,value,size,font,bounds) return {X=#value*size*0.6,Y=size} end}
 local input={InputBegan=signal(), InputChanged=signal(), InputEnded=signal(), GetFocusedTextBox=function() return nil end}
-game={GetService=function(_,name) if name=='Players' then return {LocalPlayer={WaitForChild=function() return playerGui end}} elseif name=='UserInputService' then return input elseif name=='CoreGui' then return coreGui end end}
+game={GetService=function(_,name) if name=='Players' then return {LocalPlayer=player} elseif name=='TextService' then return textService elseif name=='UserInputService' then return input elseif name=='CoreGui' then return coreGui end end}
 local Plague=dofile('plague.lua')
 local w=Plague.new({})
 local a=w:Tab('Visuals', {Icon='eye'}); local b=w:Tab('Misc', {Icon='settings'}); assert(not w.SubLayer.Visible)
@@ -70,7 +72,22 @@ a:SelectSubtab(other); assert(other.Page.Visible and not sub.Page.Visible)
 w:SelectTab(b); assert(bsub.Page.Visible and not other.Page.Visible and not w.SubLayer.Visible)
 w:SelectTab(a); assert(other.Page.Visible and w.SubLayer.Visible)
 local s=sub:Section('Player ESP','Left')
+for _,child in ipairs(s.Container.children) do assert(child.Name~='PanelPattern' and child.ClassName~='ImageLabel') end
 assert(w.Gui.Parent == coreGui and w.Gui.IgnoreGuiInset)
+assert(w.Title.Text == 'plaguecheat.cc - MockPlayer' and w.Title.Font == Enum.Font.Code)
+assert(w.SubLayer.Size.Y.Offset == 26 and w.Content.Position.Y.Offset == 62)
+local tabsLayout
+for _,child in ipairs(w.TabBar.children) do if child.ClassName=='UIListLayout' then tabsLayout=child end end
+assert(tabsLayout); tabsLayout.AbsoluteContentSize={X=320,Y=25}
+tabsLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Fire()
+assert(w.Title.Size.X.Offset <= 156 and w.Title.TextSize <= 13 and w.TabBar.Position.X.Offset == w.Title.Size.X.Offset + 7)
+tabsLayout.AbsoluteContentSize={X=100,Y=25}; tabsLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Fire()
+local customFont=Plague.new({Font=Enum.Font.Gotham, Title='Custom'})
+assert(customFont.Title.Text == 'Custom' and customFont.Title.Font == Enum.Font.Gotham)
+local customTab=customFont:Tab('Test'); assert(customTab.Button.Font == Enum.Font.Gotham and a.Button.Font == Enum.Font.Code)
+customFont:Destroy()
+player.Name='LongPlayerName123456'
+local longTitle=Plague.new({}); assert(longTitle.Title.Text=='plaguecheat.cc - LongPlayerName123456' and longTitle.Title.TextSize<=13); longTitle:Destroy(); player.Name='MockPlayer'
 local pattern
 for _,object in ipairs(w.Content.children) do if object.Name=='BackgroundPattern' then pattern=object end end
 assert(pattern and pattern.Image=='rbxassetid://8547666218' and pattern.TileSize.X.Offset==8)
@@ -79,6 +96,7 @@ assert(w.Scale.Scale==1 and w.Root.BorderMode==Enum.BorderMode.Inset)
 local customScale=Plague.new({Scale=1.2}); assert(customScale.Scale.Scale==1.2); customScale:Destroy()
 local fixed=sub:Section('Fixed','Right',{Height=100})
 assert(fixed.Container.Size.Y.Offset==100 and fixed.Frame.ClassName=='ScrollingFrame')
+for _,child in ipairs(fixed.Container.children) do assert(child.Name~='PanelPattern' and child.ClassName~='ImageLabel') end
 local padding
 for _,child in ipairs(fixed.Frame.children) do if child.ClassName=='UIPadding' then padding=child end end
 assert(padding and padding.PaddingRight.Offset==6)
@@ -96,6 +114,7 @@ local toggle=s:Toggle({Name='Enabled',Flag='t',Default=true,Callback=function(v)
 local toggleButton, checkbox
 for i=toggleStart+1,#all do if all[i].ClassName=='TextButton' then toggleButton=all[i] elseif all[i].Size and all[i].Size.X.Offset==7 and all[i].Size.Y.Offset==7 then checkbox=all[i] end end
 assert(toggleButton and checkbox and checkbox.children[1].Size.X.Offset==5 and checkbox.children[1].Size.Y.Offset==5)
+assert(checkbox.children[1].children[1].ClassName=='UIGradient')
 assert(toggle:Get() and w.Flags.t); toggle:Set(false); assert(not toggle:Get() and count==1); toggle:Set(true,true); assert(count==1 and w.Flags.t)
 local colorChanges=0
 local colorToggle=s:Toggle({Name='Box',Color=Color3.fromRGB(1,2,3),ColorFlag='box_color',ColorAlphaFlag='box_alpha',ColorCallback=function() colorChanges=colorChanges+1 end})

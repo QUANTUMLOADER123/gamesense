@@ -4,7 +4,8 @@
 local Plague = loadstring(game:HttpGet("https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/62b0e5ca-gamesense/plague.lua"))()
 
 local window = Plague.new({
-    Title = "plaguecheat.cc - kult",
+    -- The title defaults to "plaguecheat.cc - <local username>".
+    -- Font = Enum.Font.Code, -- optionally try Enum.Font.Gotham or SourceSans
     Accent = Color3.fromRGB(111, 129, 148),
     -- CoreGui and Insert are the defaults. For a Studio LocalScript, use:
     -- Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"),
@@ -27,10 +28,10 @@ skinRight:Slider({Name = "Wear", Flag = "wear", Min = 0, Max = 100, Default = 0,
 
 local players = visuals:Subtab("Players")
 local world = visuals:Subtab("World")
-local esp = players:Section("Player ESP", "Left", {Height = 195})
-local chams = players:Section("Chams", "Left", {Height = 150})
-local other = players:Section("Other ESP", "Right", {Height = 125})
-local effects = players:Section("Effects", "Right", {Height = 220})
+local esp = players:Section("Player ESP", "Left", {Height = 190})
+local chams = players:Section("Chams", "Left", {Height = 148})
+local other = players:Section("Other ESP", "Right", {Height = 122})
+local effects = players:Section("Effects", "Right", {Height = 216})
 
 -- These controls demonstrate the UI only; they do not add game features.
 local blue = Color3.fromRGB(111, 129, 148)

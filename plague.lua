@@ -3,6 +3,7 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
+local TextService = game:GetService("TextService")
 
 local Plague = {}
 local Window = {}
@@ -27,6 +28,14 @@ local C = {
 }
 
 local childOrder = setmetatable({}, {__mode = "k"})
+local windowFonts = setmetatable({}, {__mode = "k"})
+local function fontFor(parent)
+    while parent do
+        if windowFonts[parent] then return windowFonts[parent] end
+        parent = parent.Parent
+    end
+    return Enum.Font.Code
+end
 local function create(class, properties, parent)
     local object = Instance.new(class)
     for key, value in pairs(properties or {}) do object[key] = value end
@@ -57,7 +66,7 @@ end
 local function text(parent, value, size, color)
     return create("TextLabel", {
         BackgroundTransparency = 1, BorderSizePixel = 0,
-        Font = Enum.Font.Arial, TextSize = size or 13, TextColor3 = color or C.text,
+        Font = fontFor(parent), TextSize = size or 13, TextColor3 = color or C.text,
         TextXAlignment = Enum.TextXAlignment.Left, Text = value or "",
     }, parent)
 end
@@ -65,7 +74,7 @@ end
 local function button(parent, value)
     return create("TextButton", {
         BackgroundTransparency = 1, BorderSizePixel = 0, AutoButtonColor = false,
-        Font = Enum.Font.Arial, TextSize = 13, TextColor3 = C.text,
+        Font = fontFor(parent), TextSize = 13, TextColor3 = C.text,
         Text = value or "",
     }, parent)
 end
@@ -154,8 +163,10 @@ function Plague.new(options)
     options = options or {}
     local scale = option(options, "Scale", 1)
     assert(type(scale) == "number" and scale > 0, "Plague Scale must be a positive number")
+    local font = options.Font or Enum.Font.Code
+    assert(typeof(font) == "EnumItem" and font.EnumType == Enum.Font, "Plague Font must be an Enum.Font value")
     local self = setmetatable({
-        Accent = options.Accent or C.accent, ToggleKey = options.ToggleKey or Enum.KeyCode.Insert,
+        Font = font, Accent = options.Accent or C.accent, ToggleKey = options.ToggleKey or Enum.KeyCode.Insert,
         Flags = {}, Tabs = {}, Connections = {}, Visible = true, Destroyed = false,
     }, Window)
     local player = Players.LocalPlayer
@@ -175,15 +186,23 @@ function Plague.new(options)
         BackgroundColor3 = C.background, BorderSizePixel = 0,
     }, gui)
     self.Root = root
+    windowFonts[root] = font
     self.Scale = create("UIScale", {Scale = scale}, root)
     border(root, Color3.fromRGB(43, 43, 43))
     local header = create("Frame", {Size = UDim2.new(1, 0, 0, 25), BackgroundColor3 = C.header, BorderSizePixel = 0, Active = true}, root)
-    local title = text(header, options.Title or "Plaguecheat.cc", 13, C.text)
+    local titleText = options.Title or ("plaguecheat.cc - " .. player.Name)
+    local desiredWidth = math.ceil(TextService:GetTextSize(titleText, 13, font, Vector2.new(1000, 25)).X) + 4
+    local titleWidth = math.clamp(desiredWidth, 135, 240)
+    local title = text(header, titleText, 13, C.text)
+    title.Name = "WindowTitle"
+    self.Title = title
     title.Position = UDim2.fromOffset(7, 0)
-    title.Size = UDim2.new(0, 135, 1, 0)
+    title.Size = UDim2.new(0, titleWidth, 1, 0)
+    -- Leave tabs room while keeping long usernames visible.
+    if desiredWidth > titleWidth then title.TextSize = math.max(8, math.floor(13 * titleWidth / desiredWidth)) end
     title.TextTruncate = Enum.TextTruncate.AtEnd
     local tabBar = create("ScrollingFrame", {
-        Position = UDim2.fromOffset(142, 0), Size = UDim2.new(1, -149, 1, 0),
+        Position = UDim2.fromOffset(titleWidth + 7, 0), Size = UDim2.new(1, -(titleWidth + 14), 1, 0),
         BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 0,
         ScrollingDirection = Enum.ScrollingDirection.X, CanvasSize = UDim2.new(),
     }, header)
@@ -192,16 +211,27 @@ function Plague.new(options)
     self.TabBar = tabBar
     -- Keep the tabs flush to the right, while still allowing overflow to scroll.
     local function resizeTabs()
+        -- Reserve room for the actual labels, shrinking a long title rather than
+        -- hiding the first tabs. Very large tab sets remain horizontally scrollable.
+        local rootWidth = root.AbsoluteSize.X / self.Scale.Scale
+        if rootWidth < 150 then rootWidth = root.Size.X.Offset > 0 and root.Size.X.Offset or 490 end
+        local budget = math.clamp(rootWidth - tabLayout.AbsoluteContentSize.X - 14, 100, 240)
+        local newTitleWidth = math.min(math.max(desiredWidth, 135), budget)
+        title.Size = UDim2.new(0, newTitleWidth, 1, 0)
+        title.TextSize = desiredWidth > newTitleWidth and math.max(8, math.floor(13 * newTitleWidth / desiredWidth)) or 13
+        tabBar.Position = UDim2.fromOffset(newTitleWidth + 7, 0)
+        tabBar.Size = UDim2.new(1, -(newTitleWidth + 14), 1, 0)
         local width = math.max(tabBar.AbsoluteSize.X, tabLayout.AbsoluteContentSize.X)
         tabBar.CanvasSize = UDim2.fromOffset(width, 0)
         tabBar.CanvasPosition = Vector2.new(math.max(0, width - tabBar.AbsoluteSize.X), 0)
     end
+    self:_connect(root:GetPropertyChangedSignal("AbsoluteSize"), resizeTabs)
     self:_connect(tabBar:GetPropertyChangedSignal("AbsoluteSize"), resizeTabs)
     self:_connect(tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"), resizeTabs)
     resizeTabs()
     create("Frame", {Position = UDim2.fromOffset(0, 25), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = self.Accent, BorderSizePixel = 0}, root)
     local subLayer = create("Frame", {
-        Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 19),
+        Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 26),
         BackgroundColor3 = C.header, BorderSizePixel = 0,
     }, root)
     local subBar = create("ScrollingFrame", {
@@ -212,8 +242,8 @@ function Plague.new(options)
     }, subLayer)
     list(subBar, 0, true)
     self.SubBar, self.SubLayer = subBar, subLayer
-    self.SubDivider = create("Frame", {Position = UDim2.fromOffset(0, 45), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = C.border, BorderSizePixel = 0}, root)
-    self.Content = create("Frame", {Position = UDim2.fromOffset(12, 55), Size = UDim2.new(1, -24, 1, -65), BackgroundTransparency = 1, BorderSizePixel = 0}, root)
+    self.SubDivider = create("Frame", {Position = UDim2.fromOffset(0, 52), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = C.border, BorderSizePixel = 0}, root)
+    self.Content = create("Frame", {Position = UDim2.fromOffset(12, 62), Size = UDim2.new(1, -24, 1, -72), BackgroundTransparency = 1, BorderSizePixel = 0}, root)
     -- The same 8x8 tiled texture used by gamesense.lua, behind the panels.
     create("ImageLabel", {Name = "BackgroundPattern", Size = UDim2.fromScale(1, 1),
         BackgroundTransparency = 1, BorderSizePixel = 0, Image = "rbxassetid://8547666218",
@@ -325,8 +355,8 @@ function Window:_layoutSubtabs()
     local show = self.ActiveTab ~= nil and #self.ActiveTab.Subtabs > 1
     self.SubLayer.Visible = show
     self.SubDivider.Visible = show
-    self.Content.Position = UDim2.fromOffset(12, show and 55 or 36)
-    self.Content.Size = UDim2.new(1, -24, 1, show and -65 or -46)
+    self.Content.Position = UDim2.fromOffset(12, show and 62 or 36)
+    self.Content.Size = UDim2.new(1, -24, 1, show and -72 or -46)
 end
 
 function Window:_closePopup()
@@ -379,6 +409,7 @@ function Window:Destroy()
     self:_closePopup()
     self.Drag, self.SliderDrag, self.PopupDrag, self.CapturingKey, self.PopupCapturedInput = nil, nil, nil, nil, nil
     for _, connection in ipairs(self.Connections) do connection:Disconnect() end
+    windowFonts[self.Root] = nil
     self.Gui:Destroy()
 end
 
@@ -386,7 +417,7 @@ function Window:Tab(name, options)
     options = options or {}
     local tab = setmetatable({Window = self, Name = name, Subtabs = {}}, Tab)
     local nav = button(self.TabBar, name)
-    nav.Size = UDim2.fromOffset(math.max(35, #name * 6 + 12) + (options.Icon and 14 or 0), 25)
+    nav.Size = UDim2.fromOffset(math.max(35, math.ceil(TextService:GetTextSize(name, 13, self.Font, Vector2.new(1000, 25)).X) + 12) + (options.Icon and 14 or 0), 25)
     nav.TextColor3 = C.muted
     if options.Icon then tab.Tint = decorateButton(nav, name, options.Icon, C.muted) end
     tab.Button = nav
@@ -426,7 +457,7 @@ function Tab:Subtab(name)
     local sub = setmetatable({Tab = self, Window = window, Name = name}, Subtab)
     local nav = button(window.SubBar, name)
     -- CS2 reference uses plain text subtabs; no icon column.
-    nav.Size = UDim2.fromOffset(math.max(35, #name * 6 + 12), 19)
+    nav.Size = UDim2.fromOffset(math.max(35, math.ceil(TextService:GetTextSize(name, 13, window.Font, Vector2.new(1000, 26)).X) + 16), 26)
     nav.TextColor3 = C.muted
     sub.Button = nav
     local page = create("ScrollingFrame", {
@@ -485,10 +516,6 @@ function Subtab:Section(name, side, options)
     border(frame)
     local content
     if height then
-        -- Keep the same subtle gamesense texture beneath fixed-height panel contents.
-        create("ImageLabel", {Name = "PanelPattern", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
-            BorderSizePixel = 0, Image = "rbxassetid://8547666218", ImageColor3 = Color3.fromRGB(12, 12, 12),
-            ImageTransparency = 0.6, ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.fromOffset(8, 8)}, frame)
         local heading = text(frame, name, 12, C.muted)
         heading.Position = UDim2.fromOffset(5, 3)
         heading.Size = UDim2.new(1, -10, 0, 16)
@@ -556,8 +583,8 @@ function Section:Button(options)
     local b = button(self.Frame, options.Name or "Button")
     b.Size = UDim2.new(1, 0, 0, 24)
     b.BackgroundTransparency = 0
-    b.BackgroundColor3 = C.field
-    border(b)
+    b.BackgroundColor3 = Color3.fromRGB(36, 36, 36)
+    border(b, C.field)
     if options.Icon then decorateButton(b, options.Name or "Button", options.Icon, C.text) end
     self.Window:_connect(b.MouseButton1Click, function() if not self.Window:_popupBlocks() then safeCall(options.Callback) end end)
     return b
@@ -574,14 +601,15 @@ function Section:Toggle(options)
     b.Size = UDim2.fromScale(1, 1)
     local box = create("Frame", {Size = UDim2.fromOffset(7, 7), Position = UDim2.new(0, 5, 0.5, -3), BackgroundColor3 = C.field, BorderSizePixel = 0}, b)
     border(box)
-    local fill = create("Frame", {Position = UDim2.fromOffset(1, 1), Size = UDim2.fromOffset(5, 5), BackgroundColor3 = C.field, BorderSizePixel = 0}, box)
+    local fill = create("Frame", {Position = UDim2.fromOffset(1, 1), Size = UDim2.fromOffset(5, 5), BackgroundColor3 = Color3.fromRGB(77, 77, 77), BorderSizePixel = 0}, box)
+    create("UIGradient", {Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(140, 140, 140)), Rotation = 90}, fill)
     local label = text(b, options.Name or "Toggle", 13)
     label.Position = UDim2.fromOffset(23, 0)
     label.Size = UDim2.new(1, -23, 1, 0)
     local control = {}
     function control:Set(newValue, silent)
         value = newValue == true
-        fill.BackgroundColor3 = value and self._accent or C.field
+        fill.BackgroundColor3 = value and self._accent or Color3.fromRGB(77, 77, 77)
         label.TextColor3 = value and C.text or C.muted
         if silent then if options.Flag then self._window.Flags[options.Flag] = value end else changed(value) end
     end
@@ -632,17 +660,21 @@ function Section:Slider(options)
     number.Size = UDim2.fromOffset(65, 18)
     number.Visible = not options.Compact and not options.HideValue
     local minus = button(r, "-")
-    minus.Position = UDim2.fromOffset(0, lineY)
-    minus.Size = UDim2.fromOffset(14, 16)
+    minus.Position = UDim2.fromOffset(0, lineY + 3)
+    minus.Size = UDim2.fromOffset(14, 10)
+    minus.BackgroundTransparency = 0
+    minus.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     minus.TextColor3 = C.muted
     local plus = button(r, "+")
-    plus.Position = UDim2.new(1, -14, 0, lineY)
-    plus.Size = UDim2.fromOffset(14, 16)
+    plus.Position = UDim2.new(1, -14, 0, lineY + 3)
+    plus.Size = UDim2.fromOffset(14, 10)
+    plus.BackgroundTransparency = 0
+    plus.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     plus.TextColor3 = C.muted
     local track = create("Frame", {Position = UDim2.fromOffset(16, lineY + 1), Size = UDim2.new(1, -32, 0, 16), BackgroundTransparency = 1, BorderSizePixel = 0, Active = true}, r)
-    local rail = create("Frame", {Position = UDim2.fromOffset(0, 5), Size = UDim2.new(1, 0, 0, 5), BackgroundColor3 = C.field, BorderSizePixel = 0}, track)
-    border(rail)
-    local fill = create("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = self.Window.Accent, BorderSizePixel = 0}, rail)
+    local rail = create("Frame", {Position = UDim2.fromOffset(0, 3), Size = UDim2.new(1, 0, 0, 10), BackgroundColor3 = C.field, BorderSizePixel = 0}, track)
+    local railInner = create("Frame", {Position = UDim2.fromOffset(1, 1), Size = UDim2.new(1, -2, 1, -2), BackgroundColor3 = Color3.fromRGB(71, 71, 71), BorderSizePixel = 0}, rail)
+    local fill = create("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = self.Window.Accent, BorderSizePixel = 0}, railInner)
     local control = {}
     function control:Set(newValue, silent)
         newValue = tonumber(newValue) or min
@@ -686,8 +718,8 @@ function Section:Dropdown(options)
     local main = button(container, "")
     main.Size = UDim2.new(1, 0, 0, 20)
     main.BackgroundTransparency = 0
-    main.BackgroundColor3 = C.field
-    border(main)
+    main.BackgroundColor3 = Color3.fromRGB(36, 36, 36)
+    border(main, C.field)
     local display = text(main, "", 13, C.muted)
     display.Position = UDim2.fromOffset(7, 0)
     display.Size = UDim2.new(1, -25, 1, 0)
@@ -834,7 +866,7 @@ function Section:Textbox(options)
     label.Size = UDim2.new(1, 0, 0, 18)
     local box = create("TextBox", {
         Position = UDim2.fromOffset(0, 20), Size = UDim2.new(1, 0, 0, 24),
-        BackgroundColor3 = C.field, BorderSizePixel = 0, Font = Enum.Font.Arial, TextSize = 13,
+        BackgroundColor3 = C.field, BorderSizePixel = 0, Font = self.Window.Font, TextSize = 13,
         TextColor3 = C.text, PlaceholderColor3 = C.muted, PlaceholderText = options.Placeholder or "",
         Text = tostring(options.Default or ""), ClearTextOnFocus = false, TextXAlignment = Enum.TextXAlignment.Left,
     }, r)
@@ -995,7 +1027,7 @@ createColorControl = function(window, anchor, swatch, options)
         -- If the execution environment has no clipboard function, show selectable hex.
         local manualCopy = create("TextBox", {
             Name = "ManualCopy", Position = UDim2.fromOffset(8, 145), Size = UDim2.fromOffset(160, 22),
-            BackgroundColor3 = C.field, BorderSizePixel = 0, TextColor3 = C.text, Font = Enum.Font.Arial,
+            BackgroundColor3 = C.field, BorderSizePixel = 0, TextColor3 = C.text, Font = window.Font,
             TextSize = 12, ClearTextOnFocus = false, Visible = false, ZIndex = 110,
         }, popup)
         border(manualCopy, C.border)

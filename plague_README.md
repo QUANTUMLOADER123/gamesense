@@ -10,7 +10,7 @@ local Plague = loadstring(game:HttpGet("https://raw.githubusercontent.com/QUANTU
 
 Для Roblox Studio сохраните `plague.lua` как ModuleScript и используйте `require(...)` из LocalScript. В Studio `loadstring`/`game:HttpGet` не являются обычным способом загрузки клиентского кода.
 
-Полный пример: [`plague_example.lua`](plague_example.lua). По умолчанию окно создаётся в `CoreGui`, закрывается/открывается на Insert и перетаскивается за верхнюю панель. Доступ к `CoreGui` нужен со стороны среды выполнения; в обычном LocalScript Studio передайте `Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")`. `Parent`, `Title`, `Name`, `Size`, `Scale`, `Accent` и `ToggleKey` задаются в `Plague.new({...})`.
+Полный пример: [`plague_example.lua`](plague_example.lua). По умолчанию окно создаётся в `CoreGui`, закрывается/открывается на Insert и перетаскивается за верхнюю панель. Заголовок по умолчанию — `plaguecheat.cc - <имя локального игрока>`. Доступ к `CoreGui` нужен со стороны среды выполнения; в обычном LocalScript Studio передайте `Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")`. `Parent`, `Title`, `Name`, `Size`, `Scale`, `Font`, `Accent` и `ToggleKey` задаются в `Plague.new({...})`.
 
 ## Структура и элементы
 
@@ -65,3 +65,5 @@ print(window.Flags.enabled)
 Цвета по запросу: фон `#0d0d0d`, панели `#141414`, неактивный текст `#8c8c8c`, акцент `#6f8194`. Фон содержит ту же тайловую текстуру `rbxassetid://8547666218`, что в `gamesense.lua` (её загрузка зависит от доступности Roblox asset).
 
 Квадрат справа внизу HSV-пикера копирует `#RRGGBBAA`, где `AA` — непрозрачность. При доступном `setclipboard`/`toclipboard` копирование происходит автоматически; если функция отсутствует, появляется выделенный текст для ручного копирования.
+
+Шрифт по умолчанию — `Enum.Font.Code`, как в `gamesense.lua`, при этом размер сохранён читаемым. Его можно выбрать для отдельного окна: `Plague.new({Font = Enum.Font.Gotham})` или `Enum.Font.SourceSans`. Текстура применяется только на фоне, внутри панелей её нет.
