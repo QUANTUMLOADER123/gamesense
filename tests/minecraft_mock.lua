@@ -313,6 +313,25 @@ for _, row in ipairs(combat.Rows) do
 end
 assert(withSettings >= 1, "at least one row shows the three dots")
 
+-- The settings panel must actually become visible (regression: the fade
+-- re-captured already-faded values and left the block transparent forever).
+aura.Frame.MouseButton2Down:Fire()       -- open
+assert(aura.SettingsOpen)
+assert(aura.Settings.Panel.BackgroundTransparency == 0.35, "panel keeps its own shading")
+assert(aura.Settings.Panel.GroupTransparency < 0.05, "settings block is fully visible after opening")
+-- Controls themselves must keep their own transparencies (icons/labels visible).
+for _, control in ipairs(aura.Settings.Controls) do
+    local frame = control.Frame
+    assert(frame.Size.Y.Offset == control.Height, "control keeps its measured height")
+    assert(frame.Visible ~= false, "control is visible")
+    assert(frame.BackgroundTransparency == 1, "control frame stays transparent")
+end
+aura.Frame.MouseButton2Down:Fire()       -- close
+assert(not aura.SettingsOpen)
+aura.Frame.MouseButton2Down:Fire()       -- open again
+assert(aura.SettingsOpen and aura.Settings.Panel.GroupTransparency < 0.05, "reopening shows the content again")
+aura.Frame.MouseButton2Down:Fire()
+
 -- Primary click flips the value and fires the callback.
 local calls = 0
 local function auraCallback(value) calls = calls + 1 end

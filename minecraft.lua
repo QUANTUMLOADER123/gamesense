@@ -41,14 +41,19 @@ local M = {
     Search = 26,
     SearchWidth = 220,
 }
+-- One place to tune the whole look: panel 6px, rows 5px, small controls 3-4px.
+Minecraft.Radius = {Panel = 6, Row = 5, Control = 4, Small = 3}
 Minecraft.Metrics = M
 
 local T = {
-    Layout = TweenInfo.new(0.24, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
-    Quick = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-    Pop = TweenInfo.new(0.20, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-    Color = TweenInfo.new(0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-    Fade = TweenInfo.new(0.16, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+    Layout = TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+    Expand = TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+    Collapse = TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+    Quick = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    Pop = TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+    Color = TweenInfo.new(0.24, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+    Fade = TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    FadeFast = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 }
 
 local function rgb(r, g, b)
@@ -178,32 +183,37 @@ local function beginDrag(input, handler)
 end
 
 -- Collect the transparencies of a subtree so it can fade in and out as one unit.
+-- Fade helper. The first time an object is seen its real transparency is
+-- remembered as the base, so opening/closing a block always animates around the
+-- same value instead of drifting to "fully transparent forever".
 local function collectFade(object, list)
     list = list or {}
-    for _, property in ipairs({"BackgroundTransparency", "TextTransparency"}) do
+    local function remember(property)
         local ok, value = pcall(function()
             return object[property]
         end)
-        if ok and type(value) == "number" then
-            list[#list + 1] = {Object = object, Property = property, Base = value}
+        if not ok or type(value) ~= "number" then
+            return
         end
-    end
-    if pcall(function()
-        return object.Transparency
-    end) then
-        local ok, value = pcall(function()
-            return object.Transparency
-        end)
-        if ok and type(value) == "number" then
-            list[#list + 1] = {Object = object, Property = "Transparency", Base = value}
+        for _, item in ipairs(list) do
+            if item.Object == object and item.Property == property then
+                return
+            end
         end
+        list[#list + 1] = {Object = object, Property = property, Base = value}
     end
+    remember("BackgroundTransparency")
+    remember("TextTransparency")
+    remember("Transparency")
     local ok, children = pcall(function()
         return object:GetChildren()
     end)
     if ok then
         for _, child in ipairs(children) do
-            collectFade(child, list)
+            if not child:IsA("UICorner") and not child:IsA("UIStroke") and not child:IsA("UIGradient")
+                and not child:IsA("UIListLayout") and not child:IsA("UIPadding") and not child:IsA("UIScale") then
+                collectFade(child, list)
+            end
         end
     end
     return list
@@ -216,9 +226,15 @@ local function applyFade(list, alpha, instant, delay)
             if isAlive(item.Object) then
                 local target = item.Base + (1 - item.Base) * alpha
                 if instant then
-                    item.Object[item.Property] = target
+                    pcall(function()
+                        item.Object[item.Property] = target
+                    end)
                 else
-                    tween(item.Object, {[item.Property] = target}, T.Fade)
+                    local info = T.Fade
+                    if alpha == 0 then
+                        info = T.FadeFast
+                    end
+                    tween(item.Object, {[item.Property] = target}, info)
                 end
             end
         end
@@ -350,6 +366,25 @@ function Minecraft:Refresh(instant)
     end
 end
 
+-- Smooth palette crossfade used by SetTheme: every bound object glides to the
+-- new colours instead of snapping.
+function Minecraft:AnimateTheme()
+    local theme = self.Theme
+    for _, entry in ipairs(self.Refreshers) do
+        if not entry.Target or isAlive(entry.Target) then
+            entry.Apply(theme, false)
+        end
+    end
+    if self.Root.ClassName == "CanvasGroup" then
+        tween(self.Root, {GroupTransparency = 0.12}, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+        task.delay(0.09, function()
+            if isAlive(self.Root) then
+                tween(self.Root, {GroupTransparency = self.Open and 0 or 1}, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+            end
+        end)
+    end
+end
+
 function Minecraft:SetTheme(value)
     local index = resolveTheme(value)
     if index == self.ThemeIndex then
@@ -357,7 +392,7 @@ function Minecraft:SetTheme(value)
     end
     self.ThemeIndex = index
     self.Theme = THEMES[index]
-    self:Refresh(false)
+    self:AnimateTheme()
 end
 
 function Minecraft:CycleTheme(direction)
@@ -391,7 +426,7 @@ function Minecraft:SetupSearch()
         Size = UDim2.fromOffset(M.SearchWidth, M.Search),
         ZIndex = 6,
     }, window.Root)
-    create("UICorner", {CornerRadius = UDim.new(0, 4)}, window.SearchFrame)
+    create("UICorner", {CornerRadius = UDim.new(0, 6)}, window.SearchFrame)
     window.SearchStroke = create("UIStroke", {
         Thickness = 1,
         Color = window.Theme.Border,
@@ -572,7 +607,7 @@ function Minecraft:AddTab(name, options)
         Position = UDim2.fromOffset((#window.Tabs) * (M.PanelWidth + M.Gap), -10),
         ZIndex = 2,
     }, window.Body)
-    create("UICorner", {CornerRadius = UDim.new(0, 3)}, tab.Panel)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel)}, tab.Panel)
     tab.Stroke = create("UIStroke", {
         Thickness = 1,
         Color = theme.Border,
@@ -758,7 +793,7 @@ local function newRow(tab, name, options)
         Size = UDim2.new(1, 0, 1, 0),
         ZIndex = 2,
     }, row.Frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 3)}, row.Box)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Row)}, row.Box)
     row.BoxStroke = create("UIStroke", {
         Thickness = 1,
         Color = theme.RowStroke,
@@ -879,6 +914,10 @@ local function newRow(tab, name, options)
         end
     end)
     row.Frame.MouseButton1Click:Connect(function()
+        -- Tiny squish so every click has feedback, even when the row is a press.
+        local size = row.Frame.Size
+        row.Frame.Size = UDim2.new(size.X.Scale, size.X.Offset, 0, M.RowHeight - 2)
+        tween(row.Frame, {Size = UDim2.new(size.X.Scale, size.X.Offset, 0, M.RowHeight)}, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
         row:OnPrimaryClick()
     end)
 
@@ -904,10 +943,18 @@ function Row:RefreshVisual(instant)
         target = theme.On
     end
     local accent = (self.Hovered or open or self.OnState) and not self.Locked
-    applyColor(self.Box, "BackgroundColor3", target, instant, 0.14)
-    applyColor(self.BoxStroke, "Color", accent and theme.Accent or theme.RowStroke, instant, 0.14)
-    applyColor(self.Dots, "TextColor3", open and theme.Accent or theme.Muted, instant, 0.14)
-    applyColor(self.Label, "TextColor3", self.Locked and theme.Muted or theme.Text, instant, 0.14)
+    applyColor(self.Box, "BackgroundColor3", target, instant, 0.18)
+    applyColor(self.Dots, "TextColor3", open and theme.Accent or theme.Muted, instant, 0.18)
+    applyColor(self.Label, "TextColor3", self.Locked and theme.Muted or theme.Text, instant, 0.18)
+    local stroke = self.BoxStroke
+    if isAlive(stroke) then
+        if instant then
+            stroke.Color = accent and theme.Accent or theme.RowStroke
+            stroke.Transparency = accent and 0 or 0.35
+        else
+            tween(stroke, {Color = accent and theme.Accent or theme.RowStroke, Transparency = accent and 0 or 0.35}, T.Color)
+        end
+    end
 end
 
 function Row:SetValueText(value)
@@ -933,13 +980,13 @@ function Row:_Extra()
     return (self.SettingsOpen and self.SettingsHeight or 0) + (self.ListOpen and self.ListHeight or 0)
 end
 
-function Row:_ApplyHeight(instant)
+function Row:_ApplyHeight(instant, opening)
     local extra = self:_Extra()
     local target = UDim2.new(1, 0, 0, M.RowHeight + extra)
     if instant then
         self.Slot.Size = target
     else
-        tween(self.Slot, {Size = target}, T.Layout)
+        tween(self.Slot, {Size = target}, opening and T.Expand or T.Collapse)
     end
     -- Keep the two collapsible blocks stacked below the header row.
     local listOffset = M.RowHeight + M.RowGap + (self.SettingsOpen and self.SettingsHeight or 0)
@@ -953,7 +1000,7 @@ function Row:_ApplyHeight(instant)
         self.ListHolder.Position = listTarget
         self.ListHolder.Size = listSize
     else
-        tween(self.Holder, {Position = settingsTarget, Size = settingsSize}, T.Layout)
+        tween(self.Holder, {Position = settingsTarget, Size = settingsSize}, opening and T.Expand or T.Collapse)
         tween(self.ListHolder, {Position = listTarget, Size = listSize}, T.Layout)
     end
 end
@@ -969,7 +1016,13 @@ function Row:EnsureSettings()
         Controls = {},
         Height = 0,
     }, Settings)
-    local panel = create("Frame", {
+    local panelClass = "Frame"
+    if pcall(function()
+        return Instance.new("CanvasGroup")
+    end) then
+        panelClass = "CanvasGroup"
+    end
+    local panel = create(panelClass, {
         Name = "SettingsPanel",
         BackgroundColor3 = self.Window.Theme.Window,
         BackgroundTransparency = 0.35,
@@ -978,7 +1031,10 @@ function Row:EnsureSettings()
         Size = UDim2.new(1, 0, 0, 0),
         ZIndex = 2,
     }, self.Holder)
-    create("UICorner", {CornerRadius = UDim.new(0, 3)}, panel)
+    if panel.ClassName == "CanvasGroup" then
+        panel.GroupTransparency = 0
+    end
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Control)}, panel)
     local stroke = create("UIStroke", {
         Thickness = 1,
         Color = self.Window.Theme.Border,
@@ -1019,8 +1075,12 @@ function Row:EnsureSettings()
 
     settings:_Measure()
     panel.Size = UDim2.new(1, 0, 0, settings.Height + 12)
-    settings.Fade = collectFade(panel)
-    applyFade(settings.Fade, 1, true)
+    if panel.ClassName == "CanvasGroup" then
+        panel.GroupTransparency = 1
+    else
+        settings.Fade = collectFade(panel)
+        applyFade(settings.Fade, 1, true)
+    end
 end
 
 function Row:ToggleSettings(force)
@@ -1037,14 +1097,46 @@ function Row:ToggleSettings(force)
     self:EnsureSettings()
     self.SettingsOpen = target
     self.SettingsHeight = self.Settings.Height + 12 + M.RowGap
-    if target then
-        self.Settings.Fade = collectFade(self.Settings.Panel)
-        applyFade(self.Settings.Fade, 1, true)
-        applyFade(self.Settings.Fade, 0, false)
-    else
-        applyFade(self.Settings.Fade, 1, false)
+    local settings = self.Settings
+    local canvas = settings.Panel.ClassName == "CanvasGroup"
+    local function setAlpha(alpha, instant)
+        if canvas then
+            if instant then
+                settings.Panel.GroupTransparency = alpha
+            else
+                tween(settings.Panel, {GroupTransparency = alpha}, alpha > 0.5 and T.FadeFast or T.Fade)
+            end
+        else
+            if not settings.Fade then
+                settings.Fade = collectFade(settings.Panel)
+            end
+            applyFade(settings.Fade, alpha, instant)
+        end
     end
-    self:_ApplyHeight(false)
+    settings.SetAlpha = setAlpha
+    if target then
+        -- Slide the block in from above while each control fades in with a
+        -- small stagger, so it feels like the block unfolds.
+        settings.Panel.Position = UDim2.fromOffset(0, -6)
+        setAlpha(1, true)
+        setAlpha(0, false)
+        tween(settings.Panel, {Position = UDim2.fromOffset(0, 0)}, T.Expand)
+        for index, control in ipairs(settings.Controls) do
+            local entry = control.Frame
+            if entry then
+                entry.Position = UDim2.fromOffset(0, 4)
+                task.delay(0.03 * math.min(index - 1, 8), function()
+                    if isAlive(entry) and self.SettingsOpen then
+                        tween(entry, {Position = UDim2.fromOffset(0, 0)}, T.Layout)
+                    end
+                end)
+            end
+        end
+    else
+        setAlpha(1, false)
+        tween(settings.Panel, {Position = UDim2.fromOffset(0, -6)}, T.FadeFast)
+    end
+    self:_ApplyHeight(false, target)
     self:RefreshVisual()
     if self.Options.SettingsChanged then
         self.Options.SettingsChanged(target)
@@ -1162,7 +1254,7 @@ function Settings:Toggle(options)
         Size = UDim2.fromOffset(13, 13),
         ZIndex = 3,
     }, frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 2)}, box)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, box)
     local boxStroke = create("UIStroke", {
         Thickness = 1,
         Color = theme.Border,
@@ -1210,6 +1302,9 @@ function Settings:Toggle(options)
         if instant then
             mark.Size = UDim2.fromOffset(size, size)
         else
+            if value then
+                mark.Size = UDim2.fromOffset(1, 1)
+            end
             tween(mark, {Size = UDim2.fromOffset(size, size)}, T.Pop)
         end
         applyColor(mark, "BackgroundColor3", theme.Accent, instant, 0.16)
@@ -1329,7 +1424,7 @@ function Settings:Slider(options)
         if instant then
             fill.Size = UDim2.new(alpha, 0, 1, 0)
         else
-            tween(fill, {Size = UDim2.new(alpha, 0, 1, 0)}, T.Quick)
+            tween(fill, {Size = UDim2.new(alpha, 0, 1, 0)}, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out))
         end
         readout.Text = format(value) .. (options.Suffix or "")
     end
@@ -1405,7 +1500,7 @@ function Settings:Input(options)
         Size = UDim2.new(1, 0, 0, 15),
         ZIndex = 3,
     }, frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 2)}, box)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, box)
     local stroke = create("UIStroke", {
         Thickness = 1,
         Color = theme.Border,
@@ -1472,7 +1567,7 @@ function Settings:Button(options)
         Size = UDim2.fromScale(1, 1),
         ZIndex = 3,
     }, frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 2)}, button)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, button)
     local stroke = create("UIStroke", {
         Thickness = 1,
         Color = theme.RowStroke,
@@ -1537,7 +1632,7 @@ function Settings:Keybind(options)
         Size = UDim2.fromOffset(54, 14),
         ZIndex = 3,
     }, frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 2)}, keyButton)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, keyButton)
     local stroke = create("UIStroke", {
         Thickness = 1,
         Color = theme.Border,
@@ -1634,7 +1729,7 @@ function Settings:ColorPicker(options)
         Size = UDim2.fromOffset(16, 14),
         ZIndex = 3,
     }, frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 2)}, swatch)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, swatch)
     local stroke = create("UIStroke", {
         Thickness = 1,
         Color = theme.Border,
@@ -1694,7 +1789,7 @@ function Settings:Dropdown(options)
         Size = UDim2.fromScale(1, 1),
         ZIndex = 3,
     }, frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 3)}, header)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Control)}, header)
     local stroke = create("UIStroke", {
         Thickness = 1,
         Color = window.Theme.Border,
@@ -1747,7 +1842,7 @@ function Settings:Dropdown(options)
         Visible = false,
         ZIndex = 3,
     }, frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 2)}, list)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, list)
     create("UIPadding", {
         PaddingTop = UDim.new(0, 2),
         PaddingBottom = UDim.new(0, 2),
@@ -1829,7 +1924,7 @@ function Settings:Dropdown(options)
             ZIndex = 4,
         }, list)
         optionButtons[index] = button
-        create("UICorner", {CornerRadius = UDim.new(0, 2)}, button)
+        create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, button)
         button.MouseEnter:Connect(function()
             button.BackgroundTransparency = 0.8
             button.BackgroundColor3 = window.Theme.Hover
@@ -2260,7 +2355,7 @@ function Tab:AddColorPicker(options)
         Size = UDim2.fromOffset(26, 14),
         ZIndex = 4,
     }, row.Frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 2)}, swatch)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, swatch)
     local swatchStroke = create("UIStroke", {
         Thickness = 1,
         Color = window.Theme.Border,
@@ -2377,7 +2472,7 @@ function Tab:AddDropdown(options)
         ClipsDescendants = true,
         ZIndex = 3,
     }, row.ListHolder)
-    create("UICorner", {CornerRadius = UDim.new(0, 3)}, listFrame)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Control)}, listFrame)
     create("UIStroke", {
         Thickness = 1,
         Color = theme.Border,
@@ -2393,6 +2488,10 @@ function Tab:AddDropdown(options)
     row.OnClick = function()
         row.ListOpen = not row.ListOpen
         row.ListHeight = row.ListOpen and (#choices * 16 + 6) or 0
+        listFrame.Position = UDim2.fromOffset(0, row.ListOpen and 0 or 2)
+        if row.ListOpen then
+            tween(listFrame, {Position = UDim2.fromOffset(0, 2)}, T.Expand)
+        end
         if row.ListOpen and row.SettingsOpen then
             row:ToggleSettings(false)
         end
@@ -2443,7 +2542,7 @@ function Tab:AddDropdown(options)
             ZIndex = 4,
         }, listFrame)
         buttons[index] = button
-        create("UICorner", {CornerRadius = UDim.new(0, 2)}, button)
+        create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, button)
         button.MouseEnter:Connect(function()
             applyColor(button, "BackgroundColor3", theme.Hover, false, 0.1)
             button.BackgroundTransparency = 0.5
@@ -2551,7 +2650,7 @@ function Minecraft:OpenColorPicker(anchor, callback)
         Size = UDim2.fromOffset(134, 126),
         ZIndex = 70,
     }, self.PopupLayer)
-    create("UICorner", {CornerRadius = UDim.new(0, 3)}, panel)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Control)}, panel)
     local stroke = create("UIStroke", {
         Thickness = 1,
         Color = theme.Border,
@@ -2650,7 +2749,7 @@ function Minecraft:OpenColorPicker(anchor, callback)
             Size = UDim2.fromOffset(18, 18),
             ZIndex = 72,
         }, panel)
-        create("UICorner", {CornerRadius = UDim.new(0, 2)}, swatch)
+        create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, swatch)
         presets[index] = swatch
         swatch.MouseButton1Click:Connect(function()
             local h, s, v = color:ToHSV()
