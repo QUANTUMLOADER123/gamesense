@@ -17,7 +17,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.0.0"
+Minecraft.Version = "1.2.0"
+Minecraft.Build = 12 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -31,15 +32,15 @@ Settings.__index = Settings
 -- Layout metrics. Every panel uses the same width and height, so the menu always
 -- reads as one even row of columns no matter how many tabs are added.
 local M = {
-    PanelWidth = 178,
-    PanelHeight = 430,
+    PanelWidth = 210,
+    PanelHeight = 476,
     Gap = 8,
-    Title = 34,
-    RowHeight = 20,
-    RowGap = 2,
-    Inset = 6,
-    Search = 26,
-    SearchWidth = 220,
+    Title = 38,
+    RowHeight = 24,
+    RowGap = 3,
+    Inset = 8,
+    Search = 28,
+    SearchWidth = 250,
 }
 -- One place to tune the whole look: panel 6px, rows 5px, small controls 3-4px.
 Minecraft.Radius = {Panel = 6, Row = 5, Control = 4, Small = 3}
@@ -282,6 +283,25 @@ function Minecraft.new(options)
         window.Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
     end
 
+    -- Frosted glass behind the menu. Roblox only exposes real blur through
+    -- BlurEffect, so we add one to Lighting (the standard executor approach) and
+    -- keep it in sync with the menu's visibility.
+    if options.Blur ~= false then
+        local lighting = game:GetService("Lighting")
+        local existing = lighting:FindFirstChild("MinecraftUIBlur")
+        if existing then
+            existing:Destroy()
+        end
+        local blurSize = options.BlurSize or 18
+        local blur = create("BlurEffect", {
+            Name = "MinecraftUIBlur",
+            Size = blurSize,
+            Enabled = true,
+        }, lighting)
+        window.Blur = blur
+        window.BlurSize = blurSize
+    end
+
     -- CanvasGroup lets the whole menu fade as one unit. Fall back to a Frame on
     -- clients that do not expose CanvasGroup yet.
     local groupClass = "Frame"
@@ -405,6 +425,14 @@ function Minecraft:CycleTheme(direction)
     self:SetTheme(index)
 end
 
+function Minecraft:SetBlur(size)
+    if not self.Blur then
+        return
+    end
+    self.BlurSize = size or 0
+    tween(self.Blur, {Size = self.Open and self.BlurSize or 0}, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+end
+
 function Minecraft:SetScale(scale)
     self.Scale = scale or 1
     tween(self.ScaleObject, {Scale = self.Scale}, T.Pop)
@@ -504,6 +532,10 @@ function Minecraft:Toggle(value)
         value = not self.Open
     end
     self.Open = value and true or false
+    if self.Blur then
+        tween(self.Blur, {Size = self.Open and self.BlurSize or 0}, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+        self.Blur.Enabled = true
+    end
     if self.Popup then
         self:ClosePopup(true)
     end
@@ -619,7 +651,7 @@ function Minecraft:AddTab(name, options)
         BackgroundTransparency = 1,
         Font = window.Font,
         Text = tab.Name,
-        TextSize = 15,
+        TextSize = 16,
         TextColor3 = theme.Text,
         TextXAlignment = Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Center,
@@ -728,6 +760,12 @@ function Minecraft:Destroy()
     if self.Popup then
         self.Popup = nil
     end
+    if self.Blur then
+        pcall(function()
+            self.Blur:Destroy()
+        end)
+        self.Blur = nil
+    end
     if self.Gui then
         self.Gui:Destroy()
     end
@@ -806,7 +844,7 @@ local function newRow(tab, name, options)
         BackgroundTransparency = 1,
         Font = window.Font,
         Text = row.Name,
-        TextSize = 13,
+        TextSize = 14,
         TextColor3 = theme.Text,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Center,
@@ -821,12 +859,12 @@ local function newRow(tab, name, options)
         BackgroundTransparency = 1,
         Font = window.Font,
         Text = "",
-        TextSize = 12,
+        TextSize = 13,
         TextColor3 = theme.Muted,
         TextXAlignment = Enum.TextXAlignment.Right,
         TextYAlignment = Enum.TextYAlignment.Center,
-        Position = UDim2.new(1, -M.Inset - 30, 0, 0),
-        Size = UDim2.fromOffset(60, M.RowHeight),
+        Position = UDim2.new(1, -M.Inset - 32, 0, 0),
+        Size = UDim2.fromOffset(66, M.RowHeight),
         TextTruncate = Enum.TextTruncate.AtEnd,
         Visible = false,
         ZIndex = 3,
@@ -837,12 +875,12 @@ local function newRow(tab, name, options)
         BackgroundTransparency = 1,
         Font = window.Font,
         Text = "•••",
-        TextSize = 11,
+        TextSize = 13,
         TextColor3 = theme.Muted,
         TextXAlignment = Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Center,
-        Position = UDim2.new(1, -M.Inset - 20, 0, -1),
-        Size = UDim2.fromOffset(20, M.RowHeight),
+        Position = UDim2.new(1, -M.Inset - 22, 0, -2),
+        Size = UDim2.fromOffset(22, M.RowHeight),
         Visible = false,
         ZIndex = 3,
     }, row.Frame)
@@ -1016,13 +1054,7 @@ function Row:EnsureSettings()
         Controls = {},
         Height = 0,
     }, Settings)
-    local panelClass = "Frame"
-    if pcall(function()
-        return Instance.new("CanvasGroup")
-    end) then
-        panelClass = "CanvasGroup"
-    end
-    local panel = create(panelClass, {
+    local panel = create("Frame", {
         Name = "SettingsPanel",
         BackgroundColor3 = self.Window.Theme.Window,
         BackgroundTransparency = 0.35,
@@ -1031,9 +1063,6 @@ function Row:EnsureSettings()
         Size = UDim2.new(1, 0, 0, 0),
         ZIndex = 2,
     }, self.Holder)
-    if panel.ClassName == "CanvasGroup" then
-        panel.GroupTransparency = 0
-    end
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Control)}, panel)
     local stroke = create("UIStroke", {
         Thickness = 1,
@@ -1042,15 +1071,15 @@ function Row:EnsureSettings()
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
     }, panel)
     local padding = create("UIPadding", {
-        PaddingTop = UDim.new(0, 6),
-        PaddingBottom = UDim.new(0, 6),
-        PaddingLeft = UDim.new(0, 7),
-        PaddingRight = UDim.new(0, 7),
+        PaddingTop = UDim.new(0, 7),
+        PaddingBottom = UDim.new(0, 7),
+        PaddingLeft = UDim.new(0, 8),
+        PaddingRight = UDim.new(0, 8),
     }, panel)
     local layout = create("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
         SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 5),
+        Padding = UDim.new(0, 6),
         HorizontalAlignment = Enum.HorizontalAlignment.Left,
     }, panel)
     settings.Panel = panel
@@ -1075,12 +1104,10 @@ function Row:EnsureSettings()
 
     settings:_Measure()
     panel.Size = UDim2.new(1, 0, 0, settings.Height + 12)
-    if panel.ClassName == "CanvasGroup" then
-        panel.GroupTransparency = 1
-    else
-        settings.Fade = collectFade(panel)
-        applyFade(settings.Fade, 1, true)
-    end
+    -- Capture the fade list once; it is reused for every open/close so the base
+    -- transparencies never get polluted by an in-progress animation.
+    settings.Fade = collectFade(panel)
+    applyFade(settings.Fade, 1, true)
 end
 
 function Row:ToggleSettings(force)
@@ -1098,34 +1125,25 @@ function Row:ToggleSettings(force)
     self.SettingsOpen = target
     self.SettingsHeight = self.Settings.Height + 12 + M.RowGap
     local settings = self.Settings
-    local canvas = settings.Panel.ClassName == "CanvasGroup"
+    if not settings.Fade then
+        settings.Fade = collectFade(settings.Panel)
+    end
     local function setAlpha(alpha, instant)
-        if canvas then
-            if instant then
-                settings.Panel.GroupTransparency = alpha
-            else
-                tween(settings.Panel, {GroupTransparency = alpha}, alpha > 0.5 and T.FadeFast or T.Fade)
-            end
-        else
-            if not settings.Fade then
-                settings.Fade = collectFade(settings.Panel)
-            end
-            applyFade(settings.Fade, alpha, instant)
-        end
+        applyFade(settings.Fade, alpha, instant)
     end
     settings.SetAlpha = setAlpha
     if target then
-        -- Slide the block in from above while each control fades in with a
-        -- small stagger, so it feels like the block unfolds.
-        settings.Panel.Position = UDim2.fromOffset(0, -6)
+        -- Slide the block in from above while the controls fade in with a small
+        -- stagger, so the block unfolds instead of popping.
+        settings.Panel.Position = UDim2.fromOffset(0, -7)
         setAlpha(1, true)
         setAlpha(0, false)
         tween(settings.Panel, {Position = UDim2.fromOffset(0, 0)}, T.Expand)
         for index, control in ipairs(settings.Controls) do
             local entry = control.Frame
             if entry then
-                entry.Position = UDim2.fromOffset(0, 4)
-                task.delay(0.03 * math.min(index - 1, 8), function()
+                entry.Position = UDim2.fromOffset(0, 5)
+                task.delay(0.028 * math.min(index - 1, 10), function()
                     if isAlive(entry) and self.SettingsOpen then
                         tween(entry, {Position = UDim2.fromOffset(0, 0)}, T.Layout)
                     end
@@ -1134,7 +1152,7 @@ function Row:ToggleSettings(force)
         end
     else
         setAlpha(1, false)
-        tween(settings.Panel, {Position = UDim2.fromOffset(0, -6)}, T.FadeFast)
+        tween(settings.Panel, {Position = UDim2.fromOffset(0, -7)}, T.FadeFast)
     end
     self:_ApplyHeight(false, target)
     self:RefreshVisual()

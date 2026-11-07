@@ -15,10 +15,28 @@
     features -- wire your own logic into the Callback functions.
 ]]
 
-local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua"
+-- Shared libraries cache HTTP results, so the URL carries a version query to
+-- make sure the newest minecraft.lua is fetched. Bump it if you edit the file.
+local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua?v=1.2.0"
+
+local function httpGet(url)
+    -- Several executors cache game:HttpGet; request(url, true) forces a refresh.
+    local ok, body = pcall(function()
+        return game:HttpGet(url, true)
+    end)
+    if ok and type(body) == "string" and #body > 0 then
+        return body
+    end
+    return game:HttpGet(url)
+end
 
 local ok, Minecraft = pcall(function()
-    return loadstring(game:HttpGet(LIB_URL))()
+    local source = httpGet(LIB_URL)
+    local chunk = loadstring(source)
+    if not chunk then
+        error("minecraft.lua returned by HttpGet could not be parsed (stale cache?)")
+    end
+    return chunk()
 end)
 if not ok or type(Minecraft) ~= "table" then
     -- Roblox Studio: save minecraft.lua as a ModuleScript named "Minecraft"
@@ -228,3 +246,6 @@ window:Toggle(true)
 
 -- Handy for consoles: announce where the library lives.
 print(("Minecraft UI v%s loaded for %s"):format(Minecraft.Version, Player.Name))
+-- If this fires, your executor served a cached copy of minecraft.lua.
+assert(Minecraft.Build and Minecraft.Build >= 12,
+    "stale minecraft.lua in cache -- clear the executor cache or bump LIB_URL")

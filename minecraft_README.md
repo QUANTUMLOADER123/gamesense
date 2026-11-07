@@ -24,9 +24,17 @@ local Minecraft = loadstring(game:HttpGet("https://raw.githubusercontent.com/QUA
 local window = Minecraft.new({
     Theme = 1,                      -- 1..6 или имя: "Midnight", "Slate", ...
     ToggleKey = Enum.KeyCode.Insert,
+    Blur = true,                    -- размытие игрового фона (BlurEffect в Lighting)
+    BlurSize = 18,                  -- сила размытия
     -- Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"),
 })
 ```
+
+Размеры: панель 210 × 476, строки 24px, отступ 3px, скругления панель 6 / строка 5 /
+контрол 4 / мелкое 3 — всё в `Minecraft.Radius` и `Minecraft.Metrics`, можно менять до создания окна.
+
+Блюр живёт в `Lighting.MinecraftUIBlur`, включается/выключается вместе с меню (`Insert`) и
+удаляется в `window:Destroy()`. Силу можно менять на ходу: `window:SetBlur(24)`.
 
 * `Insert` — показать/скрыть (плавное затухание);
 * поле «Поиск» под панелями фильтрует все панели сразу, несовпавшие строки скрываются,
