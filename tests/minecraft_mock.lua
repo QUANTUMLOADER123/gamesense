@@ -234,10 +234,7 @@ local window = Minecraft.new({Title = "Minecraft", Theme = 3, Search = true})
 assert(window.Gui.Parent == coreGui, "default parent is CoreGui")
 assert(window.ThemeIndex == 3 and window.Theme.Name == "Bloom")
 assert(window.Root.ClassName == "CanvasGroup", "CanvasGroup fade wrapper")
-assert(window.Glass, "frosted layer exists behind the panels")
-assert(window.Glass.Parent == window.Root, "glass lives in the root")
-assert(window.Glass.ZIndex == 1, "glass sits behind the panels")
-assert(window.Glass.BackgroundTransparency == 0.30, "glass is translucent")
+assert(window.Glass == nil, "no glass plate behind the window any more")
 assert(window.BlurEffect and window.BlurEffect.ClassName == "BlurEffect", "real backdrop blur exists")
 flush()
 assert(window.BlurEffect.Parent == lighting and window.BlurEffect.Size == 20, "blur is applied to the world")
@@ -326,6 +323,29 @@ assert(tickMark, "check mark container exists")
 assert(findChild(tickMark, "TickShort") and findChild(tickMark, "TickLong"), "tick is drawn from two segments")
 assert(tickMark.Size.X.Offset == 10 and tickMark.Size.Y.Offset == 10, "tick is visible when enabled")
 tickRow.Frame.MouseButton2Down:Fire()
+
+-- Hover must not repaint an enabled row's border white/bright, and leaving the
+-- row must restore exactly the enabled style (the old code fought itself here).
+local hoverRow = combat:AddToggle({Name = "Hover check", Default = true})
+local enabledEdgeColor = hoverRow.BoxStroke.Color
+local enabledEdgeTransparency = hoverRow.BoxStroke.Transparency
+local enabledFill = hoverRow.Box.BackgroundColor3
+hoverRow.Frame.MouseEnter:Fire()
+assert(hoverRow.Hovered, "hover registered")
+assert(hoverRow.BoxStroke.Transparency == enabledEdgeTransparency,
+    "enabled row keeps its edge while hovered")
+hoverRow.Frame.MouseLeave:Fire()
+assert(hoverRow.Box.BackgroundColor3 == enabledFill, "fill returns to the enabled colour")
+assert(hoverRow.BoxStroke.Color == enabledEdgeColor, "edge colour is unchanged")
+
+-- Rows must not carry stray glow frames: they clipped against the slot and
+-- produced a bright outline that lit up on hover.
+for _, row in ipairs(combat.Rows) do
+    assert(row.Glow == nil and row.GlowStroke == nil, "no glow frames on rows")
+    for _, child in ipairs(row.Slot.children) do
+        assert(child.Name ~= "Glow", "slot has no glow child")
+    end
+end
 
 -- Rows must be clickable: the hit area is the whole row, not a strip.
 for _, row in ipairs(combat.Rows) do
@@ -515,14 +535,12 @@ assert(window.Root.Position.X.Scale == 0.5 and window.Root.Position.Y.Scale == 0
 --==========================================================================--
 -- The frosted layer follows visibility.
 window:Toggle()
-assert(window.Open == false and window.Glass.BackgroundTransparency == 1, "glass fades out when hidden")
-assert(window.BlurEffect.Size == 0, "blur is removed when hidden")
+assert(window.Open == false and window.BlurEffect.Size == 0, "blur is removed when hidden")
 window:Toggle()
-assert(window.Open == true and window.Glass.BackgroundTransparency == 0.30, "glass returns when shown")
-assert(window.BlurEffect.Size == 20, "blur returns when shown")
-window:SetGlass(0.7)
-assert(window.Glass.BackgroundTransparency == 0.7)
-window:SetGlass(0.30)
+assert(window.Open == true and window.BlurEffect.Size == 20, "blur returns when shown")
+window:SetGlass(0.35)
+assert(combat.Panel.BackgroundTransparency == 0.35, "panel transparency is adjustable")
+window:SetGlass(0.22)
 window:SetBlur(32)
 assert(window.BlurEffect.Size == 32, "blur strength is adjustable")
 window:SetBlur(20)
