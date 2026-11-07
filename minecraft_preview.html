@@ -4,7 +4,7 @@ body { margin:0; background:#0b0d14 url("data:image/svg+xml;utf8,<svg xmlns='htt
 h1 { color:#c9d4e8; font-size:15px; font-weight:400; margin:0 0 18px; letter-spacing:.4px; }
 .theme { margin-bottom: 34px; }
 .caption { color:#93a4be; font-size:13px; margin-bottom:8px; letter-spacing:.5px; }
-.glass { background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)); backdrop-filter: blur(10px); border:1px solid var(--border); border-radius:11px; padding:9px; width:max-content; box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+.glass { background: linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.03)); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); border:1px solid var(--border); border-radius:11px; padding:9px; width:max-content; box-shadow: 0 18px 50px rgba(0,0,0,.55); }
 .panels { display:flex; gap:9px; height:520px; }
 .panel { width:226px; height:520px; border:1.5px solid; border-radius:9px; position:relative; box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 0 22px -8px var(--accent); }
 .ptitle { color: var(--text); text-align:center; font-size:16px; height:42px; line-height:42px; font-weight:500; }
@@ -16,7 +16,20 @@ h1 { color:#c9d4e8; font-size:15px; font-weight:400; margin:0 0 18px; letter-spa
 .dots { color: var(--muted); font-size:15px; letter-spacing:1px; }
 .badge { color: var(--accent); font-size:10px; }
 .search { margin: 9px auto 0; width:280px; height:32px; background: linear-gradient(180deg, var(--top), var(--bot)); border:1.2px solid var(--border); border-radius:9px; color: var(--muted); font-size:13px; display:flex; align-items:center; padding:0 11px; box-shadow: 0 0 18px -10px var(--accent); }
-</style></head><body><h1>Minecraft UI v1.3 — 6 тем, стеклянные панели и neon glow</h1><div class="theme"><div class="caption">Nebula</div>
+
+.detail { display:flex; gap:9px; margin-top:9px; }
+.dcard { width:226px; background: linear-gradient(180deg, rgba(38,28,74,.85), rgba(26,19,52,.9)); border:1.5px solid #6b5aa8; border-radius:9px; padding:10px; box-shadow: 0 0 22px -8px #9678ff; }
+.dtitle { color:#e9e5ff; font-size:15px; text-align:center; padding-bottom:8px; border-bottom:1px solid rgba(150,130,255,.45); margin-bottom:9px; }
+.dblock { background: rgba(10,6,24,.55); border:1px solid rgba(150,130,255,.35); border-radius:7px; padding:8px; display:flex; flex-direction:column; gap:7px; }
+.dlabel { color:#b9b1d8; font-size:11px; display:flex; justify-content:space-between; }
+.dlabel b { color:#e9e5ff; font-weight:500; }
+.drow { display:flex; align-items:center; justify-content:space-between; color:#e9e5ff; font-size:13px; }
+.cbox { width:14px; height:14px; border-radius:4px; border:1px solid #9678ff; background: rgba(150,130,255,.55); position:relative; }
+.cbox i { position:absolute; left:3px; top:2.5px; width:8px; height:2px; border-radius:2px; background:#fff; transform: rotate(-48deg); }
+.track { height:4px; border-radius:99px; background: rgba(255,255,255,.14); position:relative; }
+.track u { position:absolute; left:0; top:0; bottom:0; width:62%; border-radius:99px; background:#9678ff; box-shadow:0 0 10px #9678ff; }
+.dhead { height:26px; border-radius:5px; border:1px solid rgba(150,130,255,.4); background: rgba(255,255,255,.07); display:flex; align-items:center; justify-content:space-between; padding:0 8px; color:#e9e5ff; font-size:12px; }
+</style></head><body><h1>Minecraft UI v1.4 — 6 тем, стекло под панелями, neon glow и галочки в чекбоксах</h1><div class="theme"><div class="caption">Nebula</div>
       <div class="glass" style="--panel:#261c4a;--border:#786cad;--top:#3c335c;--bot:#211840">
         <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
 <div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
@@ -304,4 +317,29 @@ h1 { color:#c9d4e8; font-size:15px; font-weight:400; margin:0 0 18px; letter-spa
 </div></div></div>
         <div class="search">Search</div>
       </div></div>
+
+<div class="caption" style="margin-top:6px">Раскрытые настройки: галочка, слайдер, дропдаун</div>
+<div class="detail">
+  <div class="dcard">
+    <div class="dtitle">Block ESP</div>
+    <div class="dblock">
+      <div class="dlabel"><span>Block</span><b>chest</b></div>
+      <div class="dhead"><span>chest</span></div>
+      <div class="dlabel"><span>Distance</span><b>128</b></div>
+      <div class="track"><u></u></div>
+      <div class="drow"><span>Outline</span><span class="cbox"><i></i></span></div>
+      <div class="drow"><span>Through walls</span><span class="cbox"><i></i></span></div>
+    </div>
+  </div>
+  <div class="dcard">
+    <div class="dtitle">Attack Aura</div>
+    <div class="dblock">
+      <div class="dlabel"><span>Range</span><b>3.5 studs</b></div>
+      <div class="track"><u style="width:44%"></u></div>
+      <div class="dhead"><span>Target: Players</span><span>v</span></div>
+      <div class="drow"><span>Through walls</span><span class="cbox"><i></i></span></div>
+      <div class="drow"><span>Rotate</span><span class="cbox" style="background:transparent"></span></div>
+    </div>
+  </div>
+</div>
 </body></html>

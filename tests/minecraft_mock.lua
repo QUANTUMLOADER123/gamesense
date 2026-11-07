@@ -237,7 +237,10 @@ assert(window.Root.ClassName == "CanvasGroup", "CanvasGroup fade wrapper")
 assert(window.Glass, "frosted layer exists behind the panels")
 assert(window.Glass.Parent == window.Root, "glass lives in the root")
 assert(window.Glass.ZIndex == 1, "glass sits behind the panels")
-assert(window.Glass.BackgroundTransparency == 0.42, "glass is translucent")
+assert(window.Glass.BackgroundTransparency == 0.30, "glass is translucent")
+assert(window.BlurEffect and window.BlurEffect.ClassName == "BlurEffect", "real backdrop blur exists")
+flush()
+assert(window.BlurEffect.Parent == lighting and window.BlurEffect.Size == 20, "blur is applied to the world")
 assert(not window.Header and not window.TitleLabel and not window.Shadow, "no title bar, no backdrop")
 assert(window.Root.BackgroundTransparency == 1, "root itself is transparent")
 
@@ -309,6 +312,20 @@ for _, row in ipairs(combat.Rows) do
     assert(not orders[row.Slot.LayoutOrder], "layout orders are unique")
     orders[row.Slot.LayoutOrder] = true
 end
+
+-- The settings checkbox must draw a real tick, not a filled square.
+local tickRow = combat:AddToggle({Name = "Tick test", Settings = function(st)
+    st:Toggle({Name = "Inner", Default = true})
+end})
+tickRow.Frame.MouseButton2Down:Fire()
+local innerToggle = tickRow.Settings.Controls[1]
+local tickBox = findChild(innerToggle.Frame, "Box")
+assert(tickBox, "checkbox exists")
+local tickMark = findChild(tickBox, "Mark")
+assert(tickMark, "check mark container exists")
+assert(findChild(tickMark, "TickShort") and findChild(tickMark, "TickLong"), "tick is drawn from two segments")
+assert(tickMark.Size.X.Offset == 10 and tickMark.Size.Y.Offset == 10, "tick is visible when enabled")
+tickRow.Frame.MouseButton2Down:Fire()
 
 -- Rows must be clickable: the hit area is the whole row, not a strip.
 for _, row in ipairs(combat.Rows) do
@@ -499,11 +516,16 @@ assert(window.Root.Position.X.Scale == 0.5 and window.Root.Position.Y.Scale == 0
 -- The frosted layer follows visibility.
 window:Toggle()
 assert(window.Open == false and window.Glass.BackgroundTransparency == 1, "glass fades out when hidden")
+assert(window.BlurEffect.Size == 0, "blur is removed when hidden")
 window:Toggle()
-assert(window.Open == true and window.Glass.BackgroundTransparency == 0.42, "glass returns when shown")
+assert(window.Open == true and window.Glass.BackgroundTransparency == 0.30, "glass returns when shown")
+assert(window.BlurEffect.Size == 20, "blur returns when shown")
 window:SetGlass(0.7)
 assert(window.Glass.BackgroundTransparency == 0.7)
-window:SetGlass(0.42)
+window:SetGlass(0.30)
+window:SetBlur(32)
+assert(window.BlurEffect.Size == 32, "blur strength is adjustable")
+window:SetBlur(20)
 window:Toggle()
 assert(window.Open == false)
 flush()
@@ -533,6 +555,7 @@ assert(t2:Get() == true and restored.Flags.aura == true, "config patch applies")
 assert(m2:Get() == "Legit" and m2.ValueLabel.Text == "Legit")
 restored:Destroy()
 
+assert(window.BlurEffect.destroyed, "blur effect is cleaned up")
 window:Destroy()
 assert(window.Gui.destroyed)
 

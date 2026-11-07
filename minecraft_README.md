@@ -24,8 +24,9 @@ local Minecraft = loadstring(game:HttpGet("https://raw.githubusercontent.com/QUA
 local window = Minecraft.new({
     Theme = 1,                      -- 1..6 или имя: "Midnight", "Slate", ...
     ToggleKey = Enum.KeyCode.Insert,
-    Blur = true,                    -- стеклянная подложка под панелями и поиском
-    GlassTransparency = 0.42,       -- 0 = плотное стекло, 1 = полностью прозрачно
+    Blur = true,                    -- реальный блюр мира + стекло под панелями
+    BlurSize = 20,                  -- сила блюра
+    GlassTransparency = 0.30,       -- 0 = плотное стекло, 1 = полностью прозрачно
     -- Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"),
 })
 ```
@@ -36,7 +37,13 @@ local window = Minecraft.new({
 Стекло (frosted layer) рисуется под панелями и поиском, а не на весь экран: полупрозрачный
 градиент от цвета темы + тонкая акцентная рамка. Внутри панелей — вертикальный градиент,
 тонкий блик по верхней кромке и мягкий neon glow у строк (сильнее у включённых и открытых).
-Прозрачность стекла: `window:SetGlass(0.6)` (алиас `window:SetBlur`).
+
+В Roblox нет UI-«backdrop blur», поэтому настоящий блюр даёт `BlurEffect` в `Lighting`
+(`MinecraftUIBlur`): он плавно появляется при открытии меню, пропадает при `Insert`
+и удаляется в `window:Destroy()`. Управление: `window:SetBlur(24)` — сила блюра,
+`window:SetGlass(0.5)` — плотность стекла.
+
+Чекбоксы в настройках рисуют настоящую галочку (две скруглённые полоски, без ассетов).
 
 * `Insert` — показать/скрыть (плавное затухание);
 * поле «Поиск» под панелями фильтрует все панели сразу, несовпавшие строки скрываются,

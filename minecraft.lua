@@ -17,8 +17,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.3.0"
-Minecraft.Build = 13 -- incremented on every visible change, used by examples to detect stale caches
+Minecraft.Version = "1.4.0"
+Minecraft.Build = 14 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -314,7 +314,35 @@ function Minecraft.new(options)
     -- frosted look behind the panels is built from a translucent glass layer that
     -- is sized to the panel row plus search bar, not the entire screen.
     window.GlassEnabled = options.Blur ~= false
-    window.GlassTransparency = options.GlassTransparency or 0.42
+    window.GlassTransparency = options.GlassTransparency or 0.30
+
+    -- Roblox has no per-GUI backdrop filter, so a real frosted look needs the
+    -- viewport BlurEffect. It is created at 0 and animated up while the menu is
+    -- open, and it is removed on destroy / hidden with the menu.
+    if options.Blur ~= false and options.BlurEffect ~= false then
+        local okLighting, lighting = pcall(function()
+            return game:GetService("Lighting")
+        end)
+        if okLighting and lighting then
+            local existing = lighting:FindFirstChild("MinecraftUIBlur")
+            if existing then
+                existing:Destroy()
+            end
+            local okBlur, blur = pcall(function()
+                return create("BlurEffect", {Name = "MinecraftUIBlur", Size = 0, Enabled = true}, lighting)
+            end)
+            if okBlur and blur then
+                window.BlurEffect = blur
+                window.BlurSize = options.BlurSize or 20
+                -- Fade the world out of focus as the menu appears.
+                task.defer(function()
+                    if isAlive(blur) and window.Open then
+                        tween(blur, {Size = window.BlurSize}, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+                    end
+                end)
+            end
+        end
+    end
 
     -- CanvasGroup lets the whole menu fade as one unit. Fall back to a Frame on
     -- clients that do not expose CanvasGroup yet.
@@ -472,18 +500,21 @@ function Minecraft:CycleTheme(direction)
     self:SetTheme(index)
 end
 
--- Glass opacity behind the panels/search: 0 = invisible, 1 = solid.
+-- Glass tint behind the panels/search: 0 = solid, 1 = fully clear.
 function Minecraft:SetGlass(transparency)
+    self.GlassTransparency = clamp(transparency or 0.30, 0, 1)
     if not self.Glass then
         return
     end
-    self.GlassTransparency = clamp(transparency or 0.42, 0, 1)
     tween(self.Glass, {BackgroundTransparency = self.GlassTransparency}, T.Color)
 end
 
--- Backwards-compatible alias: "blur strength" now controls the frosted layer.
-function Minecraft:SetBlur(transparency)
-    self:SetGlass(transparency)
+-- Real world blur strength (BlurEffect in Lighting).
+function Minecraft:SetBlur(size)
+    self.BlurSize = math.max(tonumber(size) or 0, 0)
+    if self.BlurEffect and isAlive(self.BlurEffect) then
+        tween(self.BlurEffect, {Size = self.Open and self.BlurSize or 0}, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+    end
 end
 
 function Minecraft:SetScale(scale)
@@ -597,6 +628,9 @@ function Minecraft:Toggle(value)
     if self.Glass then
         tween(self.Glass, {BackgroundTransparency = self.Open and self.GlassTransparency or 1}, T.Color)
         tween(self.GlassStroke, {Transparency = self.Open and 0.5 or 1}, T.Color)
+    end
+    if self.BlurEffect and isAlive(self.BlurEffect) then
+        tween(self.BlurEffect, {Size = self.Open and self.BlurSize or 0}, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
     end
     if self.Popup then
         self:ClosePopup(true)
@@ -849,6 +883,12 @@ function Minecraft:Destroy()
     if self.Popup then
         self.Popup = nil
     end
+    if self.BlurEffect then
+        pcall(function()
+            self.BlurEffect:Destroy()
+        end)
+        self.BlurEffect = nil
+    end
     if self.Gui then
         self.Gui:Destroy()
     end
@@ -907,6 +947,7 @@ local function newRow(tab, name, options)
         tween(row.Frame, {Position = UDim2.fromOffset(0, 0), Size = UDim2.new(1, 0, 0, M.RowHeight)}, T.Layout)
     end
 
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Row)}, row.Frame)
     row.Box = create("Frame", {
         Name = "Box",
         BackgroundColor3 = theme.Row,
@@ -1387,16 +1428,38 @@ function Settings:Toggle(options)
         Color = theme.Border,
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
     }, box)
+    -- Check mark drawn from frame segments (no asset IDs, works offline).
     local mark = create("Frame", {
         Name = "Mark",
-        BackgroundColor3 = theme.Accent,
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(0, 0),
+        Size = UDim2.fromOffset(10, 10),
         ZIndex = 4,
     }, box)
-    create("UICorner", {CornerRadius = UDim.new(0, 1)}, mark)
+    local tickShort = create("Frame", {
+        Name = "TickShort",
+        BackgroundColor3 = theme.Accent,
+        BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0, 1),
+        Position = UDim2.fromScale(0.1, 0.72),
+        Size = UDim2.fromOffset(4, 2),
+        Rotation = 45,
+        ZIndex = 5,
+    }, mark)
+    local tickLong = create("Frame", {
+        Name = "TickLong",
+        BackgroundColor3 = theme.Accent,
+        BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0, 1),
+        Position = UDim2.fromScale(0.3, 0.78),
+        Size = UDim2.fromOffset(8, 2),
+        Rotation = -48,
+        ZIndex = 5,
+    }, mark)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, tickShort)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, tickLong)
 
     local label = create("TextLabel", {
         BackgroundTransparency = 1,
@@ -1425,16 +1488,14 @@ function Settings:Toggle(options)
     local function paint(instant)
         applyColor(box, "BackgroundColor3", value and theme.On or theme.Row, instant, 0.16)
         applyColor(boxStroke, "Color", value and theme.Accent or theme.Border, instant, 0.16)
-        local size = value and 7 or 0
+        applyColor(tickShort, "BackgroundColor3", value and theme.Text or theme.Accent, instant, 0.16)
+        applyColor(tickLong, "BackgroundColor3", value and theme.Text or theme.Accent, instant, 0.16)
+        local scale = value and 1 or 0
         if instant then
-            mark.Size = UDim2.fromOffset(size, size)
+            mark.Size = UDim2.fromOffset(10 * scale, 10 * scale)
         else
-            if value then
-                mark.Size = UDim2.fromOffset(1, 1)
-            end
-            tween(mark, {Size = UDim2.fromOffset(size, size)}, T.Pop)
+            tween(mark, {Size = UDim2.fromOffset(10 * scale, 10 * scale)}, T.Pop)
         end
-        applyColor(mark, "BackgroundColor3", theme.Accent, instant, 0.16)
     end
 
     window:_Bind(frame, function(themeNow, instant)
@@ -2794,6 +2855,7 @@ function Minecraft:OpenColorPicker(anchor, callback)
         ClipsDescendants = true,
         ZIndex = 71,
     }, panel)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, sv)
     create("UIGradient", {
         Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.new(1, 1, 1)),
         Transparency = NumberSequence.new({
@@ -2824,6 +2886,7 @@ function Minecraft:OpenColorPicker(anchor, callback)
         Size = UDim2.fromOffset(9, 9),
         ZIndex = 74,
     }, sv)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, cursor)
     create("UIStroke", {Thickness = 1, Color = Color3.new(1, 1, 1)}, cursor)
     create("UIStroke", {Thickness = 1, Color = Color3.new(0, 0, 0), Transparency = 0.5}, cursor)
 
@@ -2835,6 +2898,7 @@ function Minecraft:OpenColorPicker(anchor, callback)
         Size = UDim2.fromOffset(saturation, 12),
         ZIndex = 71,
     }, panel)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, hue)
     create("UIGradient", {
         Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
@@ -2855,6 +2919,7 @@ function Minecraft:OpenColorPicker(anchor, callback)
         Size = UDim2.fromOffset(3, 16),
         ZIndex = 74,
     }, hue)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, marker)
 
     local presets = {}
     local presetColors = {
