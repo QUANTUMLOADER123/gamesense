@@ -17,8 +17,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.8.0"
-Minecraft.Build = 18 -- incremented on every visible change, used by examples to detect stale caches
+Minecraft.Version = "1.9.0"
+Minecraft.Build = 19 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -1375,42 +1375,51 @@ function Settings:Toggle(options)
         ZIndex = 3,
     }, frame)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, box)
-    -- Check mark drawn from frame segments (no asset IDs, works offline).
-    -- ClipsDescendants matters: the tick segments are rotated and would keep
-    -- drawing outside a zero-sized parent, which is why the check stayed visible
-    -- after switching the setting off.
+    -- Check mark drawn as a pixel glyph (same technique as the icon set):
+    -- a short left arm and a longer right arm, centred in its own canvas. Two
+    -- rotated bars looked like a "V" and drifted off-centre, so this is exact.
+    local TICK = {
+        ".........##",
+        "........###",
+        ".......###.",
+        "##....###..",
+        "###..###...",
+        ".######....",
+        "..####.....",
+        "...##......",
+    }
     local mark = create("Frame", {
         Name = "Mark",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(10, 10),
+        Size = UDim2.fromOffset(#TICK[1], #TICK),
         ClipsDescendants = true,
         ZIndex = 4,
     }, box)
-    local tickShort = create("Frame", {
-        Name = "TickShort",
-        BackgroundColor3 = theme.Accent,
-        BorderSizePixel = 0,
-        AnchorPoint = Vector2.new(0, 1),
-        Position = UDim2.fromScale(0.1, 0.72),
-        Size = UDim2.fromOffset(4, 2),
-        Rotation = 45,
-        ZIndex = 5,
-    }, mark)
-    local tickLong = create("Frame", {
-        Name = "TickLong",
-        BackgroundColor3 = theme.Accent,
-        BorderSizePixel = 0,
-        AnchorPoint = Vector2.new(0, 1),
-        Position = UDim2.fromScale(0.3, 0.78),
-        Size = UDim2.fromOffset(8, 2),
-        Rotation = -48,
-        ZIndex = 5,
-    }, mark)
-    create("UICorner", {CornerRadius = UDim.new(1, 0)}, tickShort)
-    create("UICorner", {CornerRadius = UDim.new(1, 0)}, tickLong)
+    local tickPixels = {}
+    for rowIndex, row in ipairs(TICK) do
+        local column = 1
+        while column <= #row do
+            if row:sub(column, column) == "#" then
+                local first = column
+                while column <= #row and row:sub(column, column) == "#" do
+                    column = column + 1
+                end
+                tickPixels[#tickPixels + 1] = create("Frame", {
+                    Name = "Tick",
+                    BackgroundColor3 = theme.Accent,
+                    BorderSizePixel = 0,
+                    Position = UDim2.fromOffset(first - 1, rowIndex - 1),
+                    Size = UDim2.fromOffset(column - first, 1),
+                    ZIndex = 5,
+                }, mark)
+            else
+                column = column + 1
+            end
+        end
+    end
 
     local label = create("TextLabel", {
         BackgroundTransparency = 1,
@@ -1438,17 +1447,19 @@ function Settings:Toggle(options)
     local api = {Flag = options.Flag}
     local function paint(instant)
         applyColor(box, "BackgroundColor3", value and theme.On or theme.Row, instant, 0.16)
-        applyColor(tickShort, "BackgroundColor3", value and theme.Text or theme.Accent, instant, 0.16)
-        applyColor(tickLong, "BackgroundColor3", value and theme.Text or theme.Accent, instant, 0.16)
+        for _, pixel in ipairs(tickPixels) do
+            applyColor(pixel, "BackgroundColor3", value and theme.Text or theme.Accent, instant, 0.16)
+        end
+        local glyphW, glyphH = #TICK[1], #TICK
         local scale = value and 1 or 0
         mark.Visible = value
         if instant then
-            mark.Size = UDim2.fromOffset(10 * scale, 10 * scale)
+            mark.Size = UDim2.fromOffset(glyphW * scale, glyphH * scale)
         else
             if value then
                 mark.Size = UDim2.fromOffset(2, 2)
             end
-            tween(mark, {Size = UDim2.fromOffset(10 * scale, 10 * scale)}, T.Pop)
+            tween(mark, {Size = UDim2.fromOffset(glyphW * scale, glyphH * scale)}, T.Pop)
         end
     end
 
@@ -2874,9 +2885,13 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
 
     -- CanvasGroup (not a plain Frame) so the two gradient overlays are clipped
     -- by the rounded corners; a UIGradient child ignores UICorner clipping.
+    -- The field is painted as a grid of exact colours instead of stacked
+    -- UIGradients. Transparency-based gradients render inconsistently (some
+    -- clients ignore UIGradient.Transparency entirely, which left the field flat),
+    -- while solid cells look identical everywhere. 20x13 = 260 tiny frames.
     local sv = create(roundedClass(), {
         Name = "SV",
-        BackgroundColor3 = Color3.fromRGB(255, 0, 0),
+        BackgroundColor3 = Color3.new(0, 0, 0),
         BorderSizePixel = 0,
         Position = UDim2.fromOffset(8, 8),
         Size = UDim2.fromOffset(fieldW, fieldH),
@@ -2888,37 +2903,52 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
     end
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Control)}, sv)
 
-    -- White on the left, fully transparent on the right => saturation.
-    local whiteLayer = create("Frame", {
-        Name = "White",
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        BorderSizePixel = 0,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 72,
-    }, sv)
-    create("UIGradient", {
-        Rotation = 0,
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0),
-            NumberSequenceKeypoint.new(1, 1),
-        }),
-    }, whiteLayer)
+    local COLS, ROWS = 20, 13
+    local cellW, cellH = fieldW / COLS, fieldH / ROWS
+    local cells = {}
+    for row = 0, ROWS - 1 do
+        for column = 0, COLS - 1 do
+            cells[row * COLS + column + 1] = create("Frame", {
+                Name = "Cell",
+                BackgroundColor3 = Color3.new(0, 0, 0),
+                BorderSizePixel = 0,
+                Position = UDim2.fromOffset(column * cellW, row * cellH),
+                Size = UDim2.fromOffset(cellW + 0.6, cellH + 0.6),
+                ZIndex = 72,
+            }, sv)
+        end
+    end
 
-    -- Transparent on top, black at the bottom => value.
-    local blackLayer = create("Frame", {
-        Name = "Black",
-        BackgroundColor3 = Color3.new(0, 0, 0),
-        BorderSizePixel = 0,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 73,
-    }, sv)
-    create("UIGradient", {
-        Rotation = 90,
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 1),
-            NumberSequenceKeypoint.new(1, 0),
-        }),
-    }, blackLayer)
+    -- Repaint the grid for a hue. Runs of near-identical cells share one colour,
+    -- so a drag only touches a handful of frames per row instead of 260.
+    local lastHue = -1
+    local function paintField(hue)
+        if math.abs(hue - lastHue) < 0.004 then
+            return
+        end
+        lastHue = hue
+        for row = 0, ROWS - 1 do
+            local value = 1 - (row + 0.5) / ROWS
+            local runStart = 0
+            local runColor = Color3.fromHSV(hue, 0.5 / COLS, value)
+            for column = 0, COLS - 1 do
+                local color = Color3.fromHSV(hue, (column + 0.5) / COLS, value)
+                if column == COLS - 1
+                    or math.abs(color.R - runColor.R) > 0.07
+                    or math.abs(color.G - runColor.G) > 0.07
+                    or math.abs(color.B - runColor.B) > 0.07 then
+                    for at = runStart, column do
+                        local cell = cells[row * COLS + at + 1]
+                        if cell then
+                            cell.BackgroundColor3 = runColor
+                        end
+                    end
+                    runStart = column + 1
+                    runColor = color
+                end
+            end
+        end
+    end
 
     local cursor = create("Frame", {
         Name = "Cursor",
@@ -3117,7 +3147,7 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
 
     function state:Apply(instant, silent)
         local color = Color3.fromHSV(self.H, self.S, self.V)
-        sv.BackgroundColor3 = Color3.fromHSV(self.H, 1, 1)
+        paintField(self.H)
         cursor.Position = UDim2.fromScale(self.S, 1 - self.V)
         marker.Position = UDim2.new(self.H, 0, 0.5, 0)
         if alphaFill then

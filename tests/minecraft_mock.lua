@@ -340,9 +340,26 @@ local tickBox = findChild(innerToggle.Frame, "Box")
 assert(tickBox, "checkbox exists")
 local tickMark = findChild(tickBox, "Mark")
 assert(tickMark, "check mark container exists")
-assert(findChild(tickMark, "TickShort") and findChild(tickMark, "TickLong"), "tick is drawn from two segments")
-assert(tickMark.Size.X.Offset == 10 and tickMark.Size.Y.Offset == 10, "tick is visible when enabled")
+-- The tick is a pixel glyph: several row runs, short left arm and long right arm.
+local tickPixels = {}
+for _, child in ipairs(tickMark.children) do
+    if child.Name == "Tick" then tickPixels[#tickPixels + 1] = child end
+end
+assert(#tickPixels > 5, "tick is drawn from pixel runs")
+-- Glyph is 10 wide; height comes from the pattern (#TICK rows).
+assert(tickMark.Size.X.Offset == 11 and tickMark.Size.Y.Offset == 8, "tick canvas matches the glyph")
 assert(tickMark.Visible == true and tickMark.ClipsDescendants == true, "tick is clipped so it can vanish")
+-- The left (short) arm must be smaller than the right (long) arm.
+local leftMax, rightMax = 0, 0
+for _, pixel in ipairs(tickPixels) do
+    local width = pixel.Size.X.Offset
+    if pixel.Position.X.Offset < 5 then
+        leftMax = math.max(leftMax, pixel.Position.Y.Offset)
+    else
+        rightMax = math.max(rightMax, pixel.Position.Y.Offset)
+    end
+end
+assert(leftMax > 0 and rightMax < leftMax, "left arm is short, right arm reaches higher")
 -- Switching the inner toggle off must hide the tick completely.
 local innerApi
 for _, control in ipairs(tickRow.Settings.Controls) do
@@ -565,10 +582,21 @@ assert(sv and sv.Size.X.Offset == 180 and sv.Size.Y.Offset == 104, "SV field is 
 assert(pickerPanel.Size.X.Offset == 196, "popup is 196 wide")
 -- The SV field must be built from a white left->right ramp plus a black
 -- bottom->top ramp, so the top-right corner stays pure white.
-local whiteLayer = findChild(sv, "White")
-local blackLayer = findChild(sv, "Black")
-assert(whiteLayer and blackLayer, "SV field has white and black overlay layers")
-assert(whiteLayer.ZIndex < blackLayer.ZIndex, "layers are stacked white then black")
+-- The field is painted as solid-colour cells (transparency gradients are
+-- unreliable), so it must contain a real grid with many distinct colours.
+local fieldCells = 0
+local distinct = {}
+for _, child in ipairs(sv.children) do
+    if child.Name == "Cell" then
+        fieldCells = fieldCells + 1
+        local c = child.BackgroundColor3
+        distinct[string.format("%.2f_%.2f_%.2f", c.R, c.G, c.B)] = true
+    end
+end
+assert(fieldCells == 260, "field is a 20x13 grid: " .. fieldCells)
+local colorCount = 0
+for _ in pairs(distinct) do colorCount = colorCount + 1 end
+assert(colorCount > 40, "field shows a real gradient: " .. colorCount .. " distinct colours")
 assert(findChild(pickerPanel, "AlphaBar"), "alpha bar exists")
 assert(findChild(pickerPanel, "Hue"), "hue strip exists")
 -- The popup must be positioned inside the menu, not at some random offset.

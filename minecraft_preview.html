@@ -25,7 +25,7 @@ h1 { color:#c9d4e8; font-size:15px; font-weight:400; margin:0 0 18px; letter-spa
 .dlabel b { color:#e9e5ff; font-weight:500; }
 .drow { display:flex; align-items:center; justify-content:space-between; color:#e9e5ff; font-size:13px; }
 .cbox { width:14px; height:14px; border-radius:4px; border:0; background: rgba(150,130,255,.55); position:relative; }
-.cbox i { position:absolute; left:3px; top:2.5px; width:8px; height:2px; border-radius:2px; background:#fff; transform: rotate(-48deg); }
+.cbox i { position:absolute; inset:0; }
 .track { height:4px; border-radius:99px; background: rgba(255,255,255,.14); position:relative; }
 .track u { position:absolute; left:0; top:0; bottom:0; width:62%; border-radius:99px; background:#9678ff; box-shadow:0 0 10px #9678ff; }
 .dhead { height:26px; border-radius:5px; border:0; background: rgba(255,255,255,.07); display:flex; align-items:center; justify-content:space-between; padding:0 8px; color:#e9e5ff; font-size:12px; }
@@ -33,7 +33,7 @@ h1 { color:#c9d4e8; font-size:15px; font-weight:400; margin:0 0 18px; letter-spa
 body::before { content:""; position:fixed; inset:0; background: inherit; filter: blur(12px) saturate(120%); opacity:.6; z-index:-1; }
 body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:-1; }
 .panel { backdrop-filter: blur(2px); }
-</style></head><body><h1>Minecraft UI v1.8 — рабочий чекбокс, скруглённый колорпикер, блюр</h1><div class="theme"><div class="caption">Nebula</div>
+</style></head><body><h1>Minecraft UI v1.9 — пиксельная галочка, поле пикера на точных цветах</h1><div class="theme"><div class="caption">Nebula</div>
       <div class="glass" style="--panel:#261c4a;--border:#786cad;--top:#3c335c;--bot:#211840">
         <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
 <div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
@@ -326,7 +326,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="detail">
   <div class="dcard" style="width:196px">
     <div class="dblock" style="gap:6px">
-      <div class="svfield"><span class="svcursor"></span></div>
+      <div class="svfield"><canvas id="svc" width="20" height="13"></canvas><span class="svcursor"></span></div>
       <div class="huebar"><span class="huemarker"></span></div>
       <div class="alphabar"><span class="alphamarker"></span></div>
       <div class="presets">
@@ -349,9 +349,8 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
   </div>
 </div>
 <style>
-.svfield { position:relative; height:104px; border-radius:5px; overflow:hidden; background:
-  linear-gradient(to top, #000, rgba(0,0,0,0)),
-  linear-gradient(to right, #fff, rgba(255,255,255,0)), #567280; }
+.svfield { position:relative; height:104px; border-radius:5px; overflow:hidden; }
+.svfield canvas { width:100%; height:100%; display:block; image-rendering:pixelated; }
 .svcursor { position:absolute; left:52px; top:42px; width:13px; height:13px; border-radius:50%;
   background:#fff; box-shadow:0 0 0 2px rgba(0,0,0,.45); }
 .huebar { position:relative; height:14px; border-radius:99px; background:linear-gradient(to right,
@@ -367,4 +366,30 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 .hexrow { height:16px; border-radius:4px; background:rgba(255,255,255,.10); color:#e9e5ff;
   font-size:11px; display:flex; align-items:center; justify-content:center; letter-spacing:.5px; }
 </style>
+<script>
+(function(){
+  var c = document.getElementById('svc');
+  if (!c) return;
+  var ctx = c.getContext('2d');
+  var hue = 0.58;
+  function hsv(h,s,v){
+    var i=Math.floor(h*6), f=h*6-i, p=v*(1-s), q=v*(1-f*s), t=v*(1-(1-f)*s);
+    var r,g,b;
+    switch(i%6){
+      case 0: r=v;g=t;b=p;break; case 1: r=q;g=v;b=p;break; case 2: r=p;g=v;b=t;break;
+      case 3: r=p;g=q;b=v;break; case 4: r=t;g=p;b=v;break; default: r=v;g=p;b=q;
+    }
+    return [Math.round(r*255),Math.round(g*255),Math.round(b*255)];
+  }
+  for (var y=0; y<13; y++){
+    var v = 1 - (y+0.5)/13;
+    for (var x=0; x<20; x++){
+      var s = (x+0.5)/20;
+      var rgb = hsv(hue, s, v);
+      ctx.fillStyle = 'rgb('+rgb[0]+','+rgb[1]+','+rgb[2]+')';
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+})();
+</script>
 </body></html>
