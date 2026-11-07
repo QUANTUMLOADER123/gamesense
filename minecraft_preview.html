@@ -1,28 +1,25 @@
 <!DOCTYPE html><html><head><meta charset="utf-8"><style>
 * { box-sizing: border-box; }
-body { margin:0; background:#1b2431; font-family: Verdana, Tahoma, sans-serif; padding:24px; }
+body { margin:0; background:#0b0d14 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='40' height='40' fill='%230b0d14'/><circle cx='8' cy='8' r='2' fill='%23223'/><circle cx='28' cy='24' r='3' fill='%23234'/></svg>"); font-family: Verdana, Tahoma, sans-serif; padding:26px; }
+h1 { color:#c9d4e8; font-size:15px; font-weight:400; margin:0 0 18px; letter-spacing:.4px; }
 .theme { margin-bottom: 34px; }
-.caption { color:#9fb2c8; font-size:13px; margin-bottom:8px; letter-spacing:.5px; }
-.window { background: transparent; border:0; padding:0; width: 1074px; }
-.panels { display:flex; gap:8px; height:476px; }
-.panel { width:210px; height:476px; background: var(--panel); border:1px solid var(--border); border-radius:6px; position:relative; }
-.ptitle { color: var(--text); text-align:center; font-size:16px; height:38px; line-height:38px; }
-.pline { position:absolute; left:8px; right:8px; top:37px; height:1px; background: var(--border); }
-.rows { padding:8px 10px 8px 8px; display:flex; flex-direction:column; gap:3px; height: 436px; overflow:hidden; }
-.row { height:24px; display:flex; align-items:center; background: var(--row); border:1px solid var(--rowStroke); border-radius:5px; padding:0 6px; color: var(--text); font-size:14px; position:relative; }
-.row.on { background: var(--on); border-color: var(--accent); }
+.caption { color:#93a4be; font-size:13px; margin-bottom:8px; letter-spacing:.5px; }
+.glass { background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)); backdrop-filter: blur(10px); border:1px solid var(--border); border-radius:11px; padding:9px; width:max-content; box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+.panels { display:flex; gap:9px; height:520px; }
+.panel { width:226px; height:520px; border:1.5px solid; border-radius:9px; position:relative; box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 0 22px -8px var(--accent); }
+.ptitle { color: var(--text); text-align:center; font-size:16px; height:42px; line-height:42px; font-weight:500; }
+.pline { position:absolute; left:10px; right:10px; top:41px; height:1px; background: var(--accent); opacity:.45; border-radius:2px; }
+.rows { padding:10px 12px 10px 10px; display:flex; flex-direction:column; gap:4px; height: 476px; overflow:hidden; }
+.row { height:30px; display:flex; align-items:center; gap:6px; background: var(--row); border:1px solid var(--rowStroke); border-radius:7px; padding:0 9px; color: var(--text); font-size:15px; position:relative; box-shadow: inset 0 1px 0 rgba(255,255,255,.07); }
+.row.on { background: linear-gradient(180deg, var(--on), var(--row)); border-color: var(--accent); box-shadow: 0 0 18px -4px var(--glow), inset 0 1px 0 rgba(255,255,255,.18); }
 .row span:first-child { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-.dots { color: var(--muted); font-size:13px; letter-spacing:1px; }
-.badge { color: var(--accent); font-size:9px; }
-.section { color: var(--muted); font-size:12px; height:24px; display:flex; align-items:center; border-bottom:1px solid var(--border); }
-.search { margin: 8px auto 0; width:250px; height:28px; background: var(--panel); border:1px solid var(--border); border-radius:6px; color: var(--muted); font-size:12px; display:flex; align-items:center; padding:0 8px; }
-</style></head><body><div style="color:#c8d6e8;font-family:Verdana;margin-bottom:18px;font-size:14px">Minecraft UI — 6 тем (статичное превью метрик и цветов из minecraft.lua)</div>
-    <div class="theme">
-      <div class="caption">Midnight</div>
-      <div class="window" style="--window:#100c17;--border:#15101f;--text:#dbd5eb;--muted:#928aaa;--accent:#ba98ff;--hover:#595266;--row:#3f374e;--on:#554476;--rowStroke:#554e62;--panel:#251c36">
-        <div class="panels"><div class="panel" style="--panel:#251c36;--border:#15101f;--text:#dbd5eb;--muted:#928aaa;--accent:#ba98ff;--row:#3f374e;--rowStroke:#554e62;--hover:#595266;--on:#554476">
-<div class="ptitle">Combat</div><div class="pline"></div>
-<div class="rows">
+.dots { color: var(--muted); font-size:15px; letter-spacing:1px; }
+.badge { color: var(--accent); font-size:10px; }
+.search { margin: 9px auto 0; width:280px; height:32px; background: linear-gradient(180deg, var(--top), var(--bot)); border:1.2px solid var(--border); border-radius:9px; color: var(--muted); font-size:13px; display:flex; align-items:center; padding:0 11px; box-shadow: 0 0 18px -10px var(--accent); }
+</style></head><body><h1>Minecraft UI v1.3 — 6 тем, стеклянные панели и neon glow</h1><div class="theme"><div class="caption">Nebula</div>
+      <div class="glass" style="--panel:#261c4a;--border:#786cad;--top:#3c335c;--bot:#211840">
+        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
+<div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Anti Bot</span><span class="dots">•••</span></div>
 <div class="row"><span>Attack Aura</span><span class="dots">•••</span></div>
 <div class="row"><span>Auto Explosion</span><span class="dots">•••</span></div>
@@ -36,13 +33,12 @@ body { margin:0; background:#1b2431; font-family: Verdana, Tahoma, sans-serif; p
 <div class="row"><span>No Velocity</span><span class="dots">•••</span></div>
 <div class="row"><span>Trigger Bot</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="--panel:#251c36;--border:#15101f;--text:#dbd5eb;--muted:#928aaa;--accent:#ba98ff;--row:#3f374e;--rowStroke:#554e62;--hover:#595266;--on:#554476">
-<div class="ptitle">Movement</div><div class="pline"></div>
-<div class="rows">
+<div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
+<div class="ptitle">Movement</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Air Jump</span><span class="dots">•••</span></div>
 <div class="row"><span>Dragon Flight</span><span class="dots">•••</span></div>
 <div class="row"><span>Elytra Flight</span><span class="dots">•••</span></div>
-<div class="row on"><span>Flight</span><span class="dots">•••</span></div>
+<div class="row"><span>Flight</span><span class="dots">•••</span></div>
 <div class="row"><span>Free Camera</span><span class="dots">•••</span></div>
 <div class="row"><span>Free Look</span><span class="dots">•••</span></div>
 <div class="row"><span>Gui Move</span><span class="dots">•••</span></div>
@@ -52,31 +48,26 @@ body { margin:0; background:#1b2431; font-family: Verdana, Tahoma, sans-serif; p
 <div class="row on"><span>Speed</span><span class="dots">•••</span></div>
 <div class="row"><span>Phase</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="--panel:#251c36;--border:#15101f;--text:#dbd5eb;--muted:#928aaa;--accent:#ba98ff;--row:#3f374e;--rowStroke:#554e62;--hover:#595266;--on:#554476">
-<div class="ptitle">Visuals</div><div class="pline"></div>
-<div class="rows">
+<div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
+<div class="ptitle">Visuals</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Ambience</span><span class="dots">•••</span></div>
 <div class="row"><span>Arrows</span><span class="dots">•••</span></div>
 <div class="row"><span>Aspect Ratio</span><span class="dots">•••</span></div>
 <div class="row"><span>Block ESP</span><span class="dots">•••</span></div>
 <div class="row"><span>China Hat</span><span class="badge">PREMIUM</span></div>
 <div class="row"><span>Crosshair</span><span class="dots">•••</span></div>
-<div class="row on"><span>Full Bright</span><span class="dots">•••</span></div>
+<div class="row"><span>Full Bright</span><span class="dots">•••</span></div>
 <div class="row"><span>Hands</span><span class="dots">•••</span></div>
 <div class="row"><span>Hud</span><span class="dots">•••</span></div>
 <div class="row"><span>Item Physics</span><span class="dots">•••</span></div>
 <div class="row"><span>Jump Circles</span><span class="dots">•••</span></div>
 </div></div></div>
-        <div class="search">Поиск</div>
-      </div>
-    </div>
-
-    <div class="theme">
-      <div class="caption">Slate</div>
-      <div class="window" style="--window:#0b1015;--border:#10151e;--text:#cfdbeb;--muted:#889cb4;--accent:#70b2ff;--hover:#525964;--row:#363f4b;--on:#365274;--rowStroke:#4d5560;--panel:#1b2533">
-        <div class="panels"><div class="panel" style="--panel:#1b2533;--border:#10151e;--text:#cfdbeb;--muted:#889cb4;--accent:#70b2ff;--row:#363f4b;--rowStroke:#4d5560;--hover:#525964;--on:#365274">
-<div class="ptitle">Combat</div><div class="pline"></div>
-<div class="rows">
+        <div class="search">Search</div>
+      </div></div>
+<div class="theme"><div class="caption">Cyber</div>
+      <div class="glass" style="--panel:#142e48;--border:#5996ac;--top:#2c435a;--bot:#11283e">
+        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#2c435a,#11283e);border-color:#5996ac;--accent:#56e2ff;--text:#e0f4ff;--muted:#8cb2c8;--row:#354b62;--rowStroke:#516478;--on:#3891ad;--glow:#56d2ff">
+<div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Anti Bot</span><span class="dots">•••</span></div>
 <div class="row"><span>Attack Aura</span><span class="dots">•••</span></div>
 <div class="row"><span>Auto Explosion</span><span class="dots">•••</span></div>
@@ -90,13 +81,12 @@ body { margin:0; background:#1b2431; font-family: Verdana, Tahoma, sans-serif; p
 <div class="row"><span>No Velocity</span><span class="dots">•••</span></div>
 <div class="row"><span>Trigger Bot</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="--panel:#1b2533;--border:#10151e;--text:#cfdbeb;--muted:#889cb4;--accent:#70b2ff;--row:#363f4b;--rowStroke:#4d5560;--hover:#525964;--on:#365274">
-<div class="ptitle">Movement</div><div class="pline"></div>
-<div class="rows">
+<div class="panel" style="background:linear-gradient(180deg,#2c435a,#11283e);border-color:#5996ac;--accent:#56e2ff;--text:#e0f4ff;--muted:#8cb2c8;--row:#354b62;--rowStroke:#516478;--on:#3891ad;--glow:#56d2ff">
+<div class="ptitle">Movement</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Air Jump</span><span class="dots">•••</span></div>
 <div class="row"><span>Dragon Flight</span><span class="dots">•••</span></div>
 <div class="row"><span>Elytra Flight</span><span class="dots">•••</span></div>
-<div class="row on"><span>Flight</span><span class="dots">•••</span></div>
+<div class="row"><span>Flight</span><span class="dots">•••</span></div>
 <div class="row"><span>Free Camera</span><span class="dots">•••</span></div>
 <div class="row"><span>Free Look</span><span class="dots">•••</span></div>
 <div class="row"><span>Gui Move</span><span class="dots">•••</span></div>
@@ -106,31 +96,26 @@ body { margin:0; background:#1b2431; font-family: Verdana, Tahoma, sans-serif; p
 <div class="row on"><span>Speed</span><span class="dots">•••</span></div>
 <div class="row"><span>Phase</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="--panel:#1b2533;--border:#10151e;--text:#cfdbeb;--muted:#889cb4;--accent:#70b2ff;--row:#363f4b;--rowStroke:#4d5560;--hover:#525964;--on:#365274">
-<div class="ptitle">Visuals</div><div class="pline"></div>
-<div class="rows">
+<div class="panel" style="background:linear-gradient(180deg,#2c435a,#11283e);border-color:#5996ac;--accent:#56e2ff;--text:#e0f4ff;--muted:#8cb2c8;--row:#354b62;--rowStroke:#516478;--on:#3891ad;--glow:#56d2ff">
+<div class="ptitle">Visuals</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Ambience</span><span class="dots">•••</span></div>
 <div class="row"><span>Arrows</span><span class="dots">•••</span></div>
 <div class="row"><span>Aspect Ratio</span><span class="dots">•••</span></div>
 <div class="row"><span>Block ESP</span><span class="dots">•••</span></div>
 <div class="row"><span>China Hat</span><span class="badge">PREMIUM</span></div>
 <div class="row"><span>Crosshair</span><span class="dots">•••</span></div>
-<div class="row on"><span>Full Bright</span><span class="dots">•••</span></div>
+<div class="row"><span>Full Bright</span><span class="dots">•••</span></div>
 <div class="row"><span>Hands</span><span class="dots">•••</span></div>
 <div class="row"><span>Hud</span><span class="dots">•••</span></div>
 <div class="row"><span>Item Physics</span><span class="dots">•••</span></div>
 <div class="row"><span>Jump Circles</span><span class="dots">•••</span></div>
 </div></div></div>
-        <div class="search">Поиск</div>
-      </div>
-    </div>
-
-    <div class="theme">
-      <div class="caption">Amethyst</div>
-      <div class="window" style="--window:#140d18;--border:#1c1122;--text:#e8d6e8;--muted:#aa92aa;--accent:#ff9ee2;--hover:#625469;--row:#493952;--on:#724770;--rowStroke:#5e5065;--panel:#301e3a">
-        <div class="panels"><div class="panel" style="--panel:#301e3a;--border:#1c1122;--text:#e8d6e8;--muted:#aa92aa;--accent:#ff9ee2;--row:#493952;--rowStroke:#5e5065;--hover:#625469;--on:#724770">
-<div class="ptitle">Combat</div><div class="pline"></div>
-<div class="rows">
+        <div class="search">Search</div>
+      </div></div>
+<div class="theme"><div class="caption">Bloom</div>
+      <div class="glass" style="--panel:#381c3e;--border:#a46d9a;--top:#4c3351;--bot:#301835">
+        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#4c3351,#301835);border-color:#a46d9a;--accent:#ff84d8;--text:#fce4f6;--muted:#be96ba;--row:#543c59;--rowStroke:#6c5770;--on:#a55593;--glow:#ff6ed2">
+<div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Anti Bot</span><span class="dots">•••</span></div>
 <div class="row"><span>Attack Aura</span><span class="dots">•••</span></div>
 <div class="row"><span>Auto Explosion</span><span class="dots">•••</span></div>
@@ -144,13 +129,12 @@ body { margin:0; background:#1b2431; font-family: Verdana, Tahoma, sans-serif; p
 <div class="row"><span>No Velocity</span><span class="dots">•••</span></div>
 <div class="row"><span>Trigger Bot</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="--panel:#301e3a;--border:#1c1122;--text:#e8d6e8;--muted:#aa92aa;--accent:#ff9ee2;--row:#493952;--rowStroke:#5e5065;--hover:#625469;--on:#724770">
-<div class="ptitle">Movement</div><div class="pline"></div>
-<div class="rows">
+<div class="panel" style="background:linear-gradient(180deg,#4c3351,#301835);border-color:#a46d9a;--accent:#ff84d8;--text:#fce4f6;--muted:#be96ba;--row:#543c59;--rowStroke:#6c5770;--on:#a55593;--glow:#ff6ed2">
+<div class="ptitle">Movement</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Air Jump</span><span class="dots">•••</span></div>
 <div class="row"><span>Dragon Flight</span><span class="dots">•••</span></div>
 <div class="row"><span>Elytra Flight</span><span class="dots">•••</span></div>
-<div class="row on"><span>Flight</span><span class="dots">•••</span></div>
+<div class="row"><span>Flight</span><span class="dots">•••</span></div>
 <div class="row"><span>Free Camera</span><span class="dots">•••</span></div>
 <div class="row"><span>Free Look</span><span class="dots">•••</span></div>
 <div class="row"><span>Gui Move</span><span class="dots">•••</span></div>
@@ -160,31 +144,26 @@ body { margin:0; background:#1b2431; font-family: Verdana, Tahoma, sans-serif; p
 <div class="row on"><span>Speed</span><span class="dots">•••</span></div>
 <div class="row"><span>Phase</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="--panel:#301e3a;--border:#1c1122;--text:#e8d6e8;--muted:#aa92aa;--accent:#ff9ee2;--row:#493952;--rowStroke:#5e5065;--hover:#625469;--on:#724770">
-<div class="ptitle">Visuals</div><div class="pline"></div>
-<div class="rows">
+<div class="panel" style="background:linear-gradient(180deg,#4c3351,#301835);border-color:#a46d9a;--accent:#ff84d8;--text:#fce4f6;--muted:#be96ba;--row:#543c59;--rowStroke:#6c5770;--on:#a55593;--glow:#ff6ed2">
+<div class="ptitle">Visuals</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Ambience</span><span class="dots">•••</span></div>
 <div class="row"><span>Arrows</span><span class="dots">•••</span></div>
 <div class="row"><span>Aspect Ratio</span><span class="dots">•••</span></div>
 <div class="row"><span>Block ESP</span><span class="dots">•••</span></div>
 <div class="row"><span>China Hat</span><span class="badge">PREMIUM</span></div>
 <div class="row"><span>Crosshair</span><span class="dots">•••</span></div>
-<div class="row on"><span>Full Bright</span><span class="dots">•••</span></div>
+<div class="row"><span>Full Bright</span><span class="dots">•••</span></div>
 <div class="row"><span>Hands</span><span class="dots">•••</span></div>
 <div class="row"><span>Hud</span><span class="dots">•••</span></div>
 <div class="row"><span>Item Physics</span><span class="dots">•••</span></div>
 <div class="row"><span>Jump Circles</span><span class="dots">•••</span></div>
 </div></div></div>
-        <div class="search">Поиск</div>
-      </div>
-    </div>
-
-    <div class="theme">
-      <div class="caption">Crimson</div>
-      <div class="window" style="--window:#140b0d;--border:#1c0f11;--text:#ebd6d4;--muted:#af8f8c;--accent:#ff7a70;--hover:#625154;--row:#493539;--on:#723938;--rowStroke:#5e4c50;--panel:#301a1e">
-        <div class="panels"><div class="panel" style="--panel:#301a1e;--border:#1c0f11;--text:#ebd6d4;--muted:#af8f8c;--accent:#ff7a70;--row:#493539;--rowStroke:#5e4c50;--hover:#625154;--on:#723938">
-<div class="ptitle">Combat</div><div class="pline"></div>
-<div class="rows">
+        <div class="search">Search</div>
+      </div></div>
+<div class="theme"><div class="caption">Ember</div>
+      <div class="glass" style="--panel:#3e1a22;--border:#a76a63;--top:#513138;--bot:#35161d">
+        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#513138,#35161d);border-color:#a76a63;--accent:#ff7e60;--text:#ffe8e2;--muted:#c49894;--row:#593a41;--rowStroke:#70565b;--on:#a85144;--glow:#ff6e50">
+<div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Anti Bot</span><span class="dots">•••</span></div>
 <div class="row"><span>Attack Aura</span><span class="dots">•••</span></div>
 <div class="row"><span>Auto Explosion</span><span class="dots">•••</span></div>
@@ -198,13 +177,12 @@ body { margin:0; background:#1b2431; font-family: Verdana, Tahoma, sans-serif; p
 <div class="row"><span>No Velocity</span><span class="dots">•••</span></div>
 <div class="row"><span>Trigger Bot</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="--panel:#301a1e;--border:#1c0f11;--text:#ebd6d4;--muted:#af8f8c;--accent:#ff7a70;--row:#493539;--rowStroke:#5e4c50;--hover:#625154;--on:#723938">
-<div class="ptitle">Movement</div><div class="pline"></div>
-<div class="rows">
+<div class="panel" style="background:linear-gradient(180deg,#513138,#35161d);border-color:#a76a63;--accent:#ff7e60;--text:#ffe8e2;--muted:#c49894;--row:#593a41;--rowStroke:#70565b;--on:#a85144;--glow:#ff6e50">
+<div class="ptitle">Movement</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Air Jump</span><span class="dots">•••</span></div>
 <div class="row"><span>Dragon Flight</span><span class="dots">•••</span></div>
 <div class="row"><span>Elytra Flight</span><span class="dots">•••</span></div>
-<div class="row on"><span>Flight</span><span class="dots">•••</span></div>
+<div class="row"><span>Flight</span><span class="dots">•••</span></div>
 <div class="row"><span>Free Camera</span><span class="dots">•••</span></div>
 <div class="row"><span>Free Look</span><span class="dots">•••</span></div>
 <div class="row"><span>Gui Move</span><span class="dots">•••</span></div>
@@ -214,31 +192,26 @@ body { margin:0; background:#1b2431; font-family: Verdana, Tahoma, sans-serif; p
 <div class="row on"><span>Speed</span><span class="dots">•••</span></div>
 <div class="row"><span>Phase</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="--panel:#301a1e;--border:#1c0f11;--text:#ebd6d4;--muted:#af8f8c;--accent:#ff7a70;--row:#493539;--rowStroke:#5e4c50;--hover:#625154;--on:#723938">
-<div class="ptitle">Visuals</div><div class="pline"></div>
-<div class="rows">
+<div class="panel" style="background:linear-gradient(180deg,#513138,#35161d);border-color:#a76a63;--accent:#ff7e60;--text:#ffe8e2;--muted:#c49894;--row:#593a41;--rowStroke:#70565b;--on:#a85144;--glow:#ff6e50">
+<div class="ptitle">Visuals</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Ambience</span><span class="dots">•••</span></div>
 <div class="row"><span>Arrows</span><span class="dots">•••</span></div>
 <div class="row"><span>Aspect Ratio</span><span class="dots">•••</span></div>
 <div class="row"><span>Block ESP</span><span class="dots">•••</span></div>
 <div class="row"><span>China Hat</span><span class="badge">PREMIUM</span></div>
 <div class="row"><span>Crosshair</span><span class="dots">•••</span></div>
-<div class="row on"><span>Full Bright</span><span class="dots">•••</span></div>
+<div class="row"><span>Full Bright</span><span class="dots">•••</span></div>
 <div class="row"><span>Hands</span><span class="dots">•••</span></div>
 <div class="row"><span>Hud</span><span class="dots">•••</span></div>
 <div class="row"><span>Item Physics</span><span class="dots">•••</span></div>
 <div class="row"><span>Jump Circles</span><span class="dots">•••</span></div>
 </div></div></div>
-        <div class="search">Поиск</div>
-      </div>
-    </div>
-
-    <div class="theme">
-      <div class="caption">Emerald</div>
-      <div class="window" style="--window:#09120e;--border:#0d1a13;--text:#d4e8dc;--muted:#8ca898;--accent:#7ee2a8;--hover:#4e5f56;--row:#32453c;--on:#37664c;--rowStroke:#495a52;--panel:#162c21">
-        <div class="panels"><div class="panel" style="--panel:#162c21;--border:#0d1a13;--text:#d4e8dc;--muted:#8ca898;--accent:#7ee2a8;--row:#32453c;--rowStroke:#495a52;--hover:#4e5f56;--on:#37664c">
-<div class="ptitle">Combat</div><div class="pline"></div>
-<div class="rows">
+        <div class="search">Search</div>
+      </div></div>
+<div class="theme"><div class="caption">Mint</div>
+      <div class="glass" style="--panel:#14342e;--border:#5c9f88;--top:#2c4843;--bot:#112d28">
+        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#2c4843,#112d28);border-color:#5c9f88;--accent:#5ef5ba;--text:#e0fff4;--muted:#92beb0;--row:#35504b;--rowStroke:#516964;--on:#3d9e7b;--glow:#50f0b0">
+<div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Anti Bot</span><span class="dots">•••</span></div>
 <div class="row"><span>Attack Aura</span><span class="dots">•••</span></div>
 <div class="row"><span>Auto Explosion</span><span class="dots">•••</span></div>
@@ -252,13 +225,12 @@ body { margin:0; background:#1b2431; font-family: Verdana, Tahoma, sans-serif; p
 <div class="row"><span>No Velocity</span><span class="dots">•••</span></div>
 <div class="row"><span>Trigger Bot</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="--panel:#162c21;--border:#0d1a13;--text:#d4e8dc;--muted:#8ca898;--accent:#7ee2a8;--row:#32453c;--rowStroke:#495a52;--hover:#4e5f56;--on:#37664c">
-<div class="ptitle">Movement</div><div class="pline"></div>
-<div class="rows">
+<div class="panel" style="background:linear-gradient(180deg,#2c4843,#112d28);border-color:#5c9f88;--accent:#5ef5ba;--text:#e0fff4;--muted:#92beb0;--row:#35504b;--rowStroke:#516964;--on:#3d9e7b;--glow:#50f0b0">
+<div class="ptitle">Movement</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Air Jump</span><span class="dots">•••</span></div>
 <div class="row"><span>Dragon Flight</span><span class="dots">•••</span></div>
 <div class="row"><span>Elytra Flight</span><span class="dots">•••</span></div>
-<div class="row on"><span>Flight</span><span class="dots">•••</span></div>
+<div class="row"><span>Flight</span><span class="dots">•••</span></div>
 <div class="row"><span>Free Camera</span><span class="dots">•••</span></div>
 <div class="row"><span>Free Look</span><span class="dots">•••</span></div>
 <div class="row"><span>Gui Move</span><span class="dots">•••</span></div>
@@ -268,31 +240,26 @@ body { margin:0; background:#1b2431; font-family: Verdana, Tahoma, sans-serif; p
 <div class="row on"><span>Speed</span><span class="dots">•••</span></div>
 <div class="row"><span>Phase</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="--panel:#162c21;--border:#0d1a13;--text:#d4e8dc;--muted:#8ca898;--accent:#7ee2a8;--row:#32453c;--rowStroke:#495a52;--hover:#4e5f56;--on:#37664c">
-<div class="ptitle">Visuals</div><div class="pline"></div>
-<div class="rows">
+<div class="panel" style="background:linear-gradient(180deg,#2c4843,#112d28);border-color:#5c9f88;--accent:#5ef5ba;--text:#e0fff4;--muted:#92beb0;--row:#35504b;--rowStroke:#516964;--on:#3d9e7b;--glow:#50f0b0">
+<div class="ptitle">Visuals</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Ambience</span><span class="dots">•••</span></div>
 <div class="row"><span>Arrows</span><span class="dots">•••</span></div>
 <div class="row"><span>Aspect Ratio</span><span class="dots">•••</span></div>
 <div class="row"><span>Block ESP</span><span class="dots">•••</span></div>
 <div class="row"><span>China Hat</span><span class="badge">PREMIUM</span></div>
 <div class="row"><span>Crosshair</span><span class="dots">•••</span></div>
-<div class="row on"><span>Full Bright</span><span class="dots">•••</span></div>
+<div class="row"><span>Full Bright</span><span class="dots">•••</span></div>
 <div class="row"><span>Hands</span><span class="dots">•••</span></div>
 <div class="row"><span>Hud</span><span class="dots">•••</span></div>
 <div class="row"><span>Item Physics</span><span class="dots">•••</span></div>
 <div class="row"><span>Jump Circles</span><span class="dots">•••</span></div>
 </div></div></div>
-        <div class="search">Поиск</div>
-      </div>
-    </div>
-
-    <div class="theme">
-      <div class="caption">Amber</div>
-      <div class="window" style="--window:#141009;--border:#1c160d;--text:#ece0ca;--muted:#b0a084;--accent:#ffc56a;--hover:#625a4e;--row:#494032;--on:#725931;--rowStroke:#5e5649;--panel:#302616">
-        <div class="panels"><div class="panel" style="--panel:#302616;--border:#1c160d;--text:#ece0ca;--muted:#b0a084;--accent:#ffc56a;--row:#494032;--rowStroke:#5e5649;--hover:#625a4e;--on:#725931">
-<div class="ptitle">Combat</div><div class="pline"></div>
-<div class="rows">
+        <div class="search">Search</div>
+      </div></div>
+<div class="theme"><div class="caption">Gold</div>
+      <div class="glass" style="--panel:#3a2a14;--border:#a58c5b;--top:#4e3f2c;--bot:#322411">
+        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#4e3f2c,#322411);border-color:#a58c5b;--accent:#ffca5c;--text:#fff4e0;--muted:#bea884;--row:#564835;--rowStroke:#6d6151;--on:#a6823c;--glow:#ffbe46">
+<div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Anti Bot</span><span class="dots">•••</span></div>
 <div class="row"><span>Attack Aura</span><span class="dots">•••</span></div>
 <div class="row"><span>Auto Explosion</span><span class="dots">•••</span></div>
@@ -306,13 +273,12 @@ body { margin:0; background:#1b2431; font-family: Verdana, Tahoma, sans-serif; p
 <div class="row"><span>No Velocity</span><span class="dots">•••</span></div>
 <div class="row"><span>Trigger Bot</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="--panel:#302616;--border:#1c160d;--text:#ece0ca;--muted:#b0a084;--accent:#ffc56a;--row:#494032;--rowStroke:#5e5649;--hover:#625a4e;--on:#725931">
-<div class="ptitle">Movement</div><div class="pline"></div>
-<div class="rows">
+<div class="panel" style="background:linear-gradient(180deg,#4e3f2c,#322411);border-color:#a58c5b;--accent:#ffca5c;--text:#fff4e0;--muted:#bea884;--row:#564835;--rowStroke:#6d6151;--on:#a6823c;--glow:#ffbe46">
+<div class="ptitle">Movement</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Air Jump</span><span class="dots">•••</span></div>
 <div class="row"><span>Dragon Flight</span><span class="dots">•••</span></div>
 <div class="row"><span>Elytra Flight</span><span class="dots">•••</span></div>
-<div class="row on"><span>Flight</span><span class="dots">•••</span></div>
+<div class="row"><span>Flight</span><span class="dots">•••</span></div>
 <div class="row"><span>Free Camera</span><span class="dots">•••</span></div>
 <div class="row"><span>Free Look</span><span class="dots">•••</span></div>
 <div class="row"><span>Gui Move</span><span class="dots">•••</span></div>
@@ -322,22 +288,20 @@ body { margin:0; background:#1b2431; font-family: Verdana, Tahoma, sans-serif; p
 <div class="row on"><span>Speed</span><span class="dots">•••</span></div>
 <div class="row"><span>Phase</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="--panel:#302616;--border:#1c160d;--text:#ece0ca;--muted:#b0a084;--accent:#ffc56a;--row:#494032;--rowStroke:#5e5649;--hover:#625a4e;--on:#725931">
-<div class="ptitle">Visuals</div><div class="pline"></div>
-<div class="rows">
+<div class="panel" style="background:linear-gradient(180deg,#4e3f2c,#322411);border-color:#a58c5b;--accent:#ffca5c;--text:#fff4e0;--muted:#bea884;--row:#564835;--rowStroke:#6d6151;--on:#a6823c;--glow:#ffbe46">
+<div class="ptitle">Visuals</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Ambience</span><span class="dots">•••</span></div>
 <div class="row"><span>Arrows</span><span class="dots">•••</span></div>
 <div class="row"><span>Aspect Ratio</span><span class="dots">•••</span></div>
 <div class="row"><span>Block ESP</span><span class="dots">•••</span></div>
 <div class="row"><span>China Hat</span><span class="badge">PREMIUM</span></div>
 <div class="row"><span>Crosshair</span><span class="dots">•••</span></div>
-<div class="row on"><span>Full Bright</span><span class="dots">•••</span></div>
+<div class="row"><span>Full Bright</span><span class="dots">•••</span></div>
 <div class="row"><span>Hands</span><span class="dots">•••</span></div>
 <div class="row"><span>Hud</span><span class="dots">•••</span></div>
 <div class="row"><span>Item Physics</span><span class="dots">•••</span></div>
 <div class="row"><span>Jump Circles</span><span class="dots">•••</span></div>
 </div></div></div>
-        <div class="search">Поиск</div>
-      </div>
-    </div>
+        <div class="search">Search</div>
+      </div></div>
 </body></html>

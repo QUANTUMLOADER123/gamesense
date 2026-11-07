@@ -232,33 +232,34 @@ end
 assert(Minecraft.Themes and #Minecraft.Themes == 6, "six themes expected")
 local window = Minecraft.new({Title = "Minecraft", Theme = 3, Search = true})
 assert(window.Gui.Parent == coreGui, "default parent is CoreGui")
-assert(window.ThemeIndex == 3 and window.Theme.Name == "Amethyst")
+assert(window.ThemeIndex == 3 and window.Theme.Name == "Bloom")
 assert(window.Root.ClassName == "CanvasGroup", "CanvasGroup fade wrapper")
-assert(window.Blur and window.Blur.ClassName == "BlurEffect" and window.Blur.Size == 18,
-    "backdrop blur is created")
-assert(window.Blur.Parent == lighting and window.Blur.Enabled)
+assert(window.Glass, "frosted layer exists behind the panels")
+assert(window.Glass.Parent == window.Root, "glass lives in the root")
+assert(window.Glass.ZIndex == 1, "glass sits behind the panels")
+assert(window.Glass.BackgroundTransparency == 0.42, "glass is translucent")
 assert(not window.Header and not window.TitleLabel and not window.Shadow, "no title bar, no backdrop")
 assert(window.Root.BackgroundTransparency == 1, "root itself is transparent")
 
 -- Empty window lays out one panel wide: panels + search underneath.
-assert(window.Root.Size.X.Offset == 210, "single panel width")
-assert(window.Root.Size.Y.Offset == 476 + 8 + 28, "panels + search height")
+assert(window.Root.Size.X.Offset == 226, "single panel width")
+assert(window.Root.Size.Y.Offset == 520 + 9 + 32, "panels + search height")
 
 local combat = window:AddTab("Combat")
 local movement = window:AddTab("Movement")
 local visuals = window:AddTab("Visuals")
 assert(#window.Tabs == 3)
-assert(combat.Panel.Size.X.Offset == 210 and combat.Panel.Size.Y.Offset == 476, "equal panel size")
-assert(movement.Panel.Position.X.Offset == 218 and visuals.Panel.Position.X.Offset == 436, "panel gap")
-assert(window.Root.Size.X.Offset == 3 * 210 + 2 * 8, "root grows with tabs")
+assert(combat.Panel.Size.X.Offset == 226 and combat.Panel.Size.Y.Offset == 520, "equal panel size")
+assert(movement.Panel.Position.X.Offset == 235 and visuals.Panel.Position.X.Offset == 470, "panel gap")
+assert(window.Root.Size.X.Offset == 3 * 226 + 2 * 9, "root grows with tabs")
 assert(combat.Title.Text == "Combat" and combat.Title.TextXAlignment == Enum.TextXAlignment.Center)
 
 --==========================================================================--
 -- Search field lives under the panels
 --==========================================================================--
 local search = window.SearchFrame
-assert(search and search.Position.Y.Offset == 476 + 8, "search sits below the panels")
-assert(search.Size.X.Offset == 250 and search.AnchorPoint.X == 0.5, "search is centered")
+assert(search and search.Position.Y.Offset == 520 + 9, "search sits below the panels")
+assert(search.Size.X.Offset == 280 and search.AnchorPoint.X == 0.5, "search is centered")
 assert(window.SearchBox.PlaceholderText == "Search")
 
 -- Rows must be laid out by a real UIListLayout, otherwise they overlap.
@@ -274,7 +275,7 @@ for _, name in ipairs({"Anti Bot", "Attack Aura", "Auto Explosion", "Auto Swap",
 end
 assert(#combat.Rows == 5)
 assert(not toggles[1].Dots.Visible, "no dots without settings")
-assert(combat.Rows[2].Slot.Size.Y.Offset == 24, "collapsed row height")
+assert(combat.Rows[2].Slot.Size.Y.Offset == 30, "collapsed row height")
 
 local aura = combat:AddToggle({Name = "Attack Aura 2", Default = true, Flag = "aura", Settings = function(settings)
     settings:Slider({Name = "Range", Min = 1, Max = 8, Default = 4, Flag = "aura_range"})
@@ -289,15 +290,15 @@ assert(aura:Get() == true)
 assert(aura.Holder.Size.Y.Offset == 0)
 aura.Frame.MouseButton2Down:Fire()
 assert(aura.SettingsOpen)
-assert(aura.SettingsHeight > 0 and aura.Slot.Size.Y.Offset == 24 + aura.SettingsHeight)
+assert(aura.SettingsHeight > 0 and aura.Slot.Size.Y.Offset == 30 + aura.SettingsHeight)
 assert(aura.Settings.Height > 0, "settings measured")
 assert(math.abs(aura.Settings.Height - (22 + 16 + 27 + 2 * 5)) < 0.001, "slider + toggle + input heights")
 -- The canvas already accounts for the opened block, so the scroll does not jump.
 local contentHeight = combat.Content.Size.Y.Offset
-assert(contentHeight > 6 * 24, "canvas grew with the settings block")
+assert(contentHeight > 6 * 30, "canvas grew with the settings block")
 aura.Frame.MouseButton2Down:Fire()
-assert(not aura.SettingsOpen and aura.Slot.Size.Y.Offset == 24)
-assert(combat.Content.Size.Y.Offset == 6 * 24 + 5 * 3, "canvas shrinks back")
+assert(not aura.SettingsOpen and aura.Slot.Size.Y.Offset == 30)
+assert(combat.Content.Size.Y.Offset == 6 * 30 + 5 * 4, "canvas shrinks back")
 
 -- Every row gets a distinct layout order, so rows are drawn one below another.
 for index, row in ipairs(combat.Rows) do
@@ -312,7 +313,7 @@ end
 -- Rows must be clickable: the hit area is the whole row, not a strip.
 for _, row in ipairs(combat.Rows) do
     assert(row.Frame.Size.X.Offset == 0 and row.Frame.Size.X.Scale == 1, "row spans full width")
-    assert(row.Frame.Size.Y.Offset == 24, "row is 24px tall")
+    assert(row.Frame.Size.Y.Offset == 30, "row is 30px tall")
     assert(row.Frame.ZIndex >= row.Box.ZIndex, "hit area sits above the visual")
 end
 
@@ -399,12 +400,12 @@ assert(clickCount == 1)
 local dropdown = movement:AddDropdown({Name = "Mode", Options = {"Legit", "Rage", "Silent"}, Default = "Legit", Flag = "mode"})
 assert(dropdown.ValueLabel.Text == "Legit")
 dropdown.Frame.MouseButton1Click:Fire()
-assert(dropdown.ListOpen and dropdown.ListHeight > 0 and dropdown.Slot.Size.Y.Offset > 24)
+assert(dropdown.ListOpen and dropdown.ListHeight > 0 and dropdown.Slot.Size.Y.Offset > 30)
 local choices = findClass(dropdown.ListHolder, "TextButton")
 assert(#choices == 3)
 choices[2].MouseButton1Click:Fire()
 assert(dropdown:Get() == "Rage" and window.Flags.mode == "Rage")
-assert(not dropdown.ListOpen and dropdown.Slot.Size.Y.Offset == 24, "list closes after pick")
+assert(not dropdown.ListOpen and dropdown.Slot.Size.Y.Offset == 30, "list closes after pick")
 assert(dropdown.ValueLabel.Text == "Rage")
 
 local multi = movement:AddDropdown({Name = "Parts", Multi = true, Options = {"Head", "Torso", "Legs"}, Default = {"Head"}})
@@ -459,13 +460,13 @@ window:Filter("")
 --==========================================================================--
 local before = window.Tabs[1].Panel.BackgroundColor3
 window:SetTheme(5)
-assert(window.ThemeIndex == 5 and window.Theme.Name == "Emerald")
+assert(window.ThemeIndex == 5 and window.Theme.Name == "Mint")
 assert(window.Tabs[1].Panel.BackgroundColor3 ~= before, "panels recolored")
 window:CycleTheme(1)
 assert(window.ThemeIndex == 6)
 window:CycleTheme(1)
 assert(window.ThemeIndex == 1, "cycle wraps")
-window:SetTheme("crimson")
+window:SetTheme("ember")
 assert(window.ThemeIndex == 4)
 local numeric = Minecraft.new({Theme = 99})
 assert(numeric.ThemeIndex == 6, "theme clamped")
@@ -495,14 +496,14 @@ assert(window.Root.Position.X.Scale == 0.5 and window.Root.Position.Y.Scale == 0
 --==========================================================================--
 -- Hide/show and destroy
 --==========================================================================--
--- The blur follows visibility.
+-- The frosted layer follows visibility.
 window:Toggle()
-assert(window.Open == false and window.Blur.Size == 0, "blur fades out when hidden")
+assert(window.Open == false and window.Glass.BackgroundTransparency == 1, "glass fades out when hidden")
 window:Toggle()
-assert(window.Open == true and window.Blur.Size == 18, "blur returns when shown")
-window:SetBlur(30)
-assert(window.Blur.Size == 30)
-window:SetBlur(18)
+assert(window.Open == true and window.Glass.BackgroundTransparency == 0.42, "glass returns when shown")
+window:SetGlass(0.7)
+assert(window.Glass.BackgroundTransparency == 0.7)
+window:SetGlass(0.42)
 window:Toggle()
 assert(window.Open == false)
 flush()
@@ -532,7 +533,6 @@ assert(t2:Get() == true and restored.Flags.aura == true, "config patch applies")
 assert(m2:Get() == "Legit" and m2.ValueLabel.Text == "Legit")
 restored:Destroy()
 
-assert(window.Blur.destroyed, "blur is removed on destroy")
 window:Destroy()
 assert(window.Gui.destroyed)
 

@@ -17,8 +17,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.2.0"
-Minecraft.Build = 12 -- incremented on every visible change, used by examples to detect stale caches
+Minecraft.Version = "1.3.0"
+Minecraft.Build = 13 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -32,18 +32,18 @@ Settings.__index = Settings
 -- Layout metrics. Every panel uses the same width and height, so the menu always
 -- reads as one even row of columns no matter how many tabs are added.
 local M = {
-    PanelWidth = 210,
-    PanelHeight = 476,
-    Gap = 8,
-    Title = 38,
-    RowHeight = 24,
-    RowGap = 3,
-    Inset = 8,
-    Search = 28,
-    SearchWidth = 250,
+    PanelWidth = 226,
+    PanelHeight = 520,
+    Gap = 9,
+    Title = 42,
+    RowHeight = 30,
+    RowGap = 4,
+    Inset = 10,
+    Search = 32,
+    SearchWidth = 280,
 }
 -- One place to tune the whole look: panel 6px, rows 5px, small controls 3-4px.
-Minecraft.Radius = {Panel = 6, Row = 5, Control = 4, Small = 3}
+Minecraft.Radius = {Panel = 9, Row = 7, Control = 5, Small = 4}
 Minecraft.Metrics = M
 
 local T = {
@@ -72,33 +72,39 @@ local function mix(a, b, t)
     return a:Lerp(b, t)
 end
 
--- Six themes. Each one derives its panel shades from a single base color, which
--- keeps every theme consistent and makes the theme tween cheap.
+-- Six themes. Each palette is built from a saturated base plus a neon accent so
+-- panels read as tinted glass over the blurred game, like the reference menus.
 local THEMES = {}
-local function addTheme(name, base, accent, text, muted)
+local function addTheme(name, base, accent, text, muted, glow)
     THEMES[#THEMES + 1] = {
         Name = name,
-        Window = shade(base, -0.58),
+        Window = shade(base, -0.62),
         Panel = base,
+        PanelTop = shade(base, 0.10),
+        PanelBottom = shade(base, -0.14),
         Header = shade(base, 0.07),
-        Border = shade(base, -0.42),
-        Row = shade(base, 0.12),
-        RowStroke = shade(base, 0.22),
-        Hover = shade(base, 0.24),
-        On = mix(base, accent, 0.32),
+        Border = mix(shade(base, 0.30), accent, 0.35),
+        Row = shade(base, 0.14),
+        RowStroke = shade(base, 0.26),
+        Hover = shade(base, 0.28),
+        On = mix(base, accent, 0.55),
+        OnEdge = accent,
         Text = text,
         Muted = muted,
         Accent = accent,
-        Popup = shade(base, 0.04),
-        Track = shade(base, -0.12),
+        Glow = glow or accent,
+        Popup = shade(base, 0.06),
+        Track = shade(base, -0.16),
+        Title = shade(base, 0.20),
     }
 end
-addTheme("Midnight", rgb(37, 28, 54), rgb(186, 152, 255), rgb(219, 213, 235), rgb(146, 138, 170))
-addTheme("Slate", rgb(27, 37, 51), rgb(112, 178, 255), rgb(207, 219, 235), rgb(136, 156, 180))
-addTheme("Amethyst", rgb(48, 30, 58), rgb(255, 158, 226), rgb(232, 214, 232), rgb(170, 146, 170))
-addTheme("Crimson", rgb(48, 26, 30), rgb(255, 122, 112), rgb(235, 214, 212), rgb(175, 143, 140))
-addTheme("Emerald", rgb(22, 44, 33), rgb(126, 226, 168), rgb(212, 232, 220), rgb(140, 168, 152))
-addTheme("Amber", rgb(48, 38, 22), rgb(255, 197, 106), rgb(236, 224, 202), rgb(176, 160, 132))
+-- Neon, high-contrast palettes (indigo / violet / cyan / magenta family).
+addTheme("Nebula", rgb(38, 28, 74), rgb(150, 130, 255), rgb(233, 229, 255), rgb(158, 152, 196), rgb(158, 120, 255))
+addTheme("Cyber", rgb(20, 46, 72), rgb(86, 226, 255), rgb(224, 244, 255), rgb(140, 178, 200), rgb(86, 210, 255))
+addTheme("Bloom", rgb(56, 28, 62), rgb(255, 132, 216), rgb(252, 228, 246), rgb(190, 150, 186), rgb(255, 110, 210))
+addTheme("Ember", rgb(62, 26, 34), rgb(255, 126, 96), rgb(255, 232, 226), rgb(196, 152, 148), rgb(255, 110, 80))
+addTheme("Mint", rgb(20, 52, 46), rgb(94, 245, 186), rgb(224, 255, 244), rgb(146, 190, 176), rgb(80, 240, 176))
+addTheme("Gold", rgb(58, 42, 20), rgb(255, 202, 92), rgb(255, 244, 224), rgb(190, 168, 132), rgb(255, 190, 70))
 Minecraft.Themes = THEMES
 
 local function resolveTheme(value)
@@ -145,6 +151,27 @@ local function applyNumber(object, property, value, instant, duration, info)
         return
     end
     tween(object, {[property] = value}, info or TweenInfo.new(duration or 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+end
+
+-- Soft neon glow: a rounded frame sitting behind the target with a blurred look
+-- (transparency + UIStroke). Returns a setter so callers can fade it in/out.
+local function createGlow(parent, zindex)
+    local glow = create("Frame", {
+        Name = "Glow",
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BackgroundTransparency = 0.82,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(-2, -2),
+        Size = UDim2.new(1, 4, 1, 4),
+        ZIndex = zindex or 1,
+    }, parent)
+    local corner = create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Row + 2)}, glow)
+    local stroke = create("UIStroke", {
+        Thickness = 2,
+        Transparency = 0.35,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+    }, glow)
+    return glow, stroke, corner
 end
 
 local function isAlive(object)
@@ -283,24 +310,11 @@ function Minecraft.new(options)
         window.Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
     end
 
-    -- Frosted glass behind the menu. Roblox only exposes real blur through
-    -- BlurEffect, so we add one to Lighting (the standard executor approach) and
-    -- keep it in sync with the menu's visibility.
-    if options.Blur ~= false then
-        local lighting = game:GetService("Lighting")
-        local existing = lighting:FindFirstChild("MinecraftUIBlur")
-        if existing then
-            existing:Destroy()
-        end
-        local blurSize = options.BlurSize or 18
-        local blur = create("BlurEffect", {
-            Name = "MinecraftUIBlur",
-            Size = blurSize,
-            Enabled = true,
-        }, lighting)
-        window.Blur = blur
-        window.BlurSize = blurSize
-    end
+    -- Roblox only blurs the whole 3D viewport (BlurEffect in Lighting), so the
+    -- frosted look behind the panels is built from a translucent glass layer that
+    -- is sized to the panel row plus search bar, not the entire screen.
+    window.GlassEnabled = options.Blur ~= false
+    window.GlassTransparency = options.GlassTransparency or 0.42
 
     -- CanvasGroup lets the whole menu fade as one unit. Fall back to a Frame on
     -- clients that do not expose CanvasGroup yet.
@@ -334,6 +348,29 @@ function Minecraft.new(options)
         ZIndex = 5,
     }, window.Root)
 
+    if window.GlassEnabled then
+        window.Glass = create("Frame", {
+            Name = "Glass",
+            BackgroundColor3 = window.Theme.Panel,
+            BackgroundTransparency = window.GlassTransparency,
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset(-M.Gap, -M.Gap),
+            Size = UDim2.new(1, M.Gap * 2, 0, M.PanelHeight + M.Gap * 2),
+            ZIndex = 1,
+        }, window.Root)
+        create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel + 2)}, window.Glass)
+        window.GlassGradient = create("UIGradient", {
+            Rotation = 90,
+            Color = ColorSequence.new(window.Theme.PanelTop, window.Theme.PanelBottom),
+        }, window.Glass)
+        window.GlassStroke = create("UIStroke", {
+            Thickness = 1,
+            Color = window.Theme.Border,
+            Transparency = 0.5,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        }, window.Glass)
+    end
+
     window.PopupLayer = create("Frame", {
         Name = "PopupLayer",
         BackgroundTransparency = 1,
@@ -355,6 +392,16 @@ function Minecraft.new(options)
     window.Shield.MouseButton1Click:Connect(function()
         window:ClosePopup()
     end)
+
+    if window.Glass then
+        window:_Bind(window.Glass, function(theme, instant)
+            applyColor(window.Glass, "BackgroundColor3", theme.Panel, instant, 0.26)
+            applyColor(window.GlassStroke, "Color", theme.Border, instant, 0.26)
+            if window.GlassGradient and isAlive(window.GlassGradient) then
+                window.GlassGradient.Color = ColorSequence.new(theme.PanelTop, theme.PanelBottom)
+            end
+        end)
+    end
 
     window:SetupSearch()
     window:SetupInput()
@@ -425,12 +472,18 @@ function Minecraft:CycleTheme(direction)
     self:SetTheme(index)
 end
 
-function Minecraft:SetBlur(size)
-    if not self.Blur then
+-- Glass opacity behind the panels/search: 0 = invisible, 1 = solid.
+function Minecraft:SetGlass(transparency)
+    if not self.Glass then
         return
     end
-    self.BlurSize = size or 0
-    tween(self.Blur, {Size = self.Open and self.BlurSize or 0}, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+    self.GlassTransparency = clamp(transparency or 0.42, 0, 1)
+    tween(self.Glass, {BackgroundTransparency = self.GlassTransparency}, T.Color)
+end
+
+-- Backwards-compatible alias: "blur strength" now controls the frosted layer.
+function Minecraft:SetBlur(transparency)
+    self:SetGlass(transparency)
 end
 
 function Minecraft:SetScale(scale)
@@ -449,15 +502,21 @@ function Minecraft:SetupSearch()
     window.SearchFrame = create("Frame", {
         Name = "Search",
         BackgroundColor3 = window.Theme.Panel,
+        BackgroundTransparency = 0.32,
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0),
         Size = UDim2.fromOffset(M.SearchWidth, M.Search),
         ZIndex = 6,
     }, window.Root)
-    create("UICorner", {CornerRadius = UDim.new(0, 6)}, window.SearchFrame)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel)}, window.SearchFrame)
+    window.SearchGradient = create("UIGradient", {
+        Rotation = 90,
+        Color = ColorSequence.new(window.Theme.PanelTop, window.Theme.PanelBottom),
+    }, window.SearchFrame)
     window.SearchStroke = create("UIStroke", {
-        Thickness = 1,
+        Thickness = 1.2,
         Color = window.Theme.Border,
+        Transparency = 0.25,
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
     }, window.SearchFrame)
     window.SearchBox = create("TextBox", {
@@ -481,6 +540,9 @@ function Minecraft:SetupSearch()
     window:_Bind(window.SearchFrame, function(theme, instant)
         applyColor(window.SearchFrame, "BackgroundColor3", theme.Panel, instant, 0.26)
         applyColor(window.SearchStroke, "Color", theme.Border, instant, 0.26)
+        if window.SearchGradient and isAlive(window.SearchGradient) then
+            window.SearchGradient.Color = ColorSequence.new(theme.PanelTop, theme.PanelBottom)
+        end
         applyColor(window.SearchBox, "PlaceholderColor3", theme.Muted, instant, 0.26)
         applyColor(window.SearchBox, "TextColor3", theme.Text, instant, 0.26)
     end)
@@ -532,9 +594,9 @@ function Minecraft:Toggle(value)
         value = not self.Open
     end
     self.Open = value and true or false
-    if self.Blur then
-        tween(self.Blur, {Size = self.Open and self.BlurSize or 0}, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
-        self.Blur.Enabled = true
+    if self.Glass then
+        tween(self.Glass, {BackgroundTransparency = self.Open and self.GlassTransparency or 1}, T.Color)
+        tween(self.GlassStroke, {Transparency = self.Open and 0.5 or 1}, T.Color)
     end
     if self.Popup then
         self:ClosePopup(true)
@@ -633,6 +695,7 @@ function Minecraft:AddTab(name, options)
     tab.Panel = create("Frame", {
         Name = "Panel_" .. tab.Name,
         BackgroundColor3 = theme.Panel,
+        BackgroundTransparency = 0.28,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Size = UDim2.fromOffset(M.PanelWidth, M.PanelHeight),
@@ -640,11 +703,29 @@ function Minecraft:AddTab(name, options)
         ZIndex = 2,
     }, window.Body)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel)}, tab.Panel)
+    -- Soft vertical tint so the glass has depth instead of one flat colour.
+    tab.Gradient = create("UIGradient", {
+        Rotation = 90,
+        Color = ColorSequence.new(theme.PanelTop, theme.PanelBottom),
+    }, tab.Panel)
+    -- Outer neon ring (the "glow").
     tab.Stroke = create("UIStroke", {
-        Thickness = 1,
+        Thickness = 1.5,
         Color = theme.Border,
+        Transparency = 0.25,
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
     }, tab.Panel)
+    -- Inner 1px highlight along the top edge, like frosted glass.
+    tab.TopShine = create("Frame", {
+        Name = "TopShine",
+        BackgroundColor3 = theme.Text,
+        BackgroundTransparency = 0.86,
+        BorderSizePixel = 0,
+        Position = UDim2.new(0, 10, 0, 1),
+        Size = UDim2.new(1, -20, 0, 1),
+        ZIndex = 3,
+    }, tab.Panel)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, tab.TopShine)
 
     tab.Title = create("TextLabel", {
         Name = "Title",
@@ -661,12 +742,14 @@ function Minecraft:AddTab(name, options)
 
     tab.TitleLine = create("Frame", {
         Name = "TitleLine",
-        BackgroundColor3 = theme.Border,
+        BackgroundColor3 = theme.Accent,
+        BackgroundTransparency = 0.55,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(6, M.Title - 1),
-        Size = UDim2.new(1, -12, 0, 1),
-        ZIndex = 2,
+        Position = UDim2.fromOffset(8, M.Title - 1),
+        Size = UDim2.new(1, -16, 0, 1),
+        ZIndex = 3,
     }, tab.Panel)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, tab.TitleLine)
 
     tab.Scroll = create("ScrollingFrame", {
         Name = "Scroll",
@@ -725,11 +808,17 @@ function Minecraft:AddTab(name, options)
         applyColor(tab.Title, "TextColor3", themeNow.Text, instant, 0.26)
     end)
     window:_Bind(tab.TitleLine, function(themeNow, instant)
-        applyColor(tab.TitleLine, "BackgroundColor3", themeNow.Border, instant, 0.26)
+        applyColor(tab.TitleLine, "BackgroundColor3", themeNow.Accent, instant, 0.26)
     end)
     window:_Bind(tab.Panel, function(themeNow, instant)
         applyColor(tab.Panel, "BackgroundColor3", themeNow.Panel, instant, 0.26)
         applyColor(tab.Stroke, "Color", themeNow.Border, instant, 0.26)
+        if tab.Gradient and isAlive(tab.Gradient) then
+            tab.Gradient.Color = ColorSequence.new(themeNow.PanelTop, themeNow.PanelBottom)
+        end
+        if tab.TopShine and isAlive(tab.TopShine) then
+            applyColor(tab.TopShine, "BackgroundColor3", themeNow.Text, instant, 0.26)
+        end
         applyColor(tab.Scroll, "ScrollBarImageColor3", themeNow.Muted, instant, 0.26)
         applyColor(tab.EmptyLabel, "TextColor3", themeNow.Muted, instant, 0.26)
     end)
@@ -759,12 +848,6 @@ function Minecraft:Destroy()
     self.Keybinds = {}
     if self.Popup then
         self.Popup = nil
-    end
-    if self.Blur then
-        pcall(function()
-            self.Blur:Destroy()
-        end)
-        self.Blur = nil
     end
     if self.Gui then
         self.Gui:Destroy()
@@ -827,6 +910,7 @@ local function newRow(tab, name, options)
     row.Box = create("Frame", {
         Name = "Box",
         BackgroundColor3 = theme.Row,
+        BackgroundTransparency = 0.15,
         BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 1, 0),
         ZIndex = 2,
@@ -838,13 +922,14 @@ local function newRow(tab, name, options)
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         Transparency = 0.35,
     }, row.Box)
+    row.Glow, row.GlowStroke = createGlow(row.Frame, 1)
 
     row.Label = create("TextLabel", {
         Name = "Label",
         BackgroundTransparency = 1,
         Font = window.Font,
         Text = row.Name,
-        TextSize = 14,
+        TextSize = 15,
         TextColor3 = theme.Text,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Center,
@@ -875,7 +960,7 @@ local function newRow(tab, name, options)
         BackgroundTransparency = 1,
         Font = window.Font,
         Text = "•••",
-        TextSize = 13,
+        TextSize = 15,
         TextColor3 = theme.Muted,
         TextXAlignment = Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Center,
@@ -934,6 +1019,9 @@ local function newRow(tab, name, options)
         applyColor(row.Label, "TextColor3", row.Locked and themeNow.Muted or themeNow.Text, instant, 0.2)
         applyColor(row.ValueLabel, "TextColor3", themeNow.Muted, instant, 0.2)
         applyColor(row.Dots, "TextColor3", row.SettingsOpen and themeNow.Accent or themeNow.Muted, instant, 0.16)
+        if row.GlowStroke and isAlive(row.GlowStroke) then
+            applyColor(row.GlowStroke, "Color", themeNow.Accent, instant, 0.2)
+        end
         applyColor(row.Badge, "TextColor3", themeNow.Accent, instant, 0.2)
     end)
 
@@ -982,8 +1070,29 @@ function Row:RefreshVisual(instant)
     end
     local accent = (self.Hovered or open or self.OnState) and not self.Locked
     applyColor(self.Box, "BackgroundColor3", target, instant, 0.18)
+    applyColor(self.Box, "BackgroundTransparency", (accent or open) and 0.05 or 0.15, instant, 0.18)
     applyColor(self.Dots, "TextColor3", open and theme.Accent or theme.Muted, instant, 0.18)
     applyColor(self.Label, "TextColor3", self.Locked and theme.Muted or theme.Text, instant, 0.18)
+
+    -- Neon glow behind the row: strong when enabled or open, faint on hover.
+    local glowStrength = 0.94
+    if self.OnState or open then
+        glowStrength = 0.45
+    elseif self.Hovered then
+        glowStrength = 0.75
+    end
+    local glowColor = self.OnState and theme.Glow or theme.Accent
+    if self.Glow and isAlive(self.Glow) then
+        if instant then
+            self.Glow.BackgroundColor3 = glowColor
+            self.Glow.BackgroundTransparency = glowStrength
+            self.GlowStroke.Color = glowColor
+            self.GlowStroke.Transparency = glowStrength
+        else
+            tween(self.Glow, {BackgroundColor3 = glowColor, BackgroundTransparency = glowStrength}, T.Color)
+            tween(self.GlowStroke, {Color = glowColor, Transparency = glowStrength}, T.Color)
+        end
+    end
     local stroke = self.BoxStroke
     if isAlive(stroke) then
         if instant then
