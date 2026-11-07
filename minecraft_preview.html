@@ -33,7 +33,7 @@ h1 { color:#c9d4e8; font-size:15px; font-weight:400; margin:0 0 18px; letter-spa
 body::before { content:""; position:fixed; inset:0; background: inherit; filter: blur(12px) saturate(120%); opacity:.6; z-index:-1; }
 body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:-1; }
 .panel { backdrop-filter: blur(2px); }
-</style></head><body><h1>Minecraft UI v1.6 — блюр и затемнение на весь экран, без обводок, новый колорпикер</h1><div class="theme"><div class="caption">Nebula</div>
+</style></head><body><h1>Minecraft UI v1.7 — колорпикер с альфой, без обводок, локальное затемнение</h1><div class="theme"><div class="caption">Nebula</div>
       <div class="glass" style="--panel:#261c4a;--border:#786cad;--top:#3c335c;--bot:#211840">
         <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
 <div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
@@ -322,28 +322,49 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
         <div class="search">Search</div>
       </div></div>
 
-<div class="caption" style="margin-top:6px">Раскрытые настройки: галочка, слайдер, дропдаун</div>
+<div class="caption" style="margin-top:6px">Колорпикер: белый угол, hue, альфа-бар на шахматке, hex</div>
 <div class="detail">
-  <div class="dcard">
-    <div class="dtitle">Block ESP</div>
-    <div class="dblock">
-      <div class="dlabel"><span>Block</span><b>chest</b></div>
-      <div class="dhead"><span>chest</span></div>
-      <div class="dlabel"><span>Distance</span><b>128</b></div>
-      <div class="track"><u></u></div>
-      <div class="drow"><span>Outline</span><span class="cbox"><i></i></span></div>
-      <div class="drow"><span>Through walls</span><span class="cbox"><i></i></span></div>
+  <div class="dcard" style="width:196px">
+    <div class="dblock" style="gap:6px">
+      <div class="svfield"><span class="svcursor"></span></div>
+      <div class="huebar"><span class="huemarker"></span></div>
+      <div class="alphabar"><span class="alphamarker"></span></div>
+      <div class="presets">
+        <i style="background:#fff"></i><i style="background:#ff6060"></i><i style="background:#ffc460"></i>
+        <i style="background:#8ceb8c"></i><i style="background:#70b2ff"></i><i style="background:#ba98ff"></i>
+        <i style="background:#ff78d2"></i><i style="background:#3c3c48"></i>
+      </div>
+      <div class="hexrow">#567280CC</div>
     </div>
   </div>
-  <div class="dcard">
-    <div class="dtitle">Attack Aura</div>
+  <div class="dcard" style="width:226px">
+    <div class="dtitle">Ball ESP</div>
     <div class="dblock">
-      <div class="dlabel"><span>Range</span><b>3.5 studs</b></div>
-      <div class="track"><u style="width:44%"></u></div>
-      <div class="dhead"><span>Target: Players</span><span>v</span></div>
+      <div class="dlabel"><span>Range</span><b>128</b></div>
+      <div class="track"><u></u></div>
+      <div class="drow"><span>Fill colour</span><span class="cbox" style="background:rgba(86,114,128,.8);width:22px;border-radius:4px"></span></div>
       <div class="drow"><span>Through walls</span><span class="cbox"><i></i></span></div>
       <div class="drow"><span>Rotate</span><span class="cbox" style="background:transparent"></span></div>
     </div>
   </div>
 </div>
+<style>
+.svfield { position:relative; height:104px; border-radius:6px; background:
+  linear-gradient(to top, #000, rgba(0,0,0,0)),
+  linear-gradient(to right, #fff, rgba(255,255,255,0)), #567280; }
+.svcursor { position:absolute; left:52px; top:42px; width:13px; height:13px; border-radius:50%;
+  background:#fff; box-shadow:0 0 0 2px rgba(0,0,0,.45); }
+.huebar { position:relative; height:14px; border-radius:99px; background:linear-gradient(to right,
+  #ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000); }
+.huemarker { position:absolute; left:14%; top:-2px; width:4px; height:18px; border-radius:99px; background:#fff; }
+.alphabar { position:relative; height:12px; border-radius:99px; overflow:hidden;
+  background: repeating-conic-gradient(#969696 0% 25%, #bebebe 0% 50%) 50% / 12px 12px; }
+.alphabar::after { content:""; position:absolute; inset:0; border-radius:99px;
+  background:linear-gradient(to right, rgba(86,114,128,1), rgba(86,114,128,0)); }
+.alphamarker { position:absolute; right:6%; top:-2px; width:4px; height:16px; border-radius:99px; background:#fff; z-index:2; }
+.presets { display:grid; grid-template-columns:repeat(8, 1fr); gap:6px; }
+.presets i { height:18px; border-radius:4px; display:block; }
+.hexrow { height:16px; border-radius:4px; background:rgba(255,255,255,.10); color:#e9e5ff;
+  font-size:11px; display:flex; align-items:center; justify-content:center; letter-spacing:.5px; }
+</style>
 </body></html>

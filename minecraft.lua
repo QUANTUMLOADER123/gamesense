@@ -17,8 +17,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.6.0"
-Minecraft.Build = 16 -- incremented on every visible change, used by examples to detect stale caches
+Minecraft.Version = "1.7.0"
+Minecraft.Build = 17 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -289,14 +289,12 @@ function Minecraft.new(options)
         window.Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
     end
 
-    -- Roblox only blurs the whole 3D viewport (BlurEffect in Lighting), so the
-    -- frosted look behind the panels is built from a translucent glass layer that
-    -- is sized to the panel row plus search bar, not the entire screen.
-
-    -- Roblox has no per-GUI backdrop filter, so a real frosted look needs the
-    -- viewport BlurEffect. It is created at 0 and animated up while the menu is
-    -- open, and it is removed on destroy / hidden with the menu.
-    if options.Blur ~= false and options.BlurEffect ~= false then
+    -- Blur modes:
+    --   "local" (default) -> no viewport blur; frosted panels do the work
+    --   "screen"          -> BlurEffect over the whole 3D view, like a CS menu
+    window.BlurMode = options.BlurMode or (options.Blur == true and "screen" or "local")
+    window.BlurSize = options.BlurSize or 24
+    if window.BlurMode == "screen" and options.BlurEffect ~= false then
         local okLighting, lighting = pcall(function()
             return game:GetService("Lighting")
         end)
@@ -310,8 +308,6 @@ function Minecraft.new(options)
             end)
             if okBlur and blur then
                 window.BlurEffect = blur
-                window.BlurSize = options.BlurSize or 24
-                -- Fade the world out of focus as the menu appears.
                 task.defer(function()
                     if isAlive(blur) and window.Open then
                         tween(blur, {Size = window.BlurSize}, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
@@ -321,18 +317,21 @@ function Minecraft.new(options)
         end
     end
 
-    -- Full-screen dim layer: BlurEffect only blurs the 3D world, so a dark
-    -- scrim is what actually makes the menu readable over any background.
+    -- Dark scrim. In "local" mode it only sits behind the panels (a sibling of
+    -- the root, sized to it), so the screen keeps its colour. In "screen" mode
+    -- it covers the viewport together with the blur.
+    window.DimValue = options.DimTransparency or (window.BlurMode == "screen" and 0.55 or 0.35)
     if options.Dim ~= false then
-        window.DimValue = options.DimTransparency or 0.55
-        window.Dim = create("Frame", {
-            Name = "Dim",
-            BackgroundColor3 = Color3.new(0, 0, 0),
-            BackgroundTransparency = window.DimValue,
-            BorderSizePixel = 0,
-            Size = UDim2.fromScale(1, 1),
-            ZIndex = 1,
-        }, window.Gui)
+        if window.BlurMode == "screen" then
+            window.Dim = create("Frame", {
+                Name = "Dim",
+                BackgroundColor3 = Color3.new(0, 0, 0),
+                BackgroundTransparency = window.DimValue,
+                BorderSizePixel = 0,
+                Size = UDim2.fromScale(1, 1),
+                ZIndex = 1,
+            }, window.Gui)
+        end
     end
 
     -- CanvasGroup lets the whole menu fade as one unit. Fall back to a Frame on
@@ -366,6 +365,19 @@ function Minecraft.new(options)
         Size = UDim2.fromOffset(M.PanelWidth, M.PanelHeight),
         ZIndex = 5,
     }, window.Root)
+
+    if window.BlurMode ~= "screen" and window.Options.Dim ~= false then
+        window.Dim = create("Frame", {
+            Name = "LocalDim",
+            BackgroundColor3 = Color3.new(0, 0, 0),
+            BackgroundTransparency = window.DimValue,
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset(-M.Gap - 4, -M.Gap - 4),
+            Size = UDim2.new(1, (M.Gap + 4) * 2, 1, (M.Gap + 4) * 2),
+            ZIndex = 0,
+        }, window.Root)
+        create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel + 4)}, window.Dim)
+    end
 
     window.PopupLayer = create("Frame", {
         Name = "PopupLayer",
@@ -467,10 +479,27 @@ function Minecraft:SetGlass(transparency)
     end
 end
 
--- Real world blur strength (BlurEffect in Lighting).
+-- Real world blur strength. In "local" mode this promotes the window to a
+-- full-screen blur on demand (the BlurEffect is created once, lazily).
 function Minecraft:SetBlur(size)
     self.BlurSize = math.max(tonumber(size) or 0, 0)
-    if self.BlurEffect and isAlive(self.BlurEffect) then
+    if not self.BlurEffect then
+        local ok, lighting = pcall(function()
+            return game:GetService("Lighting")
+        end)
+        if not ok or not lighting then
+            return
+        end
+        local okBlur, blur = pcall(function()
+            return create("BlurEffect", {Name = "MinecraftUIBlur", Size = 0, Enabled = true}, lighting)
+        end)
+        if not okBlur then
+            return
+        end
+        self.BlurEffect = blur
+        self.BlurMode = "screen"
+    end
+    if isAlive(self.BlurEffect) then
         tween(self.BlurEffect, {Size = self.Open and self.BlurSize or 0}, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
     end
 end
@@ -1797,31 +1826,60 @@ function Settings:ColorPicker(options)
     }, frame)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, swatch)
 
-    local api = {Flag = options.Flag, Color = options.Default or Color3.fromRGB(255, 255, 255)}
+    local api = {
+        Flag = options.Flag,
+        Color = options.Default or Color3.fromRGB(255, 255, 255),
+        Alpha = options.DefaultAlpha or 1,
+    }
     window:_Bind(frame, function(themeNow, instant)
         applyColor(label, "TextColor3", themeNow.Text, instant, 0.2)
     end)
+
+    local function paintSwatch()
+        swatch.BackgroundColor3 = api.Color
+        swatch.BackgroundTransparency = 1 - api.Alpha
+    end
 
     function api:Get()
         return api.Color
     end
 
+    function api:GetAlpha()
+        return api.Alpha
+    end
+
     function api:Set(color, silent)
         api.Color = color
-        swatch.BackgroundColor3 = color
+        paintSwatch()
         if options.Flag then
             window.Flags[options.Flag] = color
         end
         if not silent and options.Callback then
-            options.Callback(color)
+            options.Callback(color, api.Alpha)
+        end
+    end
+
+    function api:SetAlpha(alpha, silent)
+        api.Alpha = clamp(tonumber(alpha) or 1, 0, 1)
+        paintSwatch()
+        if options.AlphaFlag then
+            window.Flags[options.AlphaFlag] = api.Alpha
+        end
+        if not silent and options.Callback then
+            options.Callback(api.Color, api.Alpha)
         end
     end
 
     swatch.MouseButton1Click:Connect(function()
-        window:OpenColorPicker(swatch, function(color)
-            api:Set(color)
-        end)
+        window:OpenColorPicker(swatch, function(color, alpha)
+            api:Set(color, true)
+            api:SetAlpha(alpha)
+        end, {Alpha = options.Alpha ~= false, DefaultAlpha = api.Alpha})
     end)
+    paintSwatch()
+    if options.AlphaFlag then
+        window.Flags[options.AlphaFlag] = api.Alpha
+    end
     if options.Flag then
         window.Flags[options.Flag] = api.Color
     end
@@ -2410,6 +2468,7 @@ function Tab:AddColorPicker(options)
     }, row.Frame)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, swatch)
 
+    local alpha = options.DefaultAlpha or 1
     local api = {}
     row.OnClick = function() end
 
@@ -2417,14 +2476,34 @@ function Tab:AddColorPicker(options)
         return color
     end
 
+    function row:GetAlpha()
+        return alpha
+    end
+
+    local function paintSwatch()
+        swatch.BackgroundColor3 = color
+        swatch.BackgroundTransparency = 1 - alpha
+    end
+
     function row:SetValue(newColor, silent)
         color = newColor
-        swatch.BackgroundColor3 = newColor
+        paintSwatch()
         if options.Flag then
             window.Flags[options.Flag] = newColor
         end
         if not silent and options.Callback then
-            options.Callback(newColor)
+            options.Callback(newColor, alpha)
+        end
+    end
+
+    function row:SetAlpha(value, silent)
+        alpha = clamp(tonumber(value) or 1, 0, 1)
+        paintSwatch()
+        if options.AlphaFlag then
+            window.Flags[options.AlphaFlag] = alpha
+        end
+        if not silent and options.Callback then
+            options.Callback(color, alpha)
         end
     end
     row.Set = row.SetValue
@@ -2436,11 +2515,16 @@ function Tab:AddColorPicker(options)
     end
 
     swatch.MouseButton1Click:Connect(function()
-        window:OpenColorPicker(swatch, function(newColor)
-            row:SetValue(newColor)
-        end)
+        window:OpenColorPicker(swatch, function(newColor, newAlpha)
+            row:SetValue(newColor, true)
+            row:SetAlpha(newAlpha)
+        end, {Alpha = options.Alpha ~= false, DefaultAlpha = alpha})
     end)
+    paintSwatch()
     api.Swatch = swatch
+    if options.AlphaFlag then
+        window.Flags[options.AlphaFlag] = alpha
+    end
 
     if options.Flag then
         window.Flags[options.Flag] = color
@@ -2722,14 +2806,24 @@ function Minecraft:_PlacePopup(panel, anchor, width, height)
     panel.Position = UDim2.fromOffset((x - rootX) / scale, (y - rootY) / scale)
 end
 
-function Minecraft:OpenColorPicker(anchor, callback)
+-- Colour picker.
+-- The saturation/value field is drawn with two flat overlays instead of stacked
+-- UIGradients: a white layer whose *alpha* ramps left->right and a black layer
+-- whose alpha ramps bottom->top. That keeps the top-right corner pure white (no
+-- transparent hole) and is what every real picker looks like.
+function Minecraft:OpenColorPicker(anchor, callback, options)
+    options = options or {}
     if self.Popup then
         self:ClosePopup(true)
     end
     local theme = self.Theme
+    local withAlpha = options.Alpha ~= false
     self.PopupLayer.Visible = true
 
-    local width, height = 196, 186
+    local width = 196
+    local fieldH = 104
+    local height = 8 + fieldH + 6 + 14 + (withAlpha and (6 + 12) or 0) + 8 + 18 + 8 + 16 + 8
+
     local panel = create("Frame", {
         Name = "ColorPopup",
         BackgroundColor3 = theme.Popup,
@@ -2739,50 +2833,60 @@ function Minecraft:OpenColorPicker(anchor, callback)
     }, self.PopupLayer)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Control)}, panel)
 
-    -- Saturation / value square
-    local svSize = 180
+    local fieldW = width - 16
+
+    -- Saturation / value field ------------------------------------------------
     local sv = create("Frame", {
         Name = "SV",
         BackgroundColor3 = Color3.fromRGB(255, 0, 0),
         BorderSizePixel = 0,
         Position = UDim2.fromOffset(8, 8),
-        Size = UDim2.fromOffset(svSize, 104),
+        Size = UDim2.fromOffset(fieldW, fieldH),
         ClipsDescendants = true,
         ZIndex = 71,
     }, panel)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, sv)
-    create("UIGradient", {
-        Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.new(1, 1, 1)),
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0),
-            NumberSequenceKeypoint.new(1, 1),
-        }),
-    }, sv)
-    local svBlack = create("Frame", {
-        Name = "Darkness",
-        BackgroundColor3 = Color3.new(0, 0, 0),
+
+    -- White on the left, fully transparent on the right => saturation.
+    local whiteLayer = create("Frame", {
+        Name = "White",
+        BackgroundColor3 = Color3.new(1, 1, 1),
         BorderSizePixel = 0,
         Size = UDim2.fromScale(1, 1),
         ZIndex = 72,
     }, sv)
-    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, svBlack)
+    create("UIGradient", {
+        Rotation = 0,
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(1, 1),
+        }),
+    }, whiteLayer)
+
+    -- Transparent on top, black at the bottom => value.
+    local blackLayer = create("Frame", {
+        Name = "Black",
+        BackgroundColor3 = Color3.new(0, 0, 0),
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 73,
+    }, sv)
     create("UIGradient", {
         Rotation = 90,
         Transparency = NumberSequence.new({
             NumberSequenceKeypoint.new(0, 1),
             NumberSequenceKeypoint.new(1, 0),
         }),
-    }, svBlack)
+    }, blackLayer)
 
-    -- Cursor: dark disc with a light centre so it reads on any colour.
     local cursor = create("Frame", {
         Name = "Cursor",
         BackgroundColor3 = Color3.new(0, 0, 0),
-        BackgroundTransparency = 0.35,
+        BackgroundTransparency = 0.4,
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Size = UDim2.fromOffset(13, 13),
-        ZIndex = 74,
+        ZIndex = 76,
     }, sv)
     create("UICorner", {CornerRadius = UDim.new(1, 0)}, cursor)
     local cursorInner = create("Frame", {
@@ -2791,35 +2895,51 @@ function Minecraft:OpenColorPicker(anchor, callback)
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(9, 9),
-        ZIndex = 75,
+        Size = UDim2.fromOffset(8, 8),
+        ZIndex = 77,
     }, cursor)
     create("UICorner", {CornerRadius = UDim.new(1, 0)}, cursorInner)
 
-    -- Hue strip
+    -- Hue strip: six flat segments, no multi-keypoint gradient (those are the
+    -- ones that render red/black/red on some clients).
+    local hueY = 8 + fieldH + 6
     local hue = create("Frame", {
         Name = "Hue",
-        BackgroundColor3 = Color3.fromRGB(255, 0, 0),
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(8, 118),
-        Size = UDim2.fromOffset(svSize, 14),
+        Position = UDim2.fromOffset(8, hueY),
+        Size = UDim2.fromOffset(fieldW, 14),
+        ClipsDescendants = true,
         ZIndex = 71,
     }, panel)
     create("UICorner", {CornerRadius = UDim.new(1, 0)}, hue)
-    create("UIGradient", {
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
-            ColorSequenceKeypoint.new(1 / 6, Color3.fromRGB(255, 255, 0)),
-            ColorSequenceKeypoint.new(2 / 6, Color3.fromRGB(0, 255, 0)),
-            ColorSequenceKeypoint.new(3 / 6, Color3.fromRGB(0, 255, 255)),
-            ColorSequenceKeypoint.new(4 / 6, Color3.fromRGB(0, 0, 255)),
-            ColorSequenceKeypoint.new(5 / 6, Color3.fromRGB(255, 0, 255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0)),
-        }),
-    }, hue)
+    local hueColors = {
+        Color3.fromRGB(255, 0, 0),
+        Color3.fromRGB(255, 255, 0),
+        Color3.fromRGB(0, 255, 0),
+        Color3.fromRGB(0, 255, 255),
+        Color3.fromRGB(0, 0, 255),
+        Color3.fromRGB(255, 0, 255),
+        Color3.fromRGB(255, 0, 0),
+    }
+    local segments = #hueColors - 1
+    local segWidth = fieldW / segments
+    for index = 1, segments do
+        local segment = create("Frame", {
+            Name = "Segment",
+            BackgroundColor3 = hueColors[index],
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset((index - 1) * segWidth, 0),
+            Size = UDim2.fromOffset(segWidth + 1, 14),
+            ZIndex = 72,
+        }, hue)
+        create("UIGradient", {
+            Color = ColorSequence.new(hueColors[index], hueColors[index + 1]),
+        }, segment)
+    end
     local marker = create("Frame", {
         Name = "Marker",
-        BackgroundColor3 = theme.Text,
+        BackgroundColor3 = Color3.new(1, 1, 1),
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0, 0, 0.5, 0),
@@ -2828,7 +2948,63 @@ function Minecraft:OpenColorPicker(anchor, callback)
     }, hue)
     create("UICorner", {CornerRadius = UDim.new(1, 0)}, marker)
 
-    -- Presets
+    -- Alpha strip ------------------------------------------------------------
+    local alphaBar, alphaFill, alphaMarker
+    if withAlpha then
+        local alphaY = hueY + 14 + 6
+        -- Checkerboard so transparency is readable.
+        alphaBar = create("Frame", {
+            Name = "AlphaBar",
+            BackgroundColor3 = Color3.fromRGB(190, 190, 190),
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset(8, alphaY),
+            Size = UDim2.fromOffset(fieldW, 12),
+            ClipsDescendants = true,
+            ZIndex = 71,
+        }, panel)
+        create("UICorner", {CornerRadius = UDim.new(1, 0)}, alphaBar)
+        for row = 0, 1 do
+            for column = 0, 11 do
+                if (row + column) % 2 == 0 then
+                    local square = create("Frame", {
+                        Name = "Check",
+                        BackgroundColor3 = Color3.fromRGB(150, 150, 150),
+                        BorderSizePixel = 0,
+                        Position = UDim2.fromOffset(column * 16, row * 6),
+                        Size = UDim2.fromOffset(16, 6),
+                        ZIndex = 72,
+                    }, alphaBar)
+                    square.BorderSizePixel = 0
+                end
+            end
+        end
+        alphaFill = create("Frame", {
+            Name = "AlphaFill",
+            BackgroundColor3 = Color3.fromRGB(255, 0, 0),
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(1, 1),
+            ZIndex = 73,
+        }, alphaBar)
+        create("UIGradient", {
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0),
+                NumberSequenceKeypoint.new(1, 1),
+            }),
+        }, alphaFill)
+        alphaMarker = create("Frame", {
+            Name = "AlphaMarker",
+            BackgroundColor3 = Color3.new(1, 1, 1),
+            BorderSizePixel = 0,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(1, 0, 0.5, 0),
+            Size = UDim2.fromOffset(4, 16),
+            ZIndex = 74,
+        }, alphaBar)
+        create("UICorner", {CornerRadius = UDim.new(1, 0)}, alphaMarker)
+    end
+
+    -- Presets ----------------------------------------------------------------
+    local presetsY = (withAlpha and (hueY + 14 + 6 + 12 + 8)) or (hueY + 14 + 8)
     local presets = {}
     local presetColors = {
         Color3.fromRGB(255, 255, 255),
@@ -2840,29 +3016,29 @@ function Minecraft:OpenColorPicker(anchor, callback)
         Color3.fromRGB(255, 120, 210),
         Color3.fromRGB(60, 60, 72),
     }
+    local swatchSize = (fieldW - 7 * 6) / 8
     for index, color in ipairs(presetColors) do
-        local column = (index - 1) % 8
-        local swatch = create("TextButton", {
+        local preset = create("TextButton", {
             Name = "Preset",
             BackgroundColor3 = color,
             AutoButtonColor = false,
             BorderSizePixel = 0,
             Text = "",
-            Position = UDim2.fromOffset(8 + column * 23.5, 140),
-            Size = UDim2.fromOffset(18, 18),
+            Position = UDim2.fromOffset(8 + (index - 1) * (swatchSize + 6), presetsY),
+            Size = UDim2.fromOffset(swatchSize, 18),
             ZIndex = 72,
         }, panel)
-        create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, swatch)
-        presets[index] = swatch
-        swatch.MouseButton1Click:Connect(function()
-            local h, s, v = color:ToHSV()
-            state.H, state.S, state.V = h, s, v
+        create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, preset)
+        presets[index] = preset
+        preset.MouseButton1Click:Connect(function()
+            local h, sat, v = color:ToHSV()
+            state.H, state.S, state.V = h, sat, v
             state:Apply(true)
         end)
     end
 
-    -- Hex readout, click to copy (shows an explicit text field without clipboard).
-    local hexLabel = create("TextButton", {
+    -- Hex readout ------------------------------------------------------------
+    local hex = create("TextButton", {
         Name = "Hex",
         BackgroundColor3 = theme.Track,
         AutoButtonColor = false,
@@ -2871,24 +3047,25 @@ function Minecraft:OpenColorPicker(anchor, callback)
         Font = self.Font,
         TextSize = 11,
         TextColor3 = theme.Text,
-        Position = UDim2.fromOffset(8, 164),
-        Size = UDim2.fromOffset(width - 16, 16),
+        Position = UDim2.fromOffset(8, presetsY + 18 + 8),
+        Size = UDim2.fromOffset(fieldW, 16),
         ZIndex = 72,
     }, panel)
-    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, hexLabel)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, hex)
 
     local state = {
-        H = 0, S = 1, V = 1,
-        Panel = panel,
-        Width = width,
-        Height = height,
-        Window = self,
-        Callback = callback,
+        H = 0, S = 1, V = 1, A = options.DefaultAlpha or 1,
+        Panel = panel, Width = width, Height = height,
+        Window = self, Callback = callback, AlphaEnabled = withAlpha,
     }
 
-    local function hexOf(color)
-        return string.format("#%02X%02X%02X", math.floor(color.R * 255 + 0.5),
+    local function hexOf(color, alpha)
+        local text = string.format("#%02X%02X%02X", math.floor(color.R * 255 + 0.5),
             math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5))
+        if withAlpha then
+            text = string.format("%s%02X", text, math.floor((alpha or 1) * 255 + 0.5))
+        end
+        return text
     end
 
     function state:Apply(instant, silent)
@@ -2896,88 +3073,102 @@ function Minecraft:OpenColorPicker(anchor, callback)
         sv.BackgroundColor3 = Color3.fromHSV(self.H, 1, 1)
         cursor.Position = UDim2.fromScale(self.S, 1 - self.V)
         marker.Position = UDim2.new(self.H, 0, 0.5, 0)
-        hexLabel.Text = hexOf(color)
-        for _, swatch in ipairs(presets) do
-            swatch.BackgroundTransparency = 0
+        if alphaFill then
+            alphaFill.BackgroundColor3 = color
         end
-        if callback and not silent then
-            callback(color)
+        if alphaMarker then
+            alphaMarker.Position = UDim2.new(self.A, 0, 0.5, 0)
         end
+        hex.Text = hexOf(color, self.A)
         self.LastColor = color
+        if callback and not silent then
+            callback(color, self.A)
+        end
     end
 
-    local svInput = create("TextButton", {
-        Name = "SVHit",
-        Text = "",
-        BackgroundTransparency = 1,
-        AutoButtonColor = false,
-        BorderSizePixel = 0,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 73,
+    function state:SetAlpha(value, silent)
+        self.A = clamp(tonumber(value) or 1, 0, 1)
+        if not silent then
+            self:Apply(true)
+        else
+            if alphaMarker then
+                alphaMarker.Position = UDim2.new(self.A, 0, 0.5, 0)
+            end
+            if alphaFill then
+                alphaFill.BackgroundColor3 = Color3.fromHSV(self.H, self.S, self.V)
+            end
+        end
+    end
+
+    local function bindDrag(hit, target, onMove)
+        hit.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+                return
+            end
+            local function move(position)
+                local absolute = target.AbsolutePosition
+                local size = target.AbsoluteSize
+                onMove(clamp((position.X - absolute.X) / math.max(size.X, 1), 0, 1),
+                    clamp((position.Y - absolute.Y) / math.max(size.Y, 1), 0, 1))
+            end
+            move(input.Position)
+            beginDrag(input, move)
+        end)
+    end
+
+    local svHit = create("TextButton", {
+        Name = "SVHit", Text = "", BackgroundTransparency = 1, AutoButtonColor = false,
+        BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 75,
     }, sv)
-    svInput.InputBegan:Connect(function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
-            return
-        end
-        local function move(position)
-            local absolute = sv.AbsolutePosition
-            local size = sv.AbsoluteSize
-            state.S = clamp((position.X - absolute.X) / math.max(size.X, 1), 0, 1)
-            state.V = clamp(1 - (position.Y - absolute.Y) / math.max(size.Y, 1), 0, 1)
-            state:Apply(true)
-        end
-        move(input.Position)
-        beginDrag(input, move)
+    bindDrag(svHit, sv, function(x, y)
+        state.S = x
+        state.V = 1 - y
+        state:Apply(true)
     end)
 
-    local hueInput = create("TextButton", {
-        Name = "HueHit",
-        Text = "",
-        BackgroundTransparency = 1,
-        AutoButtonColor = false,
-        BorderSizePixel = 0,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 73,
+    local hueHit = create("TextButton", {
+        Name = "HueHit", Text = "", BackgroundTransparency = 1, AutoButtonColor = false,
+        BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 75,
     }, hue)
-    hueInput.InputBegan:Connect(function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
-            return
-        end
-        local function move(position)
-            local absolute = hue.AbsolutePosition
-            local size = hue.AbsoluteSize
-            state.H = clamp((position.X - absolute.X) / math.max(size.X, 1), 0, 0.9999)
-            state:Apply(true)
-        end
-        move(input.Position)
-        beginDrag(input, move)
+    bindDrag(hueHit, hue, function(x)
+        state.H = math.min(x, 0.9999)
+        state:Apply(true)
     end)
 
-    hexLabel.MouseButton1Click:Connect(function()
-        local text = hexLabel.Text
+    if alphaBar then
+        local alphaHit = create("TextButton", {
+            Name = "AlphaHit", Text = "", BackgroundTransparency = 1, AutoButtonColor = false,
+            BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 75,
+        }, alphaBar)
+        bindDrag(alphaHit, alphaBar, function(x)
+            state:SetAlpha(x)
+        end)
+    end
+
+    hex.MouseButton1Click:Connect(function()
         local copier = rawget(_G, "setclipboard") or rawget(_G, "toclipboard")
         if copier then
-            pcall(copier, text)
+            pcall(copier, hex.Text)
         end
-        hexLabel.Text = "copied"
+        local previous = hex.Text
+        hex.Text = "copied"
         task.delay(0.6, function()
-            if isAlive(hexLabel) then
-                hexLabel.Text = hexOf(state.LastColor or Color3.new(1, 1, 1))
+            if isAlive(hex) and hex.Text == "copied" then
+                hex.Text = previous
             end
         end)
     end)
 
     local current = anchor.BackgroundColor3
-    local h, s, v = current:ToHSV()
-    state.H, state.S, state.V = h, s, v
+    local h, sat, v = current:ToHSV()
+    state.H, state.S, state.V = h, sat, v
     state:Apply(true, true)
 
     self.Popup = state
     self:_Bind(panel, function(themeNow, instant)
         applyColor(panel, "BackgroundColor3", themeNow.Popup, instant, 0.2)
-        applyColor(hexLabel, "BackgroundColor3", themeNow.Track, instant, 0.2)
-        applyColor(hexLabel, "TextColor3", themeNow.Text, instant, 0.2)
-        applyColor(marker, "BackgroundColor3", themeNow.Text, instant, 0.2)
+        applyColor(hex, "BackgroundColor3", themeNow.Track, instant, 0.2)
+        applyColor(hex, "TextColor3", themeNow.Text, instant, 0.2)
     end)
 
     self:_PlacePopup(panel, anchor, width, height)

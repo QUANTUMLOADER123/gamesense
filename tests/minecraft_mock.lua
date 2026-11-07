@@ -235,12 +235,26 @@ assert(window.Gui.Parent == coreGui, "default parent is CoreGui")
 assert(window.ThemeIndex == 3 and window.Theme.Name == "Bloom")
 assert(window.Root.ClassName == "CanvasGroup", "CanvasGroup fade wrapper")
 assert(window.Glass == nil, "no glass plate behind the window any more")
-assert(window.BlurEffect and window.BlurEffect.ClassName == "BlurEffect", "real backdrop blur exists")
+-- Default mode is local: no viewport blur, a scrim hugging the panels.
+assert(window.BlurMode == "local", "local blur mode by default")
+assert(window.BlurEffect == nil, "no full-screen blur in local mode")
+assert(window.Dim and window.Dim.Name == "LocalDim", "local scrim exists")
+assert(window.Dim.Parent == window.Root and window.Dim.ZIndex == 0, "local scrim sits behind the panels")
+
+-- Explicit screen mode gives the full-screen blur + dim.
+local screenWindow = Minecraft.new({BlurMode = "screen"})
 flush()
-assert(window.BlurEffect.Parent == lighting and window.BlurEffect.Size == 24, "blur is applied to the world")
-assert(window.Dim and window.Dim.Size.X.Scale == 1 and window.Dim.Size.Y.Scale == 1, "full-screen dim layer")
-assert(window.Dim.Parent == window.Gui and window.Dim.ZIndex < window.Root.ZIndex, "dim sits under the menu")
-assert(window.Dim.BackgroundTransparency == 0.55, "dim is translucent")
+assert(screenWindow.BlurEffect and screenWindow.BlurEffect.ClassName == "BlurEffect")
+assert(screenWindow.BlurEffect.Parent == lighting and screenWindow.BlurEffect.Size == 24,
+    "blur is applied to the whole screen")
+assert(screenWindow.Dim and screenWindow.Dim.Size.X.Scale == 1 and screenWindow.Dim.Size.Y.Scale == 1,
+    "full-screen dim layer")
+assert(screenWindow.Dim.Parent == screenWindow.Gui and screenWindow.Dim.ZIndex < screenWindow.Root.ZIndex,
+    "dim sits under the menu")
+assert(screenWindow.Dim.BackgroundTransparency == 0.55, "dim is translucent")
+screenWindow:Toggle(false)
+assert(screenWindow.BlurEffect.Size == 0, "screen blur follows visibility")
+screenWindow:Destroy()
 assert(not window.Header and not window.TitleLabel and not window.Shadow, "no title bar, no backdrop")
 assert(window.Root.BackgroundTransparency == 1, "root itself is transparent")
 
@@ -479,6 +493,14 @@ assert(section.Label.Text == "ESP" and not section.Box.Visible)
 
 local colorRow = visuals:AddColorPicker({Name = "Box color", Flag = "box_color", Default = Color3.fromRGB(255, 0, 0)})
 assert(window.Flags.box_color and window.Flags.box_color.R == 1)
+-- Colour rows expose alpha and paint it onto their swatch.
+local alphaPicker = visuals:AddColorPicker({Name = "Tracer", Flag = "tracer_color",
+    AlphaFlag = "tracer_alpha", DefaultAlpha = 0.5})
+assert(alphaPicker:GetAlpha() == 0.5 and window.Flags.tracer_alpha == 0.5)
+alphaPicker:SetAlpha(0.25)
+assert(window.Flags.tracer_alpha == 0.25)
+local tracerSwatch = findChild(alphaPicker.Frame, "Swatch")
+assert(tracerSwatch.BackgroundTransparency == 0.75, "swatch shows the alpha")
 
 --==========================================================================--
 -- Search
@@ -524,14 +546,28 @@ assert(window.Popup.Panel.Parent == window.PopupLayer)
 local pickerPanel = window.Popup.Panel
 local sv = findChild(pickerPanel, "SV")
 assert(sv and sv.Size.X.Offset == 180 and sv.Size.Y.Offset == 104, "SV field is 180x104")
-assert(pickerPanel.Size.X.Offset == 196 and pickerPanel.Size.Y.Offset == 186, "popup is 196x186")
+assert(pickerPanel.Size.X.Offset == 196, "popup is 196 wide")
+-- The SV field must be built from a white left->right ramp plus a black
+-- bottom->top ramp, so the top-right corner stays pure white.
+local whiteLayer = findChild(sv, "White")
+local blackLayer = findChild(sv, "Black")
+assert(whiteLayer and blackLayer, "SV field has white and black overlay layers")
+assert(whiteLayer.ZIndex < blackLayer.ZIndex, "layers are stacked white then black")
+assert(findChild(pickerPanel, "AlphaBar"), "alpha bar exists")
+assert(findChild(pickerPanel, "Hue"), "hue strip exists")
 -- The popup must be positioned inside the menu, not at some random offset.
 local popupPos = pickerPanel.Position
 assert(popupPos and popupPos.X and popupPos.Y, "popup has a concrete position")
 assert(popupPos.X.Offset >= -1 and popupPos.Y.Offset >= -1, "popup is not placed off-screen")
 assert(window.PopupLayer.ZIndex > window.Tabs[1].Panel.ZIndex, "popup renders above panels")
 assert(findChild(pickerPanel, "Hex"), "popup has a hex readout")
-assert(findChild(pickerPanel, "Hue"), "popup has a hue strip")
+-- Alpha travels with the colour: setting it updates the swatch transparency
+-- and the stored flag.
+local popup = window.Popup
+assert(popup.AlphaEnabled, "alpha bar is enabled by default")
+assert(popup.A == 1, "alpha defaults to opaque")
+popup:SetAlpha(0.4)
+assert(math.abs(popup.A - 0.4) < 0.001, "alpha is stored")
 window.Popup:Apply(true)
 input.InputBegan:Fire({UserInputType = Enum.UserInputType.Keyboard, KeyCode = Enum.KeyCode.Escape}, false)
 flush()
@@ -548,15 +584,15 @@ assert(window.Root.Position.X.Scale == 0.5 and window.Root.Position.Y.Scale == 0
 --==========================================================================--
 -- The frosted layer follows visibility.
 window:Toggle()
-assert(window.Open == false and window.BlurEffect.Size == 0, "blur is removed when hidden")
-assert(window.Dim.BackgroundTransparency == 1, "dim fades out when hidden")
+assert(window.Open == false and window.Dim.BackgroundTransparency == 1, "scrim fades out when hidden")
 window:Toggle()
-assert(window.Open == true and window.BlurEffect.Size == 24, "blur returns when shown")
+assert(window.Open == true and window.Dim.BackgroundTransparency == 0.35, "scrim returns when shown")
 window:SetGlass(0.35)
 assert(combat.Panel.BackgroundTransparency == 0.35, "panel transparency is adjustable")
 window:SetGlass(0.22)
 window:SetBlur(32)
-assert(window.BlurEffect.Size == 32, "blur strength is adjustable")
+assert(window.BlurEffect and window.BlurEffect.Size == 32, "SetBlur promotes to a full-screen blur")
+assert(window.BlurMode == "screen")
 window:SetBlur(24)
 window:Toggle()
 assert(window.Open == false)
@@ -587,8 +623,10 @@ assert(t2:Get() == true and restored.Flags.aura == true, "config patch applies")
 assert(m2:Get() == "Legit" and m2.ValueLabel.Text == "Legit")
 restored:Destroy()
 
-assert(window.BlurEffect.destroyed, "blur effect is cleaned up")
+local blurObject = window.BlurEffect
 window:Destroy()
+assert(window.BlurEffect == nil, "blur reference is cleared")
+assert(blurObject.destroyed, "blur effect is cleaned up")
 assert(window.Gui.destroyed)
 
 -- Two windows can coexist and keep separate flags.

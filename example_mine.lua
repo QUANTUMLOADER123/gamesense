@@ -18,7 +18,7 @@
 
 -- Shared libraries cache HTTP results, so the URL carries a version query to
 -- make sure the newest minecraft.lua is fetched. Bump it if you edit the file.
-local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua?v=1.6.0"
+local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua?v=1.7.0"
 
 local function httpGet(url)
     -- Several executors cache game:HttpGet; request(url, true) forces a refresh.
@@ -58,10 +58,11 @@ local Player = game:GetService("Players").LocalPlayer
 local window = Minecraft.new({
     Theme = 1,          -- 1..6 (Nebula, Cyber, Bloom, Ember, Mint, Gold)
     ToggleKey = Enum.KeyCode.Insert,
-    -- Blur = true,          -- full-screen world blur behind the menu
-    -- BlurSize = 24,        -- blur strength
-    -- Dim = true,           -- dark scrim over the whole screen
-    -- DimTransparency = 0.55, -- 0 = black, 1 = none
+    -- BlurMode = "local",  -- "local" = scrim only behind panels (default)
+    --                      -- "screen" = BlurEffect over the whole view
+    -- BlurSize = 24,       -- blur strength (screen mode)
+    -- Dim = true,          -- dark scrim
+    -- DimTransparency = 0.35, -- 0 = black, 1 = none
     -- GlassTransparency = 0.22, -- panel opacity, 0 = solid, 1 = fully clear
     Search = true,
     -- Parent = Player:WaitForChild("PlayerGui"), -- for a Studio LocalScript
@@ -163,7 +164,9 @@ visuals:AddToggle({
     Settings = function(s)
         s:Input({Name = "Block", Placeholder = "minecraft:chest", Default = "chest", Flag = "block_esp_id"})
         s:Slider({Name = "Distance", Min = 16, Max = 512, Step = 8, Default = 128})
-        s:ColorPicker({Name = "Outline", Default = Color3.fromRGB(186, 152, 255), Flag = "block_esp_color"})
+        s:ColorPicker({Name = "Outline", Default = Color3.fromRGB(186, 152, 255),
+            Flag = "block_esp_color", AlphaFlag = "block_esp_alpha", DefaultAlpha = 0.8,
+            Callback = function(color, alpha) print("Outline", color, alpha) end})
     end,
 })
 visuals:AddToggle({Name = "China Hat", Flag = "china_hat", Premium = true})
@@ -253,5 +256,5 @@ window:Toggle(true)
 -- Handy for consoles: announce where the library lives.
 print(("Minecraft UI v%s loaded for %s"):format(Minecraft.Version, Player.Name))
 -- If this fires, your executor served a cached copy of minecraft.lua.
-assert(Minecraft.Build and Minecraft.Build >= 16,
+assert(Minecraft.Build and Minecraft.Build >= 17,
     "stale minecraft.lua in cache -- clear the executor cache or bump LIB_URL")
