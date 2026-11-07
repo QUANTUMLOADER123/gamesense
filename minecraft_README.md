@@ -17,21 +17,23 @@ local Minecraft = loadstring(game:HttpGet("https://raw.githubusercontent.com/QUA
 
 ## Окно
 
+Окно — это только ряд панелей и поле поиска под ними. Заголовка нет, фон прозрачный,
+перетаскивания нет: меню всегда стоит по центру экрана.
+
 ```lua
 local window = Minecraft.new({
-    Title = "Minecraft",            -- заголовок
     Theme = 1,                      -- 1..6 или имя: "Midnight", "Slate", ...
     ToggleKey = Enum.KeyCode.Insert,
-    Search = true,                  -- поле поиска снизу (по умолчанию включено)
     -- Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"),
 })
 ```
 
-* перетаскивание — за верхнюю панель;
-* `Insert` — показать/скрыть;
-* `<` и `>` в заголовке — переключение темы (вживую перекрашиваются все элементы);
-* поле «Поиск» фильтрует все панели сразу, несовпавшие строки скрываются, открытые настройки закрываются;
-* `window:SetTheme(3)`, `window:CycleTheme(-1)`, `window:Toggle(false)`, `window:Destroy()`.
+* `Insert` — показать/скрыть (плавное затухание);
+* поле «Поиск» под панелями фильтрует все панели сразу, несовпавшие строки скрываются,
+  открытые настройки закрываются;
+* тема задаётся только при создании окна; при желании потом можно `window:SetTheme(3)`
+  или `window:CycleTheme(-1)` — это меняет цвета уже созданного меню;
+* `window:Toggle(false)`, `window:Destroy()`.
 
 Панель добавляется так:
 
@@ -91,6 +93,8 @@ combat:AddLabel("просто текст")
 | 4 | Crimson | красная |
 | 5 | Emerald | зелёная |
 | 6 | Amber | янтарная |
+
+Тема задаётся в `Minecraft.new({Theme = ...})`. Названия окна больше нет — заголовок убран.
 
 `Minecraft.Themes` — список тем, `Minecraft.Metrics` — размеры (можно менять до создания окна).
 

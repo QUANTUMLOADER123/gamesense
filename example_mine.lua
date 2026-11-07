@@ -8,9 +8,8 @@
       * Insert               -- show / hide the menu
       * Left click on a row  -- toggle / press the option
       * Right click on a row -- open the animated settings block (the "..." rows)
-      * < and > in the title -- switch between the 6 themes
-      * Drag the top bar     -- move the window
-      * Search box           -- filter every panel at once
+      * Search box           -- filter every panel at once (under the panels)
+      * Theme               -- set once in Minecraft.new({Theme = 1..6})
 
     IMPORTANT: this is UI only. Toggles, sliders and dropdowns do not add game
     features -- wire your own logic into the Callback functions.
@@ -38,7 +37,6 @@ local Player = game:GetService("Players").LocalPlayer
 -- Window
 --==========================================================================--
 local window = Minecraft.new({
-    Title = "Minecraft",
     Theme = 1,          -- 1..6 (Midnight, Slate, Amethyst, Crimson, Emerald, Amber)
     ToggleKey = Enum.KeyCode.Insert,
     Search = true,
@@ -219,12 +217,11 @@ end})
 -- window:SetTheme(3)        -- Midnight, Slate, Amethyst, Crimson, Emerald, Amber
 -- window:CycleTheme(1)      -- next theme
 -- window:Filter("aura")     -- programmatic search
+-- The window has no title bar and cannot be dragged: it is a fixed row of panels.
 -- window:Toggle(false)      -- hide, window:Toggle(true) -- show
 --
 -- local config = window:SaveConfig()  -- plain table: booleans, numbers,
 -- window:LoadConfig(config)           -- strings, lists, colors and the theme
-
-window:SetTheme(1)
 
 -- Show the menu with a small intro animation.
 window:Toggle(true)

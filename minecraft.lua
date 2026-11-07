@@ -34,13 +34,12 @@ local M = {
     PanelWidth = 178,
     PanelHeight = 430,
     Gap = 8,
-    Padding = 14,
-    Header = 28,
     Title = 34,
     RowHeight = 20,
     RowGap = 2,
     Inset = 6,
-    Search = 24,
+    Search = 26,
+    SearchWidth = 220,
 }
 Minecraft.Metrics = M
 
@@ -281,104 +280,20 @@ function Minecraft.new(options)
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(M.Padding * 2 + M.PanelWidth, M.Padding * 2 + M.Header + M.PanelHeight),
+        Size = UDim2.fromOffset(M.PanelWidth, M.PanelHeight + M.Gap + M.Search),
         ZIndex = 1,
     }, window.Gui)
     if window.Root.ClassName == "CanvasGroup" then
         window.Root.GroupTransparency = 0
     end
 
-    window.Shadow = create("Frame", {
-        Name = "Shadow",
-        BackgroundColor3 = rgb(0, 0, 0),
-        BackgroundTransparency = 0.62,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(-6, -6),
-        Size = UDim2.new(1, 12, 1, 12),
-        ZIndex = 0,
-    }, window.Root)
-    create("UICorner", {CornerRadius = UDim.new(0, 4)}, window.Shadow)
-
     window.ScaleObject = create("UIScale", {Scale = window.Scale}, window.Root)
-
-    window.Header = create("Frame", {
-        Name = "Header",
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 0, M.Header),
-        ZIndex = 10,
-    }, window.Root)
-
-    window.Logo = create("Frame", {
-        Name = "Logo",
-        BackgroundColor3 = window.Theme.Accent,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(0, (M.Header - 10) / 2),
-        Size = UDim2.fromOffset(10, 10),
-        ZIndex = 2,
-    }, window.Header)
-    create("UICorner", {CornerRadius = UDim.new(0, 2)}, window.Logo)
-
-    window.TitleLabel = create("TextLabel", {
-        Name = "Title",
-        BackgroundTransparency = 1,
-        Font = window.Font,
-        Text = window.Title,
-        TextSize = 15,
-        TextColor3 = window.Theme.Text,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextYAlignment = Enum.TextYAlignment.Center,
-        Position = UDim2.fromOffset(18, 0),
-        Size = UDim2.new(1, -200, 0, M.Header),
-        ZIndex = 2,
-    }, window.Header)
-
-    window.ThemePrev = create("TextButton", {
-        Name = "ThemePrev",
-        Text = "<",
-        Font = window.Font,
-        TextSize = 14,
-        TextColor3 = window.Theme.Muted,
-        BackgroundTransparency = 1,
-        AutoButtonColor = false,
-        Position = UDim2.new(1, -94, 0, 0),
-        Size = UDim2.fromOffset(18, M.Header),
-        ZIndex = 2,
-    }, window.Header)
-
-    window.ThemeName = create("TextLabel", {
-        Name = "ThemeName",
-        BackgroundTransparency = 1,
-        Font = window.Font,
-        Text = "1/6 " .. window.Theme.Name,
-        TextSize = 12,
-        TextColor3 = window.Theme.Muted,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        TextXAlignment = Enum.TextXAlignment.Right,
-        TextYAlignment = Enum.TextYAlignment.Center,
-        Position = UDim2.new(1, -176, 0, 0),
-        Size = UDim2.fromOffset(78, M.Header),
-        ZIndex = 2,
-    }, window.Header)
-
-    window.ThemeNext = create("TextButton", {
-        Name = "ThemeNext",
-        Text = ">",
-        Font = window.Font,
-        TextSize = 14,
-        TextColor3 = window.Theme.Muted,
-        BackgroundTransparency = 1,
-        AutoButtonColor = false,
-        Position = UDim2.new(1, -18, 0, 0),
-        Size = UDim2.fromOffset(18, M.Header),
-        ZIndex = 2,
-    }, window.Header)
 
     window.Body = create("Frame", {
         Name = "Body",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(M.Padding, M.Padding + M.Header),
+        Position = UDim2.fromOffset(0, 0),
         Size = UDim2.fromOffset(M.PanelWidth, M.PanelHeight),
         ZIndex = 5,
     }, window.Root)
@@ -405,7 +320,6 @@ function Minecraft.new(options)
         window:ClosePopup()
     end)
 
-    window:SetupHeader()
     window:SetupSearch()
     window:SetupInput()
 
@@ -444,8 +358,6 @@ function Minecraft:SetTheme(value)
     self.ThemeIndex = index
     self.Theme = THEMES[index]
     self:Refresh(false)
-    applyColor(self.Logo, "BackgroundColor3", self.Theme.Accent, true)
-    self.ThemeName.Text = string.format("%d/%d %s", index, #THEMES, self.Theme.Name)
 end
 
 function Minecraft:CycleTheme(direction)
@@ -463,63 +375,23 @@ function Minecraft:SetScale(scale)
     tween(self.ScaleObject, {Scale = self.Scale}, T.Pop)
 end
 
+-- The window has no title bar any more: it is a fixed row of panels, so it is
+-- not draggable. Kept as a no-op so older snippets do not break.
 function Minecraft:SetupHeader()
-    local window = self
-    for _, name in ipairs({"ThemePrev", "ThemeNext"}) do
-        local button = window[name]
-        button.MouseEnter:Connect(function()
-            applyColor(button, "TextColor3", window.Theme.Accent, false, 0.12)
-        end)
-        button.MouseLeave:Connect(function()
-            applyColor(button, "TextColor3", window.Theme.Muted, false, 0.12)
-        end)
-    end
-    window.ThemePrev.MouseButton1Click:Connect(function()
-        window:CycleTheme(-1)
-    end)
-    window.ThemeNext.MouseButton1Click:Connect(function()
-        window:CycleTheme(1)
-    end)
-    window:_Bind(window.TitleLabel, function(theme, instant)
-        applyColor(window.TitleLabel, "TextColor3", theme.Text, instant, 0.26)
-    end)
-    window:_Bind(window.ThemeName, function(theme, instant)
-        applyColor(window.ThemeName, "TextColor3", theme.Muted, instant, 0.26)
-        applyColor(window.Logo, "BackgroundColor3", theme.Accent, instant, 0.26)
-        window.ThemeName.Text = string.format("%d/%d %s", window.ThemeIndex, #THEMES, theme.Name)
-    end)
-
-    -- Dragging: the header is the window handle.
-    window.Header.InputBegan:Connect(function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
-            return
-        end
-        window:ClosePopup(true)
-        local origin = input.Position
-        local start = window.Root.Position
-        beginDrag(input, function(position)
-            local deltaX = position.X - origin.X
-            local deltaY = position.Y - origin.Y
-            window.Root.Position = UDim2.new(start.X.Scale, start.X.Offset + deltaX / window.Scale,
-                start.Y.Scale, start.Y.Offset + deltaY / window.Scale)
-        end)
-    end)
+    return nil
 end
 
 function Minecraft:SetupSearch()
     local window = self
-    if window.Options.Search == false then
-        return
-    end
     window.SearchFrame = create("Frame", {
         Name = "Search",
         BackgroundColor3 = window.Theme.Panel,
         BorderSizePixel = 0,
-        Size = UDim2.fromOffset(228, M.Search),
         AnchorPoint = Vector2.new(0.5, 0),
+        Size = UDim2.fromOffset(M.SearchWidth, M.Search),
         ZIndex = 6,
     }, window.Root)
-    create("UICorner", {CornerRadius = UDim.new(0, 2)}, window.SearchFrame)
+    create("UICorner", {CornerRadius = UDim.new(0, 4)}, window.SearchFrame)
     window.SearchStroke = create("UIStroke", {
         Thickness = 1,
         Color = window.Theme.Border,
@@ -631,26 +503,22 @@ end
 function Minecraft:_UpdateLayout(instant)
     local count = math.max(#self.Tabs, 1)
     local bodyWidth = count * M.PanelWidth + (count - 1) * M.Gap
-    local width = M.Padding * 2 + bodyWidth
-    local searchExtra = self.SearchFrame and (8 + M.Search) or 0
-    local height = M.Padding * 2 + M.Header + M.PanelHeight + searchExtra
+    local width = bodyWidth
+    local height = M.PanelHeight + M.Gap + M.Search
 
     if instant then
         self.Root.Size = UDim2.fromOffset(width, height)
         self.Body.Size = UDim2.fromOffset(bodyWidth, M.PanelHeight)
-        self.Body.Position = UDim2.fromOffset(M.Padding, M.Padding + M.Header)
+        self.Body.Position = UDim2.fromOffset(0, 0)
     else
         tween(self.Root, {Size = UDim2.fromOffset(width, height)}, T.Layout)
-        tween(self.Body, {
-            Size = UDim2.fromOffset(bodyWidth, M.PanelHeight),
-            Position = UDim2.fromOffset(M.Padding, M.Padding + M.Header),
-        }, T.Layout)
+        tween(self.Body, {Size = UDim2.fromOffset(bodyWidth, M.PanelHeight), Position = UDim2.fromOffset(0, 0)}, T.Layout)
     end
 
     self:_Fit(width, height)
 
     if self.SearchFrame then
-        local target = UDim2.new(0.5, 0, 0, M.Padding + M.Header + M.PanelHeight + 8)
+        local target = UDim2.new(0.5, 0, 0, M.PanelHeight + M.Gap)
         if instant then
             self.SearchFrame.Position = target
         else
@@ -758,9 +626,16 @@ function Minecraft:AddTab(name, options)
         Name = "Content",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 1, 0),
+        Size = UDim2.new(1, 0, 0, 0),
         ZIndex = 2,
     }, tab.Scroll)
+    -- Without this every row sits at the same Y and only the last one is visible.
+    create("UIListLayout", {
+        FillDirection = Enum.FillDirection.Vertical,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, M.RowGap),
+        HorizontalAlignment = Enum.HorizontalAlignment.Left,
+    }, tab.Content)
 
     tab.EmptyLabel = create("TextLabel", {
         Name = "Empty",
@@ -883,7 +758,7 @@ local function newRow(tab, name, options)
         Size = UDim2.new(1, 0, 1, 0),
         ZIndex = 2,
     }, row.Frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 2)}, row.Box)
+    create("UICorner", {CornerRadius = UDim.new(0, 3)}, row.Box)
     row.BoxStroke = create("UIStroke", {
         Thickness = 1,
         Color = theme.RowStroke,
@@ -1819,7 +1694,7 @@ function Settings:Dropdown(options)
         Size = UDim2.fromScale(1, 1),
         ZIndex = 3,
     }, frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 2)}, header)
+    create("UICorner", {CornerRadius = UDim.new(0, 3)}, header)
     local stroke = create("UIStroke", {
         Thickness = 1,
         Color = window.Theme.Border,
@@ -1954,8 +1829,9 @@ function Settings:Dropdown(options)
             ZIndex = 4,
         }, list)
         optionButtons[index] = button
+        create("UICorner", {CornerRadius = UDim.new(0, 2)}, button)
         button.MouseEnter:Connect(function()
-            button.BackgroundTransparency = 0.85
+            button.BackgroundTransparency = 0.8
             button.BackgroundColor3 = window.Theme.Hover
         end)
         button.MouseLeave:Connect(function()
@@ -2567,6 +2443,7 @@ function Tab:AddDropdown(options)
             ZIndex = 4,
         }, listFrame)
         buttons[index] = button
+        create("UICorner", {CornerRadius = UDim.new(0, 2)}, button)
         button.MouseEnter:Connect(function()
             applyColor(button, "BackgroundColor3", theme.Hover, false, 0.1)
             button.BackgroundTransparency = 0.5

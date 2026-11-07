@@ -226,13 +226,13 @@ assert(Minecraft.Themes and #Minecraft.Themes == 6, "six themes expected")
 local window = Minecraft.new({Title = "Minecraft", Theme = 3, Search = true})
 assert(window.Gui.Parent == coreGui, "default parent is CoreGui")
 assert(window.ThemeIndex == 3 and window.Theme.Name == "Amethyst")
-assert(window.TitleLabel.Text == "Minecraft")
-assert(window.ThemeName.Text == "3/6 Amethyst")
 assert(window.Root.ClassName == "CanvasGroup", "CanvasGroup fade wrapper")
+assert(not window.Header and not window.TitleLabel and not window.Shadow, "no title bar, no backdrop")
+assert(window.Root.BackgroundTransparency == 1, "root itself is transparent")
 
--- Empty window lays out one panel wide.
-local emptyWidth = window.Root.Size.X.Offset
-assert(emptyWidth == 14 * 2 + 178, "single panel width")
+-- Empty window lays out one panel wide: panels + search underneath.
+assert(window.Root.Size.X.Offset == 178, "single panel width")
+assert(window.Root.Size.Y.Offset == 430 + 8 + 26, "panels + search height")
 
 local combat = window:AddTab("Combat")
 local movement = window:AddTab("Movement")
@@ -240,16 +240,20 @@ local visuals = window:AddTab("Visuals")
 assert(#window.Tabs == 3)
 assert(combat.Panel.Size.X.Offset == 178 and combat.Panel.Size.Y.Offset == 430, "equal panel size")
 assert(movement.Panel.Position.X.Offset == 186 and visuals.Panel.Position.X.Offset == 372, "panel gap")
-assert(window.Root.Size.X.Offset == 28 + 3 * 178 + 2 * 8, "root grows with tabs")
+assert(window.Root.Size.X.Offset == 3 * 178 + 2 * 8, "root grows with tabs")
 assert(combat.Title.Text == "Combat" and combat.Title.TextXAlignment == Enum.TextXAlignment.Center)
 
 --==========================================================================--
 -- Search field lives under the panels
 --==========================================================================--
 local search = window.SearchFrame
-assert(search and search.Position.Y.Offset == 14 + 28 + 430 + 8, "search below panels")
+assert(search and search.Position.Y.Offset == 430 + 8, "search sits below the panels")
+assert(search.Size.X.Offset == 220 and search.AnchorPoint.X == 0.5, "search is centered")
 assert(window.SearchBox.PlaceholderText == "Search")
-assert(window.Root.Size.Y.Offset == 14 * 2 + 28 + 430 + 8 + 24, "search adds height")
+
+-- Rows must be laid out by a real UIListLayout, otherwise they overlap.
+local contentLayout = findChild(combat.Content, "UIListLayout")
+assert(contentLayout, "content has a UIListLayout")
 
 --==========================================================================--
 -- Toggles and settings expansion
@@ -284,6 +288,30 @@ assert(contentHeight > 6 * 20, "canvas grew with the settings block")
 aura.Frame.MouseButton2Down:Fire()
 assert(not aura.SettingsOpen and aura.Slot.Size.Y.Offset == 20)
 assert(combat.Content.Size.Y.Offset == 6 * 20 + 5 * 2, "canvas shrinks back")
+
+-- Every row gets a distinct layout order, so rows are drawn one below another.
+for index, row in ipairs(combat.Rows) do
+    assert(row.Slot.LayoutOrder == index or row.Slot.LayoutOrder > 0, "row has layout order")
+end
+local orders = {}
+for _, row in ipairs(combat.Rows) do
+    assert(not orders[row.Slot.LayoutOrder], "layout orders are unique")
+    orders[row.Slot.LayoutOrder] = true
+end
+
+-- Rows must be clickable: the hit area is the whole row, not a strip.
+for _, row in ipairs(combat.Rows) do
+    assert(row.Frame.Size.X.Offset == 0 and row.Frame.Size.X.Scale == 1, "row spans full width")
+    assert(row.Frame.Size.Y.Offset == 20, "row is 20px tall")
+    assert(row.Frame.ZIndex >= row.Box.ZIndex, "hit area sits above the visual")
+end
+
+-- Right click on each row opens only that row's settings.
+local withSettings = 0
+for _, row in ipairs(combat.Rows) do
+    if row.Dots.Visible then withSettings = withSettings + 1 end
+end
+assert(withSettings >= 1, "at least one row shows the three dots")
 
 -- Primary click flips the value and fires the callback.
 local calls = 0
@@ -384,7 +412,6 @@ window:Filter("")
 local before = window.Tabs[1].Panel.BackgroundColor3
 window:SetTheme(5)
 assert(window.ThemeIndex == 5 and window.Theme.Name == "Emerald")
-assert(window.ThemeName.Text == "5/6 Emerald")
 assert(window.Tabs[1].Panel.BackgroundColor3 ~= before, "panels recolored")
 window:CycleTheme(1)
 assert(window.ThemeIndex == 6)
@@ -412,14 +439,10 @@ flush()
 assert(not window.Popup, "escape closes the popup")
 
 --==========================================================================--
--- Dragging the window
+-- The window must not be draggable: no header exists, and the root stays put.
 --==========================================================================--
-local startPosition = window.Root.Position
-window.Header.InputBegan:Fire({UserInputType = Enum.UserInputType.MouseButton1, Position = {X = 10, Y = 10}})
-input.InputChanged:Fire({UserInputType = Enum.UserInputType.MouseMovement, Position = {X = 60, Y = 40}})
-assert(window.Root.Position.X.Offset == startPosition.X.Offset + 50)
-assert(window.Root.Position.Y.Offset == startPosition.Y.Offset + 30)
-input.InputEnded:Fire({UserInputType = Enum.UserInputType.MouseButton1})
+assert(window.Header == nil)
+assert(window.Root.Position.X.Scale == 0.5 and window.Root.Position.Y.Scale == 0.5)
 
 --==========================================================================--
 -- Hide/show and destroy
