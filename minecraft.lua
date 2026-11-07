@@ -17,8 +17,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.7.0"
-Minecraft.Build = 17 -- incremented on every visible change, used by examples to detect stale caches
+Minecraft.Version = "1.8.0"
+Minecraft.Build = 18 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -292,7 +292,9 @@ function Minecraft.new(options)
     -- Blur modes:
     --   "local" (default) -> no viewport blur; frosted panels do the work
     --   "screen"          -> BlurEffect over the whole 3D view, like a CS menu
-    window.BlurMode = options.BlurMode or (options.Blur == true and "screen" or "local")
+    -- Default "screen": the world is blurred behind the menu. Pass
+    -- BlurMode = "local" to keep the game sharp and only dim behind the panels.
+    window.BlurMode = options.BlurMode or "screen"
     window.BlurSize = options.BlurSize or 24
     if window.BlurMode == "screen" and options.BlurEffect ~= false then
         local okLighting, lighting = pcall(function()
@@ -320,7 +322,7 @@ function Minecraft.new(options)
     -- Dark scrim. In "local" mode it only sits behind the panels (a sibling of
     -- the root, sized to it), so the screen keeps its colour. In "screen" mode
     -- it covers the viewport together with the blur.
-    window.DimValue = options.DimTransparency or (window.BlurMode == "screen" and 0.55 or 0.35)
+    window.DimValue = options.DimTransparency or (window.BlurMode == "screen" and 0.55 or 0.55)
     if options.Dim ~= false then
         if window.BlurMode == "screen" then
             window.Dim = create("Frame", {
@@ -367,16 +369,29 @@ function Minecraft.new(options)
     }, window.Root)
 
     if window.BlurMode ~= "screen" and window.Options.Dim ~= false then
+        -- Two soft rings instead of one hard plate: a wide, very faint halo plus a
+        -- tight plate hugging the panels. Reads as depth, not a black rectangle.
+        window.DimHalo = create("Frame", {
+            Name = "LocalDimHalo",
+            BackgroundColor3 = Color3.new(0, 0, 0),
+            BackgroundTransparency = math.min(0.92, window.DimValue + 0.42),
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset(-M.Gap - 10, -M.Gap - 10),
+            Size = UDim2.new(1, (M.Gap + 10) * 2, 1, (M.Gap + 10) * 2),
+            ZIndex = 0,
+        }, window.Root)
+        create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel + 10)}, window.DimHalo)
+
         window.Dim = create("Frame", {
             Name = "LocalDim",
             BackgroundColor3 = Color3.new(0, 0, 0),
             BackgroundTransparency = window.DimValue,
             BorderSizePixel = 0,
-            Position = UDim2.fromOffset(-M.Gap - 4, -M.Gap - 4),
-            Size = UDim2.new(1, (M.Gap + 4) * 2, 1, (M.Gap + 4) * 2),
+            Position = UDim2.fromOffset(-M.Gap - 2, -M.Gap - 2),
+            Size = UDim2.new(1, (M.Gap + 2) * 2, 1, (M.Gap + 2) * 2),
             ZIndex = 0,
         }, window.Root)
-        create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel + 4)}, window.Dim)
+        create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel + 6)}, window.Dim)
     end
 
     window.PopupLayer = create("Frame", {
@@ -610,6 +625,10 @@ function Minecraft:Toggle(value)
     end
     if self.Dim then
         tween(self.Dim, {BackgroundTransparency = self.Open and self.DimValue or 1}, T.Color)
+    end
+    if self.DimHalo then
+        local haloValue = math.min(0.92, (self.DimValue or 0.35) + 0.42)
+        tween(self.DimHalo, {BackgroundTransparency = self.Open and haloValue or 1}, T.Color)
     end
     if self.Popup then
         self:ClosePopup(true)
@@ -1357,6 +1376,9 @@ function Settings:Toggle(options)
     }, frame)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, box)
     -- Check mark drawn from frame segments (no asset IDs, works offline).
+    -- ClipsDescendants matters: the tick segments are rotated and would keep
+    -- drawing outside a zero-sized parent, which is why the check stayed visible
+    -- after switching the setting off.
     local mark = create("Frame", {
         Name = "Mark",
         BackgroundTransparency = 1,
@@ -1364,6 +1386,7 @@ function Settings:Toggle(options)
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
         Size = UDim2.fromOffset(10, 10),
+        ClipsDescendants = true,
         ZIndex = 4,
     }, box)
     local tickShort = create("Frame", {
@@ -1418,9 +1441,13 @@ function Settings:Toggle(options)
         applyColor(tickShort, "BackgroundColor3", value and theme.Text or theme.Accent, instant, 0.16)
         applyColor(tickLong, "BackgroundColor3", value and theme.Text or theme.Accent, instant, 0.16)
         local scale = value and 1 or 0
+        mark.Visible = value
         if instant then
             mark.Size = UDim2.fromOffset(10 * scale, 10 * scale)
         else
+            if value then
+                mark.Size = UDim2.fromOffset(2, 2)
+            end
             tween(mark, {Size = UDim2.fromOffset(10 * scale, 10 * scale)}, T.Pop)
         end
     end
@@ -2831,12 +2858,23 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
         Size = UDim2.fromOffset(width, height),
         ZIndex = 70,
     }, self.PopupLayer)
-    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Control)}, panel)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel)}, panel)
 
     local fieldW = width - 16
 
     -- Saturation / value field ------------------------------------------------
-    local sv = create("Frame", {
+    local function roundedClass()
+        if pcall(function()
+            return Instance.new("CanvasGroup")
+        end) then
+            return "CanvasGroup"
+        end
+        return "Frame"
+    end
+
+    -- CanvasGroup (not a plain Frame) so the two gradient overlays are clipped
+    -- by the rounded corners; a UIGradient child ignores UICorner clipping.
+    local sv = create(roundedClass(), {
         Name = "SV",
         BackgroundColor3 = Color3.fromRGB(255, 0, 0),
         BorderSizePixel = 0,
@@ -2845,7 +2883,10 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
         ClipsDescendants = true,
         ZIndex = 71,
     }, panel)
-    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, sv)
+    if sv.ClassName == "CanvasGroup" then
+        sv.GroupTransparency = 0
+    end
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Control)}, sv)
 
     -- White on the left, fully transparent on the right => saturation.
     local whiteLayer = create("Frame", {
@@ -2903,7 +2944,7 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
     -- Hue strip: six flat segments, no multi-keypoint gradient (those are the
     -- ones that render red/black/red on some clients).
     local hueY = 8 + fieldH + 6
-    local hue = create("Frame", {
+    local hue = create(roundedClass(), {
         Name = "Hue",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -2912,6 +2953,9 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
         ClipsDescendants = true,
         ZIndex = 71,
     }, panel)
+    if hue.ClassName == "CanvasGroup" then
+        hue.GroupTransparency = 0
+    end
     create("UICorner", {CornerRadius = UDim.new(1, 0)}, hue)
     local hueColors = {
         Color3.fromRGB(255, 0, 0),
@@ -2953,7 +2997,7 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
     if withAlpha then
         local alphaY = hueY + 14 + 6
         -- Checkerboard so transparency is readable.
-        alphaBar = create("Frame", {
+        alphaBar = create(roundedClass(), {
             Name = "AlphaBar",
             BackgroundColor3 = Color3.fromRGB(190, 190, 190),
             BorderSizePixel = 0,
@@ -2962,6 +3006,9 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
             ClipsDescendants = true,
             ZIndex = 71,
         }, panel)
+        if alphaBar.ClassName == "CanvasGroup" then
+            alphaBar.GroupTransparency = 0
+        end
         create("UICorner", {CornerRadius = UDim.new(1, 0)}, alphaBar)
         for row = 0, 1 do
             for column = 0, 11 do

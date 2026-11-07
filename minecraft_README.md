@@ -24,11 +24,11 @@ local Minecraft = loadstring(game:HttpGet("https://raw.githubusercontent.com/QUA
 local window = Minecraft.new({
     Theme = 1,                      -- 1..6 или имя: "Midnight", "Slate", ...
     ToggleKey = Enum.KeyCode.Insert,
-    BlurMode = "local",             -- "local" = затемнение только под панелями (по умолчанию)
-                                    -- "screen" = BlurEffect на весь экран
-    BlurSize = 24,                  -- сила блюра (режим "screen")
+    BlurMode = "screen",            -- "screen" = блюр всего экрана (по умолчанию)
+                                    -- "local" = игра резкая, затемнение только под панелями
+    BlurSize = 24,                  -- сила блюра
     Dim = true,                     -- затемнение
-    DimTransparency = 0.35,         -- 0 = чёрный, 1 = без затемнения
+    DimTransparency = 0.55,         -- 0 = чёрный, 1 = без затемнения
     GlassTransparency = 0.22,       -- прозрачность панелей: 0 = плотно, 1 = прозрачно
     -- Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"),
 })
@@ -55,6 +55,11 @@ local window = Minecraft.new({
 Цвет можно задавать вместе с прозрачностью:
 `ColorPicker({DefaultAlpha = 0.5, AlphaFlag = "esp_alpha"})`, у строки есть `:GetAlpha()`,
 `:SetAlpha(a)` и `Callback(color, alpha)`.
+
+**Блюр.** `BlurMode = "screen"` (по умолчанию) — `BlurEffect` в `Lighting` размывает весь мир,
+плюс затемнение на весь экран. `BlurMode = "local"` — мир остаётся резким, а за панелями
+рисуется мягкая подложка из двух слоёв (широкий еле заметный ореол + плотная плита), чтобы
+это читалось как глубина, а не чёрный прямоугольник.
 
 **Без обводок.** В библиотеке больше нет ни одного `UIStroke`: границы задаются только
 контрастом фона строки/панели. Наведение меняет заливку, а не рамку.

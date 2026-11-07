@@ -235,26 +235,29 @@ assert(window.Gui.Parent == coreGui, "default parent is CoreGui")
 assert(window.ThemeIndex == 3 and window.Theme.Name == "Bloom")
 assert(window.Root.ClassName == "CanvasGroup", "CanvasGroup fade wrapper")
 assert(window.Glass == nil, "no glass plate behind the window any more")
--- Default mode is local: no viewport blur, a scrim hugging the panels.
-assert(window.BlurMode == "local", "local blur mode by default")
-assert(window.BlurEffect == nil, "no full-screen blur in local mode")
-assert(window.Dim and window.Dim.Name == "LocalDim", "local scrim exists")
-assert(window.Dim.Parent == window.Root and window.Dim.ZIndex == 0, "local scrim sits behind the panels")
-
--- Explicit screen mode gives the full-screen blur + dim.
-local screenWindow = Minecraft.new({BlurMode = "screen"})
-flush()
-assert(screenWindow.BlurEffect and screenWindow.BlurEffect.ClassName == "BlurEffect")
-assert(screenWindow.BlurEffect.Parent == lighting and screenWindow.BlurEffect.Size == 24,
-    "blur is applied to the whole screen")
-assert(screenWindow.Dim and screenWindow.Dim.Size.X.Scale == 1 and screenWindow.Dim.Size.Y.Scale == 1,
+-- Default mode blurs the whole screen.
+assert(window.BlurMode == "screen", "screen blur mode by default")
+assert(window.BlurEffect and window.BlurEffect.ClassName == "BlurEffect")
+assert(window.Dim and window.Dim.Size.X.Scale == 1 and window.Dim.Size.Y.Scale == 1,
     "full-screen dim layer")
-assert(screenWindow.Dim.Parent == screenWindow.Gui and screenWindow.Dim.ZIndex < screenWindow.Root.ZIndex,
+assert(window.Dim.Parent == window.Gui and window.Dim.ZIndex < window.Root.ZIndex,
     "dim sits under the menu")
-assert(screenWindow.Dim.BackgroundTransparency == 0.55, "dim is translucent")
-screenWindow:Toggle(false)
-assert(screenWindow.BlurEffect.Size == 0, "screen blur follows visibility")
-screenWindow:Destroy()
+
+-- Local mode keeps the game sharp and only dims behind the panels.
+local localWindow = Minecraft.new({BlurMode = "local"})
+assert(localWindow.BlurMode == "local" and localWindow.BlurEffect == nil, "no full-screen blur locally")
+assert(localWindow.Dim and localWindow.Dim.Name == "LocalDim", "local plate exists")
+assert(localWindow.DimHalo and localWindow.DimHalo.Name == "LocalDimHalo", "local halo exists")
+assert(localWindow.Dim.Parent == localWindow.Root and localWindow.Dim.ZIndex == 0,
+    "local scrim sits behind the panels")
+assert(localWindow.Dim.BackgroundTransparency ~= localWindow.DimHalo.BackgroundTransparency,
+    "halo and plate use different opacities")
+localWindow:Toggle(false)
+assert(localWindow.Dim.BackgroundTransparency == 1 and localWindow.DimHalo.BackgroundTransparency == 1,
+    "both local layers fade out when hidden")
+localWindow:Toggle(true)
+assert(localWindow.Dim.BackgroundTransparency == localWindow.DimValue, "plate returns with the menu")
+localWindow:Destroy()
 assert(not window.Header and not window.TitleLabel and not window.Shadow, "no title bar, no backdrop")
 assert(window.Root.BackgroundTransparency == 1, "root itself is transparent")
 
@@ -339,6 +342,19 @@ local tickMark = findChild(tickBox, "Mark")
 assert(tickMark, "check mark container exists")
 assert(findChild(tickMark, "TickShort") and findChild(tickMark, "TickLong"), "tick is drawn from two segments")
 assert(tickMark.Size.X.Offset == 10 and tickMark.Size.Y.Offset == 10, "tick is visible when enabled")
+assert(tickMark.Visible == true and tickMark.ClipsDescendants == true, "tick is clipped so it can vanish")
+-- Switching the inner toggle off must hide the tick completely.
+local innerApi
+for _, control in ipairs(tickRow.Settings.Controls) do
+    if control.Frame.Name == "SettingToggle" then innerApi = control.Api end
+end
+local innerHit
+for _, child in ipairs(innerToggle.Frame.children) do
+    if child.ClassName == "TextButton" then innerHit = child end
+end
+assert(innerHit, "checkbox hit area exists")
+innerHit.MouseButton1Click:Fire()
+assert(tickMark.Visible == false and tickMark.Size.X.Offset == 0, "tick disappears when switched off")
 tickRow.Frame.MouseButton2Down:Fire()
 
 -- Hover must not repaint an enabled row and leaving must restore it exactly.
@@ -586,7 +602,7 @@ assert(window.Root.Position.X.Scale == 0.5 and window.Root.Position.Y.Scale == 0
 window:Toggle()
 assert(window.Open == false and window.Dim.BackgroundTransparency == 1, "scrim fades out when hidden")
 window:Toggle()
-assert(window.Open == true and window.Dim.BackgroundTransparency == 0.35, "scrim returns when shown")
+assert(window.Open == true and window.Dim.BackgroundTransparency == 0.55, "scrim returns when shown")
 window:SetGlass(0.35)
 assert(combat.Panel.BackgroundTransparency == 0.35, "panel transparency is adjustable")
 window:SetGlass(0.22)

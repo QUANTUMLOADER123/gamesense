@@ -18,7 +18,7 @@
 
 -- Shared libraries cache HTTP results, so the URL carries a version query to
 -- make sure the newest minecraft.lua is fetched. Bump it if you edit the file.
-local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua?v=1.7.0"
+local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua?v=1.8.0"
 
 local function httpGet(url)
     -- Several executors cache game:HttpGet; request(url, true) forces a refresh.
@@ -58,11 +58,11 @@ local Player = game:GetService("Players").LocalPlayer
 local window = Minecraft.new({
     Theme = 1,          -- 1..6 (Nebula, Cyber, Bloom, Ember, Mint, Gold)
     ToggleKey = Enum.KeyCode.Insert,
-    -- BlurMode = "local",  -- "local" = scrim only behind panels (default)
-    --                      -- "screen" = BlurEffect over the whole view
-    -- BlurSize = 24,       -- blur strength (screen mode)
+    -- BlurMode = "screen", -- "screen" = blur the whole view (default)
+    --                      -- "local"  = keep the game sharp, dim only behind panels
+    -- BlurSize = 24,       -- blur strength
     -- Dim = true,          -- dark scrim
-    -- DimTransparency = 0.35, -- 0 = black, 1 = none
+    -- DimTransparency = 0.55, -- 0 = black, 1 = none
     -- GlassTransparency = 0.22, -- panel opacity, 0 = solid, 1 = fully clear
     Search = true,
     -- Parent = Player:WaitForChild("PlayerGui"), -- for a Studio LocalScript
@@ -256,5 +256,5 @@ window:Toggle(true)
 -- Handy for consoles: announce where the library lives.
 print(("Minecraft UI v%s loaded for %s"):format(Minecraft.Version, Player.Name))
 -- If this fires, your executor served a cached copy of minecraft.lua.
-assert(Minecraft.Build and Minecraft.Build >= 17,
+assert(Minecraft.Build and Minecraft.Build >= 18,
     "stale minecraft.lua in cache -- clear the executor cache or bump LIB_URL")

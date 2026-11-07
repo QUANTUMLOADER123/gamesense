@@ -18,7 +18,7 @@ h1 { color:#c9d4e8; font-size:15px; font-weight:400; margin:0 0 18px; letter-spa
 .search { margin: 9px auto 0; width:280px; height:32px; background: linear-gradient(180deg, var(--top), var(--bot)); border:0; border-radius:9px; color: var(--muted); font-size:13px; display:flex; align-items:center; padding:0 11px; }
 
 .detail { display:flex; gap:9px; margin-top:9px; }
-.dcard { width:226px; background: linear-gradient(180deg, rgba(38,28,74,.85), rgba(26,19,52,.9)); border:0; border-radius:9px; padding:10px; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+.dcard { width:226px; overflow:hidden; background: linear-gradient(180deg, rgba(38,28,74,.85), rgba(26,19,52,.9)); border:0; border-radius:9px; padding:10px; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
 .dtitle { color:#e9e5ff; font-size:15px; text-align:center; padding-bottom:8px; border-bottom:1px solid rgba(150,130,255,.45); margin-bottom:9px; }
 .dblock { background: rgba(10,6,24,.55); border:0; border-radius:7px; padding:8px; display:flex; flex-direction:column; gap:7px; }
 .dlabel { color:#b9b1d8; font-size:11px; display:flex; justify-content:space-between; }
@@ -33,7 +33,7 @@ h1 { color:#c9d4e8; font-size:15px; font-weight:400; margin:0 0 18px; letter-spa
 body::before { content:""; position:fixed; inset:0; background: inherit; filter: blur(12px) saturate(120%); opacity:.6; z-index:-1; }
 body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:-1; }
 .panel { backdrop-filter: blur(2px); }
-</style></head><body><h1>Minecraft UI v1.7 — колорпикер с альфой, без обводок, локальное затемнение</h1><div class="theme"><div class="caption">Nebula</div>
+</style></head><body><h1>Minecraft UI v1.8 — рабочий чекбокс, скруглённый колорпикер, блюр</h1><div class="theme"><div class="caption">Nebula</div>
       <div class="glass" style="--panel:#261c4a;--border:#786cad;--top:#3c335c;--bot:#211840">
         <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
 <div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
@@ -349,7 +349,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
   </div>
 </div>
 <style>
-.svfield { position:relative; height:104px; border-radius:6px; background:
+.svfield { position:relative; height:104px; border-radius:5px; overflow:hidden; background:
   linear-gradient(to top, #000, rgba(0,0,0,0)),
   linear-gradient(to right, #fff, rgba(255,255,255,0)), #567280; }
 .svcursor { position:absolute; left:52px; top:42px; width:13px; height:13px; border-radius:50%;
