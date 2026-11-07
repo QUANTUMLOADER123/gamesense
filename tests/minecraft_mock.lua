@@ -237,7 +237,10 @@ assert(window.Root.ClassName == "CanvasGroup", "CanvasGroup fade wrapper")
 assert(window.Glass == nil, "no glass plate behind the window any more")
 assert(window.BlurEffect and window.BlurEffect.ClassName == "BlurEffect", "real backdrop blur exists")
 flush()
-assert(window.BlurEffect.Parent == lighting and window.BlurEffect.Size == 20, "blur is applied to the world")
+assert(window.BlurEffect.Parent == lighting and window.BlurEffect.Size == 24, "blur is applied to the world")
+assert(window.Dim and window.Dim.Size.X.Scale == 1 and window.Dim.Size.Y.Scale == 1, "full-screen dim layer")
+assert(window.Dim.Parent == window.Gui and window.Dim.ZIndex < window.Root.ZIndex, "dim sits under the menu")
+assert(window.Dim.BackgroundTransparency == 0.55, "dim is translucent")
 assert(not window.Header and not window.TitleLabel and not window.Shadow, "no title bar, no backdrop")
 assert(window.Root.BackgroundTransparency == 1, "root itself is transparent")
 
@@ -324,19 +327,21 @@ assert(findChild(tickMark, "TickShort") and findChild(tickMark, "TickLong"), "ti
 assert(tickMark.Size.X.Offset == 10 and tickMark.Size.Y.Offset == 10, "tick is visible when enabled")
 tickRow.Frame.MouseButton2Down:Fire()
 
--- Hover must not repaint an enabled row's border white/bright, and leaving the
--- row must restore exactly the enabled style (the old code fought itself here).
+-- Hover must not repaint an enabled row and leaving must restore it exactly.
 local hoverRow = combat:AddToggle({Name = "Hover check", Default = true})
-local enabledEdgeColor = hoverRow.BoxStroke.Color
-local enabledEdgeTransparency = hoverRow.BoxStroke.Transparency
 local enabledFill = hoverRow.Box.BackgroundColor3
+local enabledAlpha = hoverRow.Box.BackgroundTransparency
 hoverRow.Frame.MouseEnter:Fire()
 assert(hoverRow.Hovered, "hover registered")
-assert(hoverRow.BoxStroke.Transparency == enabledEdgeTransparency,
-    "enabled row keeps its edge while hovered")
+assert(hoverRow.Box.BackgroundTransparency ~= enabledAlpha, "hover lightens the row")
 hoverRow.Frame.MouseLeave:Fire()
 assert(hoverRow.Box.BackgroundColor3 == enabledFill, "fill returns to the enabled colour")
-assert(hoverRow.BoxStroke.Color == enabledEdgeColor, "edge colour is unchanged")
+assert(hoverRow.Box.BackgroundTransparency == enabledAlpha, "alpha returns too")
+
+-- There must be no outlines anywhere in the UI.
+for _, object in ipairs(all) do
+    assert(object.ClassName ~= "UIStroke", "no UIStroke instances are created")
+end
 
 -- Rows must not carry stray glow frames: they clipped against the slot and
 -- produced a bright outline that lit up on hover.
@@ -518,7 +523,15 @@ assert(window.Popup and window.PopupLayer.Visible)
 assert(window.Popup.Panel.Parent == window.PopupLayer)
 local pickerPanel = window.Popup.Panel
 local sv = findChild(pickerPanel, "SV")
-assert(sv and sv.Size.X.Offset == 128 and sv.Size.Y.Offset == 76)
+assert(sv and sv.Size.X.Offset == 180 and sv.Size.Y.Offset == 104, "SV field is 180x104")
+assert(pickerPanel.Size.X.Offset == 196 and pickerPanel.Size.Y.Offset == 186, "popup is 196x186")
+-- The popup must be positioned inside the menu, not at some random offset.
+local popupPos = pickerPanel.Position
+assert(popupPos and popupPos.X and popupPos.Y, "popup has a concrete position")
+assert(popupPos.X.Offset >= -1 and popupPos.Y.Offset >= -1, "popup is not placed off-screen")
+assert(window.PopupLayer.ZIndex > window.Tabs[1].Panel.ZIndex, "popup renders above panels")
+assert(findChild(pickerPanel, "Hex"), "popup has a hex readout")
+assert(findChild(pickerPanel, "Hue"), "popup has a hue strip")
 window.Popup:Apply(true)
 input.InputBegan:Fire({UserInputType = Enum.UserInputType.Keyboard, KeyCode = Enum.KeyCode.Escape}, false)
 flush()
@@ -536,14 +549,15 @@ assert(window.Root.Position.X.Scale == 0.5 and window.Root.Position.Y.Scale == 0
 -- The frosted layer follows visibility.
 window:Toggle()
 assert(window.Open == false and window.BlurEffect.Size == 0, "blur is removed when hidden")
+assert(window.Dim.BackgroundTransparency == 1, "dim fades out when hidden")
 window:Toggle()
-assert(window.Open == true and window.BlurEffect.Size == 20, "blur returns when shown")
+assert(window.Open == true and window.BlurEffect.Size == 24, "blur returns when shown")
 window:SetGlass(0.35)
 assert(combat.Panel.BackgroundTransparency == 0.35, "panel transparency is adjustable")
 window:SetGlass(0.22)
 window:SetBlur(32)
 assert(window.BlurEffect.Size == 32, "blur strength is adjustable")
-window:SetBlur(20)
+window:SetBlur(24)
 window:Toggle()
 assert(window.Open == false)
 flush()
