@@ -241,6 +241,12 @@ function camera:GetPropertyChangedSignal(name)
     cameraSignals[name] = cameraSignals[name] or signal()
     return cameraSignals[name]
 end
+function camera:FindFirstChild(name)
+    for _, child in ipairs(self.children or {}) do
+        if child.Name == name then return child end
+    end
+    return nil
+end
 -- A simple perspective projection: 1 unit in front of the camera spans
 -- viewportPixels / (2 * tan(fov/2)) world units, which is what the real camera
 -- does and what makes the acrylic size assertions meaningful.
@@ -332,6 +338,7 @@ local mesh = findChild(glass, "SpecialMesh")
 assert(mesh and mesh.MeshType == Enum.MeshType.Brick, "brick special mesh stretches the plate")
 assert(mesh.Offset.Z < 0 and mesh.Offset.Z > -0.001, "mesh offset pushes it off the camera")
 assert(glass.Parent and glass.Parent.Parent == camera, "sheet lives under the camera")
+assert(glass.Parent.Name == "MinecraftUIAcrylic", "sheets live in a named folder")
 onAcrylic = nil
 
 -- Hidden until shown: the intro should not flash a black rectangle.
@@ -373,6 +380,11 @@ window:SetAcrylic("on")
 flush()
 assert(window.BodyAcrylic and window.BodyAcrylic.Model.Transparency == 0.98, "acrylic can be re-enabled")
 assert(window.AcrylicTint == nil, "no dark plate is laid behind the panels")
+
+-- Sheets of one window share a single folder under the camera.
+assert(window.AcrylicFolder and window.AcrylicFolder.Name == "MinecraftUIAcrylic", "one folder per window")
+assert(window.BodyAcrylic.Folder == window.AcrylicFolder, "body sheet uses that folder")
+assert(window.SearchAcrylic.Folder == window.AcrylicFolder, "search sheet uses that folder")
 
 -- Acrylic can be switched off explicitly.
 local lowQuality = Minecraft.new({Acrylic = "off"})
@@ -922,8 +934,10 @@ assert(t2:Get() == true and restored.Flags.aura == true, "config patch applies")
 assert(m2:Get() == "Legit" and m2.ValueLabel.Text == "Legit")
 restored:Destroy()
 
+local acrylicFolder = window.AcrylicFolder
 local blurObject = window.BlurEffect
 window:Destroy()
+assert(acrylicFolder.destroyed, "acrylic folder is cleaned up with the window")
 assert(window.BlurEffect == nil, "blur reference is cleared")
 assert(blurObject.destroyed, "blur effect is cleaned up")
 assert(window.Gui.destroyed)

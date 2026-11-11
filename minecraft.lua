@@ -377,14 +377,24 @@ local function createAcrylic(camera, frame, options)
     end
 
     local distance = options.Distance or 0.001
-    local folder
-    local okFolder = pcall(function()
-        folder = Instance.new("Folder")
-        folder.Name = "MinecraftUIAcrylic"
-        folder.Parent = camera
-    end)
-    if not okFolder or not folder then
-        return nil
+    -- One folder per camera, shared by every sheet: keeps the camera's child list
+    -- clean and makes cleanup a single Destroy.
+    local folder = options.Folder
+    if not folder or not isAlive(folder) then
+        local okFolder
+        okFolder, folder = pcall(function()
+            local existing = camera:FindFirstChild("MinecraftUIAcrylic")
+            if existing then
+                return existing
+            end
+            local made = Instance.new("Folder")
+            made.Name = "MinecraftUIAcrylic"
+            made.Parent = camera
+            return made
+        end)
+        if not okFolder or not folder then
+            return nil
+        end
     end
 
     -- Core properties first, then the optional physics/collision flags inside a
@@ -416,6 +426,7 @@ local function createAcrylic(camera, frame, options)
         Folder = folder,
         Visible = false,
         Enabled = options.Enabled ~= false,
+        OwnFolder = options.OwnFolder ~= false,
     }
 
     -- Absolute position/size of the frame, in viewport pixels. Roblox reports
@@ -496,11 +507,8 @@ local function createAcrylic(camera, frame, options)
                 model:Destroy()
             end)
         end
-        if folder and folder.Parent then
-            pcall(function()
-                folder:Destroy()
-            end)
-        end
+        -- The folder is shared by every sheet of one window; the window destroys
+        -- it in Minecraft:Destroy once all sheets are gone.
         self.Destroyed = true
     end
 
@@ -966,6 +974,21 @@ function Minecraft:_AttachAcrylic(frame, options)
     if not ok or not camera then
         return nil
     end
+    -- One folder per window, created on first use.
+    if not self.AcrylicFolder or not isAlive(self.AcrylicFolder) then
+        local made
+        local ok = pcall(function()
+            made = Instance.new("Folder")
+            made.Name = "MinecraftUIAcrylic"
+            made.Parent = camera
+        end)
+        if not ok or not made then
+            return nil
+        end
+        self.AcrylicFolder = made
+    end
+    options = options or {}
+    options.Folder = self.AcrylicFolder
     local handle = createAcrylic(camera, frame, options)
     if not handle then
         return nil
@@ -1097,6 +1120,12 @@ function Minecraft:SetAcrylic(mode)
             self.SearchAcrylic:Destroy()
             self.SearchAcrylic = nil
         end
+        if self.AcrylicFolder and self.AcrylicFolder.Parent then
+            pcall(function()
+                self.AcrylicFolder:Destroy()
+            end)
+        end
+        self.AcrylicFolder = nil
         self.AcrylicEnabled = false
         return
     end
@@ -1476,6 +1505,12 @@ function Minecraft:Destroy()
             sheet:Destroy()
         end)
     end
+    if self.AcrylicFolder and self.AcrylicFolder.Parent then
+        pcall(function()
+            self.AcrylicFolder:Destroy()
+        end)
+    end
+    self.AcrylicFolder = nil
     self.Acrylics = {}
     self.BodyAcrylic = nil
     self.SearchAcrylic = nil
