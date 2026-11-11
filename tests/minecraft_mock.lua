@@ -649,6 +649,26 @@ assert(box, "the checkbox well exists")
 assert(box.BackgroundTransparency > 0.1, "the checkbox well is translucent: " .. tostring(box.BackgroundTransparency))
 probeTick.Frame.MouseButton2Down:Fire()
 
+-- No overlap between the label, the value and the dots. They used to end and
+-- start at the same X, and the value fusing with the dots read as a dark wedge.
+for _, row in ipairs(combat.Rows) do
+    if row.ValueLabel and row.Label and row.Dots then
+        local panelWidth = Minecraft.Metrics.PanelWidth
+        -- Everything is measured from the LEFT edge of the row, so the absolute
+        -- widths come out positive and the gaps are comparable.
+        local labelRight = row.Label.Position.X.Offset
+            + row.Label.Size.X.Scale * panelWidth + row.Label.Size.X.Offset
+        local valueRight = row.ValueLabel.Position.X.Offset
+            + row.ValueLabel.Size.X.Scale * panelWidth + row.ValueLabel.Size.X.Offset
+        -- Dots are positioned from the right: convert to the same axis.
+        local dotsLeft = panelWidth + row.Dots.Position.X.Offset
+        assert(dotsLeft - labelRight >= 2,
+            "label clears the dots: gap " .. math.floor(dotsLeft - labelRight))
+        assert(dotsLeft - valueRight >= 2,
+            "value clears the dots: gap " .. math.floor(dotsLeft - valueRight))
+    end
+end
+
 -- Every row gets a distinct layout order, so rows are drawn one below another.
 for index, row in ipairs(combat.Rows) do
     assert(row.Slot.LayoutOrder == index or row.Slot.LayoutOrder > 0, "row has layout order")
@@ -1161,7 +1181,18 @@ assert(star.Holder.Rotation == nil or star.Holder.Rotation == 0,
 -- touches the star. Negative UDim2 sizes look fine in a mock but Roblox renders
 -- them detached from the anchor, which is why the beam floated off the star.
 assert(star.Beam.Size.X.Offset > 0, "the beam has a positive width: " .. star.Beam.Size.X.Offset)
-assert(star.Beam.AnchorPoint.X == 1, "the beam is anchored by its right edge")
+-- Rotation pivots on the CENTRE in Roblox, so the beam's centre must be offset
+-- by -(length/2)*cos/sin(angle) for its near end to land on the star. Without
+-- that the near end sat ~18px BELOW the star ("лучи ниже звезды").
+assert(star.Beam.AnchorPoint.X == 0.5 and star.Beam.AnchorPoint.Y == 0.5,
+    "the beam pivots on its centre, like Roblox rotates GUI objects")
+local expectedX = -(star.Beam.Size.X.Offset / 2) * math.cos(math.rad(34))
+local expectedY = -(star.Beam.Size.X.Offset / 2) * math.sin(math.rad(34))
+assert(math.abs(star.Beam.Position.X.Offset - expectedX) < 0.5,
+    "beam X is pivoted to the star: " .. star.Beam.Position.X.Offset .. " vs " .. expectedX)
+assert(math.abs(star.Beam.Position.Y.Offset - expectedY) < 0.5,
+    "beam Y is pivoted to the star: " .. star.Beam.Position.Y.Offset .. " vs " .. expectedY)
+assert(star.Beam.Position.Y.Offset < 0, "the beam's centre sits ABOVE the star, not below")
 assert(star.BeamCore.Size.X.Offset > 0, "the bright core follows the beam")
 assert(math.abs(star.Beam.Size.X.Offset) > star.Beam.Size.Y.Offset * 3,
     "the beam is a long streak, not a stub")

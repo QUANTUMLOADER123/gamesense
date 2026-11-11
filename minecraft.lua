@@ -20,8 +20,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.17.0"
-Minecraft.Build = 27 -- incremented on every visible change, used by examples to detect stale caches
+Minecraft.Version = "1.18.0"
+Minecraft.Build = 28 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -1310,17 +1310,25 @@ local function makeStar(parent, index, seed)
     -- grows to the LEFT (negative X offset). Rotating it by +STAR_ANGLE swings
     -- that "left" direction to "up-left", exactly opposite the fall.
     local beamHeight = math.max(2, starSize * 0.3)
+    -- Rotation in Roblox turns a GUI object around its CENTRE, not its anchor.
+    -- A long thin bar pivoted at its centre therefore swings its near end away
+    -- from the star: at 34 degrees a 65px beam drops ~18px below it, which is
+    -- exactly the "beam sits under the star" problem. Compensate by offsetting
+    -- the centre so that the rotated NEAR END lands on the star:
+    --   Position = star - rotate((length/2, 0), angle)
+    local cosA = math.cos(math.rad(STAR_ANGLE))
+    local sinA = math.sin(math.rad(STAR_ANGLE))
+    local beamPivotX = -(beamLength / 2) * cosA
+    local beamPivotY = -(beamLength / 2) * sinA
+
     local beam = create("Frame", {
         Name = "Beam",
         BackgroundColor3 = tint[2],
         BackgroundTransparency = 0.3,
         BorderSizePixel = 0,
-        -- POSITIVE size, anchored by its RIGHT edge on the star and grown to the
-        -- left. A negative Size.X looked fine in the mock but Roblox renders such
-        -- a frame detached from its anchor, which is why the beam floated away
-        -- from the star instead of touching it.
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(0.5, starSize * 0.22, 0.5, 0),
+        -- Centre anchor (Roblox's rotation pivot) with the compensating offset.
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, beamPivotX, 0.5, beamPivotY),
         Size = UDim2.new(0, beamLength, 0, beamHeight),
         Rotation = STAR_ANGLE,
         ZIndex = 1,
@@ -1336,14 +1344,15 @@ local function makeStar(parent, index, seed)
     }, beam)
 
     -- A brighter hairline down the beam, so it reads as light.
+    local coreLength = beamLength * 0.94
     local core = create("Frame", {
         Name = "BeamCore",
         BackgroundColor3 = tint[1],
         BackgroundTransparency = 0.2,
         BorderSizePixel = 0,
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(0.5, starSize * 0.22, 0.5, 0),
-        Size = UDim2.new(0, beamLength * 0.94, 0, math.max(1, beamHeight * 0.34)),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, -(coreLength / 2) * cosA, 0.5, -(coreLength / 2) * sinA),
+        Size = UDim2.new(0, coreLength, 0, math.max(1, beamHeight * 0.34)),
         Rotation = STAR_ANGLE,
         ZIndex = 2,
     }, holder)
@@ -2032,7 +2041,9 @@ local function newRow(tab, name, options)
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Center,
         Position = UDim2.fromOffset(M.Inset, 0),
-        Size = UDim2.new(1, -(M.Inset * 2 + 26), 1, 0),
+        -- Same 6px clearance from the dots column as the value text, so a long
+        -- label can never run under the three dots.
+        Size = UDim2.new(1, -(M.Inset * 2 + 30), 1, 0),
         TextTruncate = Enum.TextTruncate.AtEnd,
         ZIndex = 3,
     }, row.Frame)
@@ -2048,7 +2059,10 @@ local function newRow(tab, name, options)
         TextXAlignment = Enum.TextXAlignment.Right,
         TextYAlignment = Enum.TextYAlignment.Center,
         Position = UDim2.new(0.42, 0, 0, 0),
-        Size = UDim2.new(0.58, -(M.Inset + 26), 1, 0),
+        -- Stop short of the dots: they occupy (Inset + 22) of the right edge, so
+        -- the value keeps a 6px gap instead of running into them. The overlap
+        -- made the value and the three dots fuse into one dark wedge.
+        Size = UDim2.new(0.58, -(M.Inset + 30), 1, 0),
         TextTruncate = Enum.TextTruncate.AtEnd,
         Visible = false,
         ZIndex = 3,
