@@ -386,6 +386,18 @@ assert(window.AcrylicFolder and window.AcrylicFolder.Name == "MinecraftUIAcrylic
 assert(window.BodyAcrylic.Folder == window.AcrylicFolder, "body sheet uses that folder")
 assert(window.SearchAcrylic.Folder == window.AcrylicFolder, "search sheet uses that folder")
 
+-- A late camera is picked up by the bounded retry instead of leaving the menu
+-- without glass for the whole session.
+local savedCamera = workspace.CurrentCamera
+workspace.CurrentCamera = nil
+local lateWindow = Minecraft.new({})
+assert(lateWindow.BodyAcrylic == nil, "no camera yet, no sheet")
+workspace.CurrentCamera = savedCamera
+flush()
+assert(lateWindow.BodyAcrylic, "retry attaches the sheet once the camera exists")
+assert(lateWindow.BodyAcrylic.Model.Transparency == 0.98, "and it is visible")
+lateWindow:Destroy()
+
 -- Acrylic can be switched off explicitly.
 local lowQuality = Minecraft.new({Acrylic = "off"})
 assert(lowQuality.AcrylicEnabled == false and lowQuality.BodyAcrylic == nil, "acrylic can be disabled")
