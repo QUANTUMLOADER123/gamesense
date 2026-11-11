@@ -463,6 +463,8 @@ assert(window.SearchFrame.BackgroundTransparency == 0.32, "blur returns the rest
 assert(combat.Scroll.ScrollBarImageColor3 == window.Theme.Accent, "accent scrollbar")
 
 -- The panel header uses a short accent pill instead of a full-width rule.
+-- It animates in, so flush the deferred intro tweens first.
+flush()
 assert(combat.TitleLine.Size.X.Offset == 26 and combat.TitleLine.Size.Y.Offset == 2, "header pill")
 assert(combat.TitleLine.Position.X.Scale == 0.5 and combat.TitleLine.AnchorPoint.X == 0.5,
     "header pill is centred")
@@ -555,6 +557,18 @@ assert(innerHit, "checkbox hit area exists")
 innerHit.MouseButton1Click:Fire()
 assert(tickMark.Visible == false and tickMark.Size.X.Offset == 0, "tick disappears when switched off")
 tickRow.Frame.MouseButton2Down:Fire()
+
+-- Enabled rows show a small accent bar on their left edge (a fill, not an outline).
+local markerRow = combat:AddToggle({Name = "Marker check"})
+assert(markerRow.Marker, "rows have an accent marker")
+assert(markerRow.Marker.BackgroundTransparency == 1, "marker hidden while off")
+markerRow.Frame.MouseButton1Click:Fire()
+assert(markerRow.Marker.BackgroundTransparency == 0, "marker appears when enabled")
+assert(markerRow.Marker.BackgroundColor3 == window.Theme.Accent, "marker is accent coloured")
+assert(markerRow.Marker.Size.X.Offset == 3 and markerRow.Marker.AnchorPoint.X == 0,
+    "marker hugs the left edge")
+markerRow.Frame.MouseButton1Click:Fire()
+assert(markerRow.Marker.BackgroundTransparency == 1, "marker disappears when disabled")
 
 -- Every row plate carries a soft top-to-bottom shade that follows its fill.
 local shaded = combat:AddToggle({Name = "Shade check"})
@@ -759,6 +773,9 @@ buttonRow2.Frame.MouseButton2Down:Fire()
 
 local section = visuals:AddSection("ESP")
 assert(section.Label.Text == "ESP" and not section.Box.Visible)
+assert(section.HideMarker and not section.Marker.Visible, "sections hide the accent marker")
+local plainLabel = visuals:AddLabel("just text")
+assert(plainLabel.HideMarker, "labels hide the accent marker")
 
 local colorRow = visuals:AddColorPicker({Name = "Box color", Flag = "box_color", Default = Color3.fromRGB(255, 0, 0)})
 assert(window.Flags.box_color and window.Flags.box_color.R == 1)

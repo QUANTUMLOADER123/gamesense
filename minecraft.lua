@@ -1426,6 +1426,13 @@ function Minecraft:AddTab(name, options)
     window:_UpdateLayout(false)
     local resting = UDim2.fromOffset((#window.Tabs - 1) * (M.PanelWidth + M.Gap), 0)
     if not window.Options.NoIntro then
+        -- The accent pill draws itself in under the title.
+        tab.TitleLine.Size = UDim2.fromOffset(0, 2)
+        task.delay(0.06 + (#window.Tabs - 1) * 0.035, function()
+            if isAlive(tab.TitleLine) then
+                tween(tab.TitleLine, {Size = UDim2.fromOffset(26, 2)}, T.Pop)
+            end
+        end)
         -- Each new column rises into place a beat after the previous one, so
         -- adding three tabs looks like the menu unfolding sideways.
         local index = #window.Tabs
@@ -1554,6 +1561,20 @@ local function newRow(tab, name, options)
         Rotation = 90,
         Color = ColorSequence.new(theme.Row:Lerp(Color3.new(1, 1, 1), 0.045), theme.Row),
     }, row.Box)
+
+    -- A small accent bar on the left edge of enabled rows. Purely a fill, not a
+    -- stroke; it sits inside the row so it can never look like an outline.
+    row.Marker = create("Frame", {
+        Name = "Marker",
+        BackgroundColor3 = theme.Accent,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, 3, 0.5, 0),
+        Size = UDim2.fromOffset(3, M.RowHeight - 14),
+        ZIndex = 3,
+    }, row.Box)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, row.Marker)
 
     row.Label = create("TextLabel", {
         Name = "Label",
@@ -1731,6 +1752,20 @@ function Row:RefreshVisual(instant)
     end
     applyColor(self.Label, "TextColor3", labelColor, instant, 0.20)
     applyColor(self.Dots, "TextColor3", (self.OnState or open) and theme.Accent or theme.Muted, instant, 0.20)
+    if self.Marker and not self.HideMarker and isAlive(self.Marker) then
+        applyColor(self.Marker, "BackgroundColor3", theme.Accent, instant, 0.20)
+        -- It only appears for rows that are actually switched on.
+        local markerAlpha = self.OnState and 0 or 1
+        local shift = UDim2.fromOffset(self.OnState and M.Inset + 4 or M.Inset, 0)
+        if instant then
+            self.Marker.BackgroundTransparency = markerAlpha
+            self.Label.Position = shift
+            self.Label.Size = UDim2.new(1, -(M.Inset * 2 + 26), 1, 0)
+        else
+            tween(self.Marker, {BackgroundTransparency = markerAlpha}, T.Hover)
+            tween(self.Label, {Position = shift}, T.Hover)
+        end
+    end
     -- The three-dot affordance lifts on hover instead of sitting dead.
     applyColor(self.Dots, "TextTransparency", (self.Dots.Visible and (self.Hovered or open)) and 0 or 0.35, instant, 0.20)
 
@@ -3285,6 +3320,8 @@ function Tab:AddSection(name, options)
     row.Frame.AutoButtonColor = false
     row.Box.Visible = false
     row.Dots.Visible = false
+    row.HideMarker = true
+    row.Marker.Visible = false
     row.Label.Position = UDim2.fromOffset(0, 8)
     row.Label.Size = UDim2.new(1, 0, 0, 14)
     row.Label.TextSize = 12
@@ -3310,9 +3347,12 @@ end
 
 function Tab:AddLabel(text)
     local row = newRow(self, text or "", {})
+    row.Marker.Visible = false
+    row.HideMarker = true
     row.Label.TextSize = 12
     row.Label.TextColor3 = self.Window.Theme.Text
     row.Box.Visible = false
+    row.Marker.Visible = false
     row.Label.Size = UDim2.new(1, 0, 1, 0)
     row.Label.Position = UDim2.fromOffset(0, 0)
     row.OnClick = function() end

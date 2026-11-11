@@ -12,7 +12,9 @@ h1 { color:#c9d4e8; font-size:15px; font-weight:400; margin:0 0 18px; letter-spa
 .rows { padding:12px 14px 14px 12px; display:flex; flex-direction:column; gap:5px; height: 490px; overflow:hidden; }
 .row { height:32px; display:flex; align-items:center; gap:6px; background: linear-gradient(180deg, color-mix(in srgb, var(--row) 92%, #fff 8%), var(--row)); border:0; border-radius:8px; padding:0 11px; color: var(--text); font-size:15px; position:relative; transition: background .18s ease, transform .18s ease; }
 .row:hover { background: var(--hover); transform: translateY(-1px); }
-.row.on { background: linear-gradient(180deg, var(--on), var(--row)); }
+.row.on { background: linear-gradient(180deg, var(--on), color-mix(in srgb, var(--on) 70%, var(--row))); }
+.row.on::before { content:""; position:absolute; left:3px; top:50%; transform:translateY(-50%); width:3px; height:18px; border-radius:99px; background: var(--accent); }
+.row.on { padding-left: 14px; }
 .row span:first-child { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .dots { color: var(--muted); font-size:15px; letter-spacing:1px; }
 .badge { color: var(--accent); font-size:10px; }
