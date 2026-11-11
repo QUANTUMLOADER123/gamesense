@@ -387,6 +387,8 @@ local function createAcrylic(camera, frame, options)
         return nil
     end
 
+    -- Core properties first, then the optional physics/collision flags inside a
+    -- pcall: they are newer than the base Part API on some clients.
     local model = create("Part", {
         Name = "Acrylic",
         Color = Color3.new(0, 0, 0),
@@ -396,11 +398,13 @@ local function createAcrylic(camera, frame, options)
         CanCollide = false,
         Locked = true,
         CastShadow = false,
-        CanTouch = false,
-        CanQuery = false,
-        Massless = true,
         Transparency = 1,
     }, folder)
+    pcall(function()
+        model.CanTouch = false
+        model.CanQuery = false
+        model.Massless = true
+    end)
     local mesh = create("SpecialMesh", {
         MeshType = Enum.MeshType.Brick,
         Offset = Vector3.new(0, 0, -0.000001),
@@ -748,12 +752,19 @@ function Minecraft:AnimateTheme()
         end
     end
     if self.Root.ClassName == "CanvasGroup" then
-        tween(self.Root, {GroupTransparency = 0.12}, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
-        task.delay(0.09, function()
+        -- Dip through a light fade so the per-object colour tweens cross-fade
+        -- instead of showing two palettes at once.
+        tween(self.Root, {GroupTransparency = 0.14}, TweenInfo.new(0.10, Enum.EasingStyle.Quart, Enum.EasingDirection.Out))
+        task.delay(0.11, function()
             if isAlive(self.Root) then
-                tween(self.Root, {GroupTransparency = self.Open and 0 or 1}, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+                tween(self.Root, {GroupTransparency = self.Open and 0 or 1}, T.Color)
             end
         end)
+    end
+    -- Acrylic is a 3D object, not part of the CanvasGroup: nudge its tint by
+    -- re-fitting so it does not look frozen while the GUI cross-fades.
+    if self.BodyAcrylic then
+        self.BodyAcrylic:Refresh()
     end
 end
 
@@ -1028,6 +1039,24 @@ end
 
 function Minecraft:_SetupAcrylic()
     if not self.AcrylicEnabled then
+        return
+    end
+    -- In Studio / on respawn the camera can be nil while the menu is being built.
+    -- Try again shortly instead of silently giving up for the whole session.
+    local camera
+    pcall(function()
+        camera = workspace.CurrentCamera
+    end)
+    if not camera then
+        self._AcrylicRetries = (self._AcrylicRetries or 0) + 1
+        if self._AcrylicRetries <= 10 then
+            task.delay(0.5, function()
+                if self.AcrylicEnabled and not self.BodyAcrylic and isAlive(self.Gui) then
+                    self:_SetupAcrylic()
+                    self:_SetAcrylicVisible(self.Open)
+                end
+            end)
+        end
         return
     end
     -- One sheet under the whole panel cluster: it covers the gaps between
@@ -1309,13 +1338,16 @@ function Minecraft:AddTab(name, options)
         ScrollBarThickness = 3,
         ScrollBarImageColor3 = theme.Accent,
         ScrollBarImageTransparency = 0.45,
-        ScrollBarFadeDelay = 0.5,
         ScrollingEnabled = true,
-        Elastisity = 0.1,
         ClipsDescendants = true,
         ZIndex = 2,
     }, tab.Panel)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel)}, tab.Scroll)
+    -- Scrollbar auto-hide is newer than the rest of the API surface; guard it so
+    -- older clients do not error on an unknown property.
+    pcall(function()
+        tab.Scroll.ScrollBarFadeDelay = 0.5
+    end)
     -- Right padding leaves room for the scrollbar so rows never sit under it.
     create("UIPadding", {
         PaddingTop = UDim.new(0, M.Inset + 2),
@@ -1340,6 +1372,21 @@ function Minecraft:AddTab(name, options)
         HorizontalAlignment = Enum.HorizontalAlignment.Left,
     }, tab.Content)
 
+    -- Empty state: a quiet centred caption + a short accent tick above it, so a
+    -- panel with no rows still looks designed instead of blank.
+    tab.EmptyMark = create("Frame", {
+        Name = "EmptyMark",
+        BackgroundColor3 = theme.Accent,
+        BackgroundTransparency = 0.35,
+        BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, 26),
+        Size = UDim2.fromOffset(22, 2),
+        Visible = false,
+        ZIndex = 2,
+    }, tab.Scroll)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, tab.EmptyMark)
+
     tab.EmptyLabel = create("TextLabel", {
         Name = "Empty",
         BackgroundTransparency = 1,
@@ -1349,11 +1396,12 @@ function Minecraft:AddTab(name, options)
         TextColor3 = theme.Muted,
         TextXAlignment = Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Center,
-        Position = UDim2.fromOffset(0, 24),
+        Position = UDim2.fromOffset(0, 36),
         Size = UDim2.new(1, 0, 0, 20),
         Visible = false,
         ZIndex = 2,
-    }, tab.Content)
+    }, tab.Scroll)
+    tab.EmptyMark.Visible = false
 
     window.Tabs[#window.Tabs + 1] = tab
 
@@ -1370,6 +1418,9 @@ function Minecraft:AddTab(name, options)
         end
         applyColor(tab.Scroll, "ScrollBarImageColor3", themeNow.Accent, instant, 0.26)
         applyColor(tab.EmptyLabel, "TextColor3", themeNow.Muted, instant, 0.26)
+        if tab.EmptyMark then
+            applyColor(tab.EmptyMark, "BackgroundColor3", themeNow.Accent, instant, 0.26)
+        end
     end)
 
     window:_UpdateLayout(false)
@@ -2831,8 +2882,12 @@ function Tab:_SyncHeight(query)
     self.Scroll.CanvasSize = UDim2.new(0, 0, 0, total + M.Inset * 2)
     self.ContentValue = total
     if self.EmptyLabel then
-        self.EmptyLabel.Visible = shown == 0 and not self.Window.Options.NoEmptyState
+        local empty = shown == 0 and not self.Window.Options.NoEmptyState
+        self.EmptyLabel.Visible = empty
         self.EmptyLabel.Text = (query ~= "" and query) and ("No results for \"" .. query .. "\"") or "Nothing here"
+        if self.EmptyMark then
+            self.EmptyMark.Visible = empty
+        end
     end
 end
 

@@ -324,6 +324,8 @@ assert(glass.ClassName == "Part", "acrylic is a real 3D part")
 assert(glass.Material == Enum.Material.Glass, "glass material does the frosting")
 assert(glass.Anchored == true and glass.CanCollide == false and glass.CastShadow == false,
     "the sheet never moves, collides or shadows")
+assert(glass.CanTouch == false and glass.CanQuery == false and glass.Massless == true,
+    "the sheet is invisible to physics and raycasts")
 assert(glass.Size.X == 1 and glass.Size.Y == 1 and glass.Size.Z == 0, "flat unit plate scaled by the mesh")
 assert(glass.Size.Z == 0, "zero thickness, like Fluent")
 local mesh = findChild(glass, "SpecialMesh")
@@ -784,6 +786,8 @@ for _, row in ipairs(combat.Rows) do assert(row.Visible) end
 window:Filter("zzz")
 assert(not combat.Rows[1].Visible and combat.EmptyLabel.Visible)
 assert(combat.EmptyLabel.Text:find('zzz') ~= nil)
+assert(combat.EmptyMark and combat.EmptyMark.Visible, "empty state shows its accent tick")
+assert(combat.EmptyMark.BackgroundColor3 == window.Theme.Accent, "tick is accent coloured")
 window:Filter("")
 
 --==========================================================================--
