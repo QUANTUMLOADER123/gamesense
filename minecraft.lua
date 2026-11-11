@@ -544,6 +544,9 @@ function Minecraft.new(options)
     window.Open = true
     window.Keybinds = {}
 
+    -- Panel opacity is configurable: 0 = solid, 1 = fully clear.
+    window.PanelTransparency = clamp(options.GlassTransparency or 0.22, 0, 1)
+
     window.Gui = create("ScreenGui", {
         Name = "MinecraftUI",
         DisplayOrder = options.DisplayOrder or 9999,
@@ -803,6 +806,9 @@ function Minecraft:SetGlass(transparency)
     for _, tab in ipairs(self.Tabs) do
         tween(tab.Panel, {BackgroundTransparency = self.PanelTransparency}, T.Color)
     end
+    if self.SearchFrame then
+        tween(self.SearchFrame, {BackgroundTransparency = math.min(1, self.PanelTransparency + 0.10)}, T.Color)
+    end
 end
 
 -- Real world blur strength. In "local" mode this promotes the window to a
@@ -846,7 +852,7 @@ function Minecraft:SetupSearch()
     window.SearchFrame = create("Frame", {
         Name = "Search",
         BackgroundColor3 = window.Theme.Panel,
-        BackgroundTransparency = 0.32,
+        BackgroundTransparency = math.min(1, window.PanelTransparency + 0.10),
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0),
         Size = UDim2.fromOffset(M.SearchWidth, M.Search),
@@ -1320,7 +1326,7 @@ function Minecraft:AddTab(name, options)
     tab.Panel = create("Frame", {
         Name = "Panel_" .. tab.Name,
         BackgroundColor3 = theme.Panel,
-        BackgroundTransparency = 0.22,
+        BackgroundTransparency = window.PanelTransparency,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Size = UDim2.fromOffset(M.PanelWidth, M.PanelHeight),

@@ -33,6 +33,7 @@ local window = Minecraft.new({
     Dim = true,                     -- затемнение
     DimTransparency = 0.55,         -- 0 = чёрный, 1 = без затемнения
     GlassTransparency = 0.22,       -- прозрачность панелей: 0 = плотно, 1 = прозрачно
+                                    -- (поле поиска на 0.10 плотнее панелей)
     -- Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"),
 })
 ```
