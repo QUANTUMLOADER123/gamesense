@@ -1061,9 +1061,10 @@ function Minecraft:_RebindAcrylic()
 end
 
 function Minecraft:_SetupAcrylic()
-    if not self.AcrylicEnabled then
+    if not self.AcrylicEnabled or self._AcrylicBuilding then
         return
     end
+    self._AcrylicBuilding = true
     -- In Studio / on respawn the camera can be nil while the menu is being built.
     -- Try again shortly instead of silently giving up for the whole session.
     local camera
@@ -1071,6 +1072,7 @@ function Minecraft:_SetupAcrylic()
         camera = workspace.CurrentCamera
     end)
     if not camera then
+        self._AcrylicBuilding = false
         self._AcrylicRetries = (self._AcrylicRetries or 0) + 1
         if self._AcrylicRetries <= 10 then
             task.delay(0.5, function()
@@ -1084,8 +1086,15 @@ function Minecraft:_SetupAcrylic()
     end
     -- One sheet under the whole panel cluster: it covers the gaps between
     -- columns too, which looks like a single sheet of glass instead of strips.
-    self.BodyAcrylic = self:_AttachAcrylic(self.Body, {Distance = 0.001})
-    self.SearchAcrylic = self:_AttachAcrylic(self.SearchFrame, {Distance = 0.0012})
+    -- pcall so a failure still clears the re-entrancy flag.
+    local ok = pcall(function()
+        self.BodyAcrylic = self:_AttachAcrylic(self.Body, {Distance = 0.001})
+        self.SearchAcrylic = self:_AttachAcrylic(self.SearchFrame, {Distance = 0.0012})
+    end)
+    self._AcrylicBuilding = false
+    if not ok then
+        return
+    end
 
     -- Start hidden; the intro reveals the sheets after the first frame so the
     -- glass never snaps on before the menu has settled.
