@@ -20,8 +20,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.15.0"
-Minecraft.Build = 25 -- incremented on every visible change, used by examples to detect stale caches
+Minecraft.Version = "1.16.0"
+Minecraft.Build = 26 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -459,6 +459,7 @@ local function createAcrylic(camera, frame, options)
         CanCollide = false,
         Locked = true,
         CastShadow = false,
+        -- Starts fully invisible; SetVisible raises it to 0.997 when shown.
         Transparency = 1,
     }, folder)
     pcall(function()
@@ -541,10 +542,12 @@ local function createAcrylic(camera, frame, options)
         if not isAlive(model) then
             return
         end
-        -- 0.98 is the sweet spot Fluent uses: visible enough to refract the scene,
-        -- invisible enough that the UI on top stays readable.
+        -- The plate must be practically invisible: at 0.98 a Glass part renders
+        -- as a milky white slab with a bloom around it, which showed through the
+        -- menu as a floating "glow part". 0.997 keeps the refraction that blurs
+        -- the scene, but nothing of the part itself is readable.
         pcall(function()
-            model.Transparency = (self.Visible and self.Enabled) and 0.98 or 1
+            model.Transparency = (self.Visible and self.Enabled) and 0.997 or 1
         end)
         if self.Visible then
             self:Refresh()
@@ -1267,8 +1270,8 @@ local STAR_GLYPH = {
     "....#......#.....",
 }
 
--- The star stays upright and only the tail behind it follows the fall angle:
--- a rotated star reads as a blob.
+-- Fall angle, measured from horizontal: the star travels down-right along this
+-- line at 34 degrees, and its trail points back up-left along the same line.
 local STAR_ANGLE = 34
 
 -- Coloured stars, not white ones: a white glyph over a violet panel reads as a
@@ -1286,96 +1289,89 @@ local function makeStar(parent, index, seed)
     local tint = STAR_TINTS[(index - 1) % #STAR_TINTS + 1]
     local scale = (index % 4 == 0) and 1 or 2
     local starSize = 18 * scale / 2
-    -- Generous holder: the beam is long, so the frame has to contain it or the
-    -- panel's clip would cut it off mid-air.
-    local beamLength = starSize * 3.4
-    local holderSize = starSize + beamLength
+    local beamLength = starSize * 3.6
 
+    -- The star's leaning is applied to the body only. The beam is a separate
+    -- element in the holder with its own rotation, so the two angles can never
+    -- get tangled: a nested rotation was what kept pointing the beam forwards.
     local holder = create("Frame", {
         Name = "Star" .. index,
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Size = UDim2.fromOffset(holderSize, holderSize),
-        -- The whole star is tilted with the fall: a shooting star leans into its
-        -- own path. (An upright star with a tilted beam looked disjointed.)
-        Rotation = -STAR_ANGLE,
+        Size = UDim2.fromOffset(starSize, starSize),
         ZIndex = 1,
     }, parent)
 
-    -- The beam points BACK along the direction of travel. The holder is already
-    -- rotated by -STAR_ANGLE, so inside it the trail is simply a VERTICAL bar
-    -- growing upward -- the rotation turns "up" into "up-left". (An earlier
-    -- version used a horizontal bar, and the same rotation swung it down-left:
-    -- that was the beam pointing the wrong way.)
-    local beamWidth = math.max(2, starSize * 0.34)
+    -- Beam: a horizontal streak whose right edge sits on the star and which
+    -- grows to the LEFT (negative X offset). Rotating it by +STAR_ANGLE swings
+    -- that "left" direction to "up-left", exactly opposite the fall.
+    local beamHeight = math.max(2, starSize * 0.3)
     local beam = create("Frame", {
         Name = "Beam",
         BackgroundColor3 = tint[2],
-        BackgroundTransparency = 0.35,
+        BackgroundTransparency = 0.3,
         BorderSizePixel = 0,
-        -- Anchor at the bottom edge, sitting just under the star.
-        AnchorPoint = Vector2.new(0.5, 1),
-        Position = UDim2.new(0.5, 0, 0.5, starSize * 0.32),
-        -- Negative Y scale grows the bar upward from its anchor.
-        Size = UDim2.new(0, beamWidth, 0, -beamLength),
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(0, -beamLength, 0, beamHeight),
+        Rotation = STAR_ANGLE,
         ZIndex = 1,
     }, holder)
     create("UIGradient", {
-        -- Faded at the star end, solid near the tip? No: the tip must be the
-        -- faint end, so transparency rises along the bar.
+        -- Local X runs from the far tip (0) to the star (1): faint at the tip,
+        -- solid at the star.
         Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0.0, 0.1),   -- local top = far tip
-            NumberSequenceKeypoint.new(0.55, 0.55),
-            NumberSequenceKeypoint.new(1.0, 1.0),   -- bottom = at the star
+            NumberSequenceKeypoint.new(0.0, 0.9),
+            NumberSequenceKeypoint.new(0.45, 0.62),
+            NumberSequenceKeypoint.new(1.0, 0.12),
         }),
     }, beam)
 
-    -- A brighter hairline down the middle, so the beam reads as light.
+    -- A brighter hairline down the beam, so it reads as light.
     local core = create("Frame", {
         Name = "BeamCore",
         BackgroundColor3 = tint[1],
-        BackgroundTransparency = 0.15,
+        BackgroundTransparency = 0.2,
         BorderSizePixel = 0,
-        AnchorPoint = Vector2.new(0.5, 1),
-        Position = UDim2.new(0.5, 0, 0.5, starSize * 0.32),
-        Size = UDim2.new(0, math.max(1, beamWidth * 0.38), 0, -beamLength * 0.92),
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(0, -beamLength * 0.94, 0, math.max(1, beamHeight * 0.34)),
+        Rotation = STAR_ANGLE,
         ZIndex = 2,
     }, holder)
     create("UIGradient", {
         Transparency = NumberSequence.new({
             NumberSequenceKeypoint.new(0.0, 1.0),
-            NumberSequenceKeypoint.new(0.4, 0.75),
-            NumberSequenceKeypoint.new(1.0, 0.1),
+            NumberSequenceKeypoint.new(0.5, 0.7),
+            NumberSequenceKeypoint.new(1.0, 0.0),
         }),
     }, core)
 
-    -- A tight bloom hugging the star itself. NOT a big circle: a 2x round frame
-    -- behind the glyph read as a "background circle" in game.
+    -- A tight bloom around the glyph. Small on purpose: anything wider draws a
+    -- visible disc, which the user read as a "background circle".
     local bloom = create("ImageLabel", {
         Name = "Bloom",
         BackgroundTransparency = 1,
         Image = GLOW_TEXTURE,
         ImageColor3 = tint[1],
-        ImageTransparency = 0.7,
+        ImageTransparency = 0.72,
         ScaleType = Enum.ScaleType.Slice,
         SliceCenter = GLOW_SLICE,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        -- Barely larger than the glyph: it tints the star's own pixels. Anything
-        -- wider draws a visible disc, which is what the user called a
-        -- "background circle".
-        Size = UDim2.fromOffset(starSize * 1.12, starSize * 1.12),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(starSize * 1.15, starSize * 1.15),
         ZIndex = 1,
     }, holder)
 
-    -- Body: solid pixel runs forming the star, in its own colour.
+    -- Body: the pixel star, leaned into its fall direction by its own rotation.
     local body = create("Frame", {
         Name = "Body",
         BackgroundTransparency = 1,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
         Size = UDim2.fromOffset(starSize, starSize),
+        Rotation = STAR_ANGLE,
         ZIndex = 3,
     }, holder)
     for rowIndex, row in ipairs(STAR_GLYPH) do
@@ -1426,8 +1422,8 @@ function Minecraft:_LaunchStar(star, area, firstRun)
     local startX = -10 + (star.Seed * 0.61803398875 % 1) * spread
     local startY = -24 - (star.Seed * 0.2718281828 % 1) * height * 0.5
     local travel = height + 80
-    local endX = startX + travel * math.sin(math.rad(STAR_ANGLE))
-    local endY = startY + travel * math.cos(math.rad(STAR_ANGLE))
+    local endX = startX + travel * math.cos(math.rad(STAR_ANGLE))
+    local endY = startY + travel * math.sin(math.rad(STAR_ANGLE))
 
     star.Holder.Position = UDim2.fromOffset(startX, startY)
     star.Holder.Visible = true
@@ -2060,7 +2056,9 @@ local function newRow(tab, name, options)
         TextColor3 = theme.Muted,
         TextXAlignment = Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Center,
-        Position = UDim2.new(1, -M.Inset - 22, 0, -2),
+        -- Vertically centred on the row: a -2 offset made the dots sit high and
+        -- read as a stray arrow next to the label.
+        Position = UDim2.new(1, -M.Inset - 22, 0, 0),
         Size = UDim2.fromOffset(22, M.RowHeight),
         Visible = false,
         ZIndex = 3,
@@ -2382,9 +2380,33 @@ function Row:ToggleSettings(force)
             end
         end
     else
-        -- Closing is quicker and never bounces: the plate folds up, then fades.
+        -- Closing: the block folds up and fades out first, and only then does its
+        -- slot collapse. Collapsing the height immediately made the block vanish
+        -- in one frame -- there was nothing left to animate.
         setAlpha(1, false)
         tween(settings.Panel, {Position = UDim2.fromOffset(0, -8)}, T.Collapse)
+        local step = math.min(0.018, 0.12 / math.max(#settings.Controls, 1))
+        for index, control in ipairs(settings.Controls) do
+            local entry = control.Frame
+            if entry and isAlive(entry) then
+                task.delay(step * (#settings.Controls - index), function()
+                    if isAlive(entry) and not self.SettingsOpen then
+                        tween(entry, {Position = UDim2.fromOffset(0, 4)}, T.Collapse)
+                    end
+                end)
+            end
+        end
+        -- Trim the slot after the content has folded, not before.
+        task.delay(0.2, function()
+            if not self.SettingsOpen then
+                self:_ApplyHeight(false, false)
+            end
+        end)
+        self:RefreshVisual()
+        if self.Options.SettingsChanged then
+            self.Options.SettingsChanged(target)
+        end
+        return
     end
     self:_ApplyHeight(false, target)
     self:RefreshVisual()

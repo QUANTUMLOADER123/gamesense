@@ -18,7 +18,7 @@
 
 -- Shared libraries cache HTTP results, so the URL carries a version query to
 -- make sure the newest minecraft.lua is fetched. Bump it if you edit the file.
-local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua?v=1.15.0"
+local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua?v=1.16.0"
 
 local function httpGet(url)
     -- Several executors cache game:HttpGet; request(url, true) forces a refresh.
@@ -274,5 +274,5 @@ window:Toggle(true)
 -- Handy for consoles: announce where the library lives.
 print(("Minecraft UI v%s loaded for %s"):format(Minecraft.Version, Player.Name))
 -- If this fires, your executor served a cached copy of minecraft.lua.
-assert(Minecraft.Build and Minecraft.Build >= 25,
+assert(Minecraft.Build and Minecraft.Build >= 26,
     "stale minecraft.lua in cache -- clear the executor cache or bump LIB_URL")

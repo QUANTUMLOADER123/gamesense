@@ -361,7 +361,10 @@ assert(glassA.Parent.Name == "MinecraftUIAcrylic", "sheets live in a named folde
 assert(window.Tabs[1].Acrylic.Folder == window.Tabs[2].Acrylic.Folder, "one folder for the window")
 assert(window.SearchAcrylic.Folder == window.Tabs[1].Acrylic.Folder, "search shares it too")
 
-assert(glassA.Transparency == 0.98 and glassB.Transparency == 0.98, "sheets are visible once shown")
+assert(glassA.Transparency == 0.997 and glassB.Transparency == 0.997, "sheets are visible once shown")
+-- The plate must be practically invisible: at 0.98 a Glass part renders as a
+-- milky slab with a bloom, which showed through the menu as a floating part.
+assert(glassA.Transparency > 0.99, "the glass part is invisible to the eye")
 assert(glassA.CFrame and glassA.CFrame.Position, "sheet is positioned in space")
 
 -- The mesh is scaled to the on-screen size of THAT panel, not the whole menu.
@@ -387,7 +390,7 @@ window:Toggle(false)
 assert(glassA.Transparency == 1 and glassB.Transparency == 1, "sheets disappear with the menu")
 window:Toggle(true)
 flush()
-assert(glassA.Transparency == 0.98, "sheet returns")
+assert(glassA.Transparency == 0.997, "sheet returns")
 
 -- Disabling acrylic removes the parts entirely.
 window:SetAcrylic("off")
@@ -395,7 +398,7 @@ assert(window.AcrylicEnabled == false and #window.Acrylics > 0)
 assert(window.Tabs[1].Acrylic == nil and window.SearchAcrylic == nil, "sheets are detached")
 window:SetAcrylic("on")
 flush()
-assert(window.Tabs[1].Acrylic and window.Tabs[1].Acrylic.Model.Transparency == 0.98,
+assert(window.Tabs[1].Acrylic and window.Tabs[1].Acrylic.Model.Transparency == 0.997,
     "acrylic can be re-enabled")
 assert(window.AcrylicTint == nil, "no dark plate is laid behind the panels")
 assert(window.AcrylicFolder and window.AcrylicFolder.Name == "MinecraftUIAcrylic", "one folder per window")
@@ -429,7 +432,7 @@ assert(lateTab.Acrylic == nil, "no camera yet, no sheet")
 workspace.CurrentCamera = savedCamera
 flush()
 assert(lateTab.Acrylic, "retry attaches the sheet once the camera exists")
-assert(lateTab.Acrylic.Model.Transparency == 0.98, "and it is visible")
+assert(lateTab.Acrylic.Model.Transparency == 0.997, "and it is visible")
 lateWindow:Destroy()
 
 -- Clean up the tabs this block added so later assertions see a stable window.
@@ -607,7 +610,12 @@ assert(math.abs(aura.Settings.Height - (22 + 16 + 27 + 2 * 7)) < 0.001, "slider 
 local contentHeight = combat.Content.Size.Y.Offset
 assert(contentHeight > 6 * 32, "canvas grew with the settings block")
 aura.Frame.MouseButton2Down:Fire()
-assert(not aura.SettingsOpen and aura.Slot.Size.Y.Offset == 32)
+assert(not aura.SettingsOpen, "closing is immediate")
+-- The slot collapses a beat later, after the block has folded. Collapsing it in
+-- the same frame is what made closing look like an instant disappearance.
+assert(aura.Slot.Size.Y.Offset > 32, "the slot is still open while the block folds")
+flush()
+assert(aura.Slot.Size.Y.Offset == 32, "the slot collapses once the fold finishes")
 assert(combat.Content.Size.Y.Offset == 6 * 32 + 5 * 5, "canvas shrinks back")
 
 -- Everything is translucent, so the frosted game shows through the menu.
@@ -1080,7 +1088,7 @@ local hiddenGlass = window.Tabs[1].Acrylic.Model
 assert(hiddenGlass.Transparency == 1, "sheets hide with the menu")
 window:Toggle()
 flush()
-assert(window.Open == true and hiddenGlass.Transparency == 0.98, "sheets return")
+assert(window.Open == true and hiddenGlass.Transparency == 0.997, "sheets return")
 window:SetGlass(0.35)
 assert(combat.Panel.BackgroundTransparency == 0.35, "panel transparency is adjustable")
 assert(math.abs(window.SearchFrame.BackgroundTransparency - 0.45) < 1e-6,
@@ -1129,36 +1137,40 @@ for _, tab in ipairs(window.Tabs) do
     noSpokes(tab.StarLayer)
 end
 local star = window.Tabs[1].Stars[1]
--- The star leans into its own path: a shooting star tilted with the fall.
-assert(star.Holder.Rotation == -34, "the star is tilted along its fall direction")
-assert(star.Body and star.Beam and star.BeamCore, "a star has a body, a beam and a bright core")
--- Geometry: the holder is rotated -34 (down-right fall), so the trail inside it
--- must be a VERTICAL bar growing UP (negative Y). The rotation turns "up" into
--- "up-left", i.e. backwards along the fall. A horizontal bar rotated the same way
--- swings DOWN-LEFT -- that was the beam pointing the wrong way.
-assert(star.Beam.Size.Y.Offset < 0, "the beam grows upward inside the holder: " .. star.Beam.Size.Y.Offset)
-assert(star.Beam.AnchorPoint.Y == 1, "the beam is anchored at the star end")
-assert(star.BeamCore.Size.Y.Offset < 0, "the bright core follows the beam")
-assert(math.abs(star.Beam.Size.Y.Offset) > star.Beam.Size.X.Offset * 3,
+-- The glyph leans into its fall; the beam carries its own rotation so the two
+-- angles cannot get tangled (a nested rotation kept pointing it forwards).
+assert(star.Body.Rotation == 34, "the star leans along its fall direction")
+assert(star.Beam.Rotation == 34, "the beam has its own rotation")
+assert(star.Holder.Rotation == nil or star.Holder.Rotation == 0,
+    "the holder itself is not rotated: the parts are rotated individually")
+
+-- The beam must grow to the LEFT of its anchor (negative X). Rotated by +34 the
+-- "left" direction becomes "up-left", i.e. exactly opposite the down-right fall.
+assert(star.Beam.Size.X.Offset < 0, "the beam grows away from the star: " .. star.Beam.Size.X.Offset)
+assert(star.Beam.AnchorPoint.X == 1, "the beam is anchored at the star end")
+assert(star.BeamCore.Size.X.Offset < 0, "the bright core follows the beam")
+assert(math.abs(star.Beam.Size.X.Offset) > star.Beam.Size.Y.Offset * 3,
     "the beam is a long streak, not a stub")
--- And the rotation is what turns it into the correct up-left direction.
-local function rot(dx, dy, deg)
-    local t = math.rad(deg)
-    return dx * math.cos(t) - dy * math.sin(t), dx * math.sin(t) + dy * math.cos(t)
+
+-- Rotation maths: a leftward bar (local -X) rotated +34 must point up-left,
+-- and the star's crown (local -Y) rotated +34 must lean into the down-right fall.
+local function rotateClockwise(x, y, deg)
+    local r = math.rad(deg)
+    return x * math.cos(r) - y * math.sin(r), x * math.sin(r) + y * math.cos(r)
 end
-local bx, by = rot(0, -1, -34)
-assert(bx < -0.3 and by < -0.5, "the beam points up-left on screen: " .. bx .. "," .. by)
+local bx, by = rotateClockwise(-1, 0, 34)
+assert(bx < -0.5 and by < -0.3, "the beam points up-left on screen: " .. bx .. "," .. by)
+local cx, cy = rotateClockwise(0, -1, 34)
+assert(cx > 0.3 and cy < -0.5, "the star leans into its fall: " .. cx .. "," .. cy)
 
 -- No round backdrop: a 2x circle behind the glyph read as a background disc.
 assert(star.Halo == nil, "no circular halo behind the star")
 assert(star.Bloom.ClassName == "ImageLabel", "the star has a soft bloom instead")
-assert(star.Bloom.Size.X.Offset <= 18 * 1.6, "the bloom hugs the glyph, it is not a disc")
--- It must be the soft blur asset, never the spoked system texture.
+assert(star.Bloom.Size.X.Offset <= 18 * 1.3, "the bloom hugs the glyph, it is not a disc")
 assert(star.Bloom.Image == "rbxassetid://8992230677", "bloom uses the soft blur asset")
 assert(star.Bloom.Image ~= "rbxasset://textures/glow.png", "no spoked texture anywhere")
 
--- The glyph must be a real five-pointed star: one narrow column at the top (the
--- crown), one very wide row (the arms), and a notched bottom (the legs).
+-- The glyph must be a real five-pointed star.
 local rows = {}
 for _, child in ipairs(star.Body.children) do
     if child.ClassName == "Frame" and child.Name == "Pixel" then
@@ -1188,8 +1200,7 @@ local seen = {}
 for _, item in ipairs(window.Tabs[1].Stars) do
     for _, pixel in ipairs(item.Body.children) do
         local c = pixel.BackgroundColor3
-        local key = string.format("%.2f_%.2f_%.2f", c.R, c.G, c.B)
-        seen[key] = true
+        seen[string.format("%.2f_%.2f_%.2f", c.R, c.G, c.B)] = true
     end
 end
 local distinct = 0
