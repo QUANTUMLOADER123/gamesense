@@ -18,7 +18,7 @@
 
 -- Shared libraries cache HTTP results, so the URL carries a version query to
 -- make sure the newest minecraft.lua is fetched. Bump it if you edit the file.
-local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua?v=1.12.0"
+local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua?v=1.13.0"
 
 local function httpGet(url)
     -- Several executors cache game:HttpGet; request(url, true) forces a refresh.
@@ -64,7 +64,7 @@ local window = Minecraft.new({
     -- Frosted glass is per-panel: each tab, the search bar and every popup get
     -- their own blur island. There is no full-screen blur and no screen scrim.
     -- Stars = true,        -- falling meteors INSIDE each panel (default on)
-    -- StarsPerTab = 6,     -- how many meteors per panel
+    -- StarsPerTab = 7,     -- five-pointed stars per panel
     -- GlassTransparency = 0.22, -- panel opacity, 0 = solid, 1 = fully clear
     Search = true,
     -- Parent = Player:WaitForChild("PlayerGui"), -- for a Studio LocalScript
@@ -274,5 +274,5 @@ window:Toggle(true)
 -- Handy for consoles: announce where the library lives.
 print(("Minecraft UI v%s loaded for %s"):format(Minecraft.Version, Player.Name))
 -- If this fires, your executor served a cached copy of minecraft.lua.
-assert(Minecraft.Build and Minecraft.Build >= 22,
+assert(Minecraft.Build and Minecraft.Build >= 23,
     "stale minecraft.lua in cache -- clear the executor cache or bump LIB_URL")

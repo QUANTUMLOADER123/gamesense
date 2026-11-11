@@ -20,8 +20,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.12.0"
-Minecraft.Build = 22 -- incremented on every visible change, used by examples to detect stale caches
+Minecraft.Version = "1.13.0"
+Minecraft.Build = 23 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -57,6 +57,17 @@ local M = {
 -- One place to tune the whole look: panels are the roundest, then rows,
 -- then the small controls inside settings blocks.
 Minecraft.Radius = {Panel = 18, Row = 10, Control = 7, Small = 5}
+
+-- How see-through the menu is, per layer. Rows and controls are translucent on
+-- purpose: with the glass blur behind them, a see-through row lets the frosted
+-- game show through and the whole menu reads as one pane of glass instead of
+-- opaque stickers on top of it. Raise Controls/Row toward 1 for a flatter look;
+-- lowering them makes everything airier.
+Minecraft.Opacity = {
+    Row = 0.28,      -- added to a row plate's base transparency
+    Control = 0.30,  -- track/pill transparency inside settings blocks
+    Popup = 0.10,    -- extra transparency for popup surfaces
+}
 Minecraft.Metrics = M
 
 -- Motion tokens. One family of curves for the whole menu: Quint for movement
@@ -679,10 +690,9 @@ function Minecraft.new(options)
     -- later so the glass reads as "condensing" under the menu, not as a flash.
     if not window.Options.NoIntro then
         if window.Root.ClassName == "CanvasGroup" then
+            -- Fade in, do not scale in: the menu must never resize itself.
             window.Root.GroupTransparency = 1
-            window.ScaleObject.Scale = window.Scale * 0.96
             tween(window.Root, {GroupTransparency = 0}, TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out))
-            tween(window.ScaleObject, {Scale = window.Scale}, TweenInfo.new(0.36, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
         end
         if window.AcrylicEnabled then
             task.delay(0.06, function()
@@ -800,7 +810,6 @@ end
 
 function Minecraft:SetScale(scale)
     self.Scale = scale or 1
-    tween(self.ScaleObject, {Scale = self.Scale}, T.Pop)
 end
 
 -- The window has no title bar any more: it is a fixed row of panels, so it is
@@ -1231,93 +1240,144 @@ end
 --==========================================================================--
 -- Falling stars (inside the tab panels)
 --==========================================================================--
--- The stars live INSIDE each panel, behind the rows, clipped by the panel's
--- rounded corners. They are a background for the tabs, not for the screen: two
--- before, the meteors flew across the whole viewport and read as scratches over
--- the game. Now each column gets its own slow field, seeded differently so the
--- panels do not pulse in lockstep.
+-- Five-pointed stars that drift down inside each panel, behind the rows and
+-- clipped by its rounded corners. They are a background for the tabs, never for
+-- the screen: a field over the whole viewport read as scratches over the game.
 --
--- Each meteor is a thin streak with a bright head, a fading tail and a soft
--- bloom around the head. Tween-driven, no RunService loop.
+-- Each star is drawn from the same pixel-icon vocabulary the rest of the UI
+-- uses (solid runs of 1px frames), so a star at 4x looks like a crisp Minecraft
+-- star rather than a soft blob. Behind it sits one radial bloom and below it a
+-- short fading trail.
 local STAR_ANGLE = 34
-local STAR_COLORS = {
+
+-- A five-pointed star, hand-drawn so the silhouette stays readable at 4px.
+local STAR_GLYPH = {
+    ".....#.....",
+    "....###....",
+    "...#####...",
+    "###########",
+    "###########",
+    ".#########.",
+    "..#######..",
+    "..#######..",
+    "..##.#.##..",
+    ".##..#..##.",
+    "##...#...##",
+}
+
+-- A tiny spark for the smaller background stars.
+local SPARK_GLYPH = {
+    "..#..",
+    "..#..",
+    "#####",
+    "..#..",
+    "..#..",
+}
+
+local STAR_TINTS = {
     {Color3.fromRGB(255, 255, 255), Color3.fromRGB(160, 140, 255)},
-    {Color3.fromRGB(196, 238, 255), Color3.fromRGB(96, 200, 255)},
-    {Color3.fromRGB(255, 226, 246), Color3.fromRGB(255, 140, 220)},
+    {Color3.fromRGB(214, 242, 255), Color3.fromRGB(104, 196, 255)},
+    {Color3.fromRGB(255, 232, 248), Color3.fromRGB(255, 146, 222)},
 }
 
 local function makeStar(parent, index, seed)
-    local palette = STAR_COLORS[(index - 1) % #STAR_COLORS + 1]
-    local length = 34 + (index * 13) % 40
-    local thickness = (index % 4 == 0) and 2 or 1
+    local tint = STAR_TINTS[(index - 1) % #STAR_TINTS + 1]
+    -- Every third star is a small spark, the rest are real five-pointed stars.
+    local big = (index % 3 ~= 0)
+    local glyph = big and STAR_GLYPH or SPARK_GLYPH
+    local scale = big and 2 or 1
+    local size = #glyph * scale
 
     local holder = create("Frame", {
         Name = "Star" .. index,
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        AnchorPoint = Vector2.new(0.5, 1),
-        Rotation = -STAR_ANGLE,
-        Size = UDim2.fromOffset(thickness, length),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Size = UDim2.fromOffset(size, size + 6),
         ZIndex = 1,
     }, parent)
 
-    local tail = create("Frame", {
-        Name = "Tail",
-        BackgroundColor3 = palette[2],
-        BackgroundTransparency = 0.32,
+    -- The trail is the only rotated part: it must point along the fall path,
+    -- while the star itself stays upright (a tilted star reads as a splat).
+    local trail = create("Frame", {
+        Name = "Trail",
+        BackgroundColor3 = tint[2],
+        BackgroundTransparency = 0.62,
         BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 1, 0),
+        AnchorPoint = Vector2.new(0.5, 1),
+        Position = UDim2.new(0.5, 0, 0.5, -size * 0.35),
+        Size = UDim2.new(0, 1, 0, 26),
+        Rotation = STAR_ANGLE,
         ZIndex = 1,
     }, holder)
-    create("UICorner", {CornerRadius = UDim.new(1, 0)}, tail)
     create("UIGradient", {
+        -- Local Y runs from the tip (top) to the star (bottom): clear -> solid.
         Rotation = 90,
         Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.2),
-            NumberSequenceKeypoint.new(0.6, 0.8),
-            NumberSequenceKeypoint.new(1, 1),
+            NumberSequenceKeypoint.new(0, 1),
+            NumberSequenceKeypoint.new(1, 0.15),
         }),
-    }, tail)
+    }, trail)
 
+    -- The glyph: solid pixel runs, tinted per star.
+    local body = create("Frame", {
+        Name = "Body",
+        BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        Size = UDim2.fromOffset(size, size),
+        ZIndex = 3,
+    }, holder)
+    for rowIndex, row in ipairs(glyph) do
+        local column = 1
+        while column <= #row do
+            if row:sub(column, column) == "#" then
+                local first = column
+                while column <= #row and row:sub(column, column) == "#" do
+                    column = column + 1
+                end
+                create("Frame", {
+                    Name = "Pixel",
+                    BackgroundColor3 = tint[1],
+                    BackgroundTransparency = 0.25,
+                    BorderSizePixel = 0,
+                    Position = UDim2.fromOffset((first - 1) * scale, (rowIndex - 1) * scale),
+                    Size = UDim2.fromOffset((column - first) * scale, scale),
+                    ZIndex = 3,
+                }, body)
+            else
+                column = column + 1
+            end
+        end
+    end
+
+    -- One soft bloom behind the glyph so the star reads as a light source.
     local halo = create("ImageLabel", {
         Name = "Halo",
         BackgroundTransparency = 1,
         Image = GLOW_TEXTURE,
-        ImageColor3 = palette[1],
-        ImageTransparency = 0.3,
+        ImageColor3 = tint[2],
+        ImageTransparency = 0.45,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 1, 0),
-        Size = UDim2.fromOffset(20, 20),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(size * 3, size * 3),
         SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
         ScaleType = Enum.ScaleType.Slice,
-        ZIndex = 1,
+        ZIndex = 2,
     }, holder)
-
-    local head = create("Frame", {
-        Name = "Head",
-        BackgroundColor3 = palette[1],
-        BackgroundTransparency = 0.1,
-        BorderSizePixel = 0,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 1, 0),
-        Size = UDim2.fromOffset(3, 3),
-        ZIndex = 1,
-    }, holder)
-    create("UICorner", {CornerRadius = UDim.new(1, 0)}, head)
 
     return {
         Holder = holder,
-        Tail = tail,
-        Head = head,
+        Body = body,
+        Trail = trail,
         Halo = halo,
         Seed = seed,
-        Length = length,
+        Big = big,
     }
 end
 
--- One fall cycle inside a panel: enter above the top edge, leave below the
--- bottom edge. Coordinates are in the parent's own pixel space, so the panel's
--- ClipsDescendants does the cropping for us and a star can never escape.
+-- One fall cycle inside a panel. Coordinates are in the panel's own pixel space,
+-- so ClipsDescendants does the cropping and a star can never escape the tab.
 function Minecraft:_LaunchStar(star, area, firstRun)
     if not star or not isAlive(star.Holder) then
         return
@@ -1326,39 +1386,37 @@ function Minecraft:_LaunchStar(star, area, firstRun)
     if width <= 0 or height <= 0 then
         return
     end
-    local spread = width * 0.9
-    local startX = -14 + (star.Seed * 0.61803398875 % 1) * spread
-    local startY = -30 - (star.Seed * 0.2718281828 % 1) * height * 0.45
-    local travel = height + 90
+    local spread = width * 0.92
+    local startX = -10 + (star.Seed * 0.61803398875 % 1) * spread
+    local startY = -24 - (star.Seed * 0.2718281828 % 1) * height * 0.5
+    local travel = height + 80
     local endX = startX + travel * math.sin(math.rad(STAR_ANGLE))
     local endY = startY + travel * math.cos(math.rad(STAR_ANGLE))
 
     star.Holder.Position = UDim2.fromOffset(startX, startY)
     star.Holder.Visible = true
 
-    local duration = 3.2 + (star.Seed % 5) * 0.6
-    local delay = firstRun and ((star.Seed % 9) * 0.42) or ((star.Seed * 0.37) % 3)
+    -- Big stars fall slower, sparks whip past.
+    local duration = (star.Big and 4.2 or 3.0) + (star.Seed % 4) * 0.7
+    local delay = firstRun and ((star.Seed % 8) * 0.55) or ((star.Seed * 0.41) % 3.5)
 
     local function fly()
         if not isAlive(star.Holder) then
             return
         end
         tween(star.Holder, {Position = UDim2.fromOffset(endX, endY)}, TweenInfo.new(duration, Enum.EasingStyle.Linear))
-        -- Gentle fade so nothing pops at the panel edge.
-        local fadeIn = TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        tween(star.Tail, {BackgroundTransparency = 0.2}, fadeIn)
-        tween(star.Head, {BackgroundTransparency = 0}, fadeIn)
-        tween(star.Halo, {ImageTransparency = 0.25}, fadeIn)
-        task.delay(duration * 0.82, function()
-            if not isAlive(star.Tail) then
+        local fadeIn = TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        tween(star.Trail, {BackgroundTransparency = 0.35}, fadeIn)
+        tween(star.Halo, {ImageTransparency = 0.3}, fadeIn)
+        task.delay(duration * 0.84, function()
+            if not isAlive(star.Holder) then
                 return
             end
-            local fadeOut = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-            tween(star.Tail, {BackgroundTransparency = 1}, fadeOut)
-            tween(star.Head, {BackgroundTransparency = 1}, fadeOut)
+            local fadeOut = TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+            tween(star.Trail, {BackgroundTransparency = 1}, fadeOut)
             tween(star.Halo, {ImageTransparency = 1}, fadeOut)
         end)
-        task.delay(duration + 0.4 + (star.Seed % 6) * 0.5, function()
+        task.delay(duration + 0.5 + (star.Seed % 5) * 0.6, function()
             if not self.Open or not isAlive(star.Holder) then
                 return
             end
@@ -1377,10 +1435,9 @@ function Minecraft:_SetupStars(forceCount)
     if self.Options.Stars == false then
         return
     end
-    local perTab = forceCount or self.Options.StarsPerTab or 6
+    local perTab = forceCount or self.Options.StarsPerTab or 7
     for tabIndex, tab in ipairs(self.Tabs) do
         if not tab.StarLayer and isAlive(tab.Panel) then
-            -- Inside the panel, under the scroll frame, so the rows stay on top.
             tab.StarLayer = create("Frame", {
                 Name = "Stars",
                 BackgroundTransparency = 1,
@@ -1402,8 +1459,7 @@ function Minecraft:_SetupStars(forceCount)
     self:_LaunchAllStars()
 end
 
--- Re-launch every star against the current panel size (called on open and
--- whenever a tab is added).
+-- Re-launch every star against the current panel size.
 function Minecraft:_LaunchAllStars()
     for _, tab in ipairs(self.Tabs) do
         if tab.StarLayer and isAlive(tab.StarLayer) then
@@ -1491,10 +1547,8 @@ function Minecraft:Toggle(value)
         if self.Open then
             self.Gui.Enabled = true
             tween(self.Root, {GroupTransparency = 0}, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
-            tween(self.ScaleObject, {Scale = self.Scale}, T.Pop)
         else
             local animation = tween(self.Root, {GroupTransparency = 1}, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
-            tween(self.ScaleObject, {Scale = self.Scale * 0.96}, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
             task.delay(0.18, function()
                 if not self.Open then
                     self.Gui.Enabled = false
@@ -1527,8 +1581,11 @@ function Minecraft:_UpdateLayout(instant)
         self.Body.Size = UDim2.fromOffset(bodyWidth, M.PanelHeight)
         self.Body.Position = UDim2.fromOffset(0, M.Title)
     else
-        tween(self.Root, {Size = UDim2.fromOffset(width, height)}, T.Layout)
-        tween(self.Body, {Size = UDim2.fromOffset(bodyWidth, M.PanelHeight), Position = UDim2.fromOffset(0, M.Title)}, T.Layout)
+        -- Geometry is applied instantly; only colour animates. A menu that
+        -- grows and shrinks on every change reads as cheap.
+        self.Root.Size = UDim2.fromOffset(width, height)
+        self.Body.Size = UDim2.fromOffset(bodyWidth, M.PanelHeight)
+        self.Body.Position = UDim2.fromOffset(0, M.Title)
     end
 
     self:_Fit(width, height)
@@ -1541,17 +1598,15 @@ function Minecraft:_UpdateLayout(instant)
             self.SearchFrame.Position = target
             self.SearchFrame.Size = UDim2.fromOffset(searchWidth, M.Search)
         else
-            tween(self.SearchFrame, {Position = target, Size = UDim2.fromOffset(searchWidth, M.Search)}, T.Layout)
+            self.SearchFrame.Position = target
+            self.SearchFrame.Size = UDim2.fromOffset(searchWidth, M.Search)
         end
     end
 
     for index, tab in ipairs(self.Tabs) do
         local target = UDim2.fromOffset((index - 1) * (M.PanelWidth + M.Gap), 0)
-        if instant then
-            tab.Column.Position = target
-        else
-            tween(tab.Column, {Position = target}, T.Layout)
-        end
+        -- Position snaps; no size or slide animation.
+        tab.Column.Position = target
     end
 
     -- The layout tween may finish after the last AbsoluteSize signal; refresh
@@ -1622,12 +1677,25 @@ function Minecraft:AddTab(name, options)
     -- Real bloom behind the panel. It is a SIBLING of the panel (not a child),
     -- drawn one ZIndex below it, and it extends past every edge, so what you see
     -- is a soft halo all around the slab instead of only the strip under it.
+    tab.GlowFar = create("ImageLabel", {
+        Name = "PanelGlowFar",
+        BackgroundTransparency = 1,
+        Image = GLOW_TEXTURE,
+        ImageColor3 = theme.Accent,
+        ImageTransparency = 0.72,
+        ScaleType = Enum.ScaleType.Slice,
+        SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, 96, 1, 96),
+        ZIndex = 1,
+    }, tab.Column)
     tab.Glow = create("ImageLabel", {
         Name = "PanelGlow",
         BackgroundTransparency = 1,
         Image = GLOW_TEXTURE,
         ImageColor3 = theme.Accent,
-        ImageTransparency = 0.55,
+        ImageTransparency = 0.45,
         ScaleType = Enum.ScaleType.Slice,
         SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
         AnchorPoint = Vector2.new(0.5, 0.5),
@@ -1648,7 +1716,8 @@ function Minecraft:AddTab(name, options)
         Name = "Title",
         BackgroundTransparency = 1,
         Font = window.Font,
-        Text = tab.Name,
+        -- Captions are always capitals, whatever the caller passed in.
+        Text = string.upper(tab.Name),
         TextSize = 17,
         TextColor3 = theme.Text,
         TextXAlignment = Enum.TextXAlignment.Center,
@@ -1739,8 +1808,10 @@ function Minecraft:AddTab(name, options)
 
     window:_Bind(tab.Title, function(themeNow, instant)
         applyColor(tab.Title, "TextColor3", themeNow.Text, instant, 0.26)
-        if tab.Glow and isAlive(tab.Glow) then
-            applyColor(tab.Glow, "ImageColor3", themeNow.Accent, instant, 0.26)
+        for _, layer in ipairs({tab.Glow, tab.GlowFar}) do
+            if layer and isAlive(layer) then
+                applyColor(layer, "ImageColor3", themeNow.Accent, instant, 0.26)
+            end
         end
     end)
     window:_Bind(tab.Panel, function(themeNow, instant)
@@ -1893,7 +1964,7 @@ local function newRow(tab, name, options)
     row.Box = create("Frame", {
         Name = "Box",
         BackgroundColor3 = theme.Row,
-        BackgroundTransparency = 0.15,
+        BackgroundTransparency = clamp(0.10 + Minecraft.Opacity.Row, 0, 0.92),
         BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 1, 0),
         ZIndex = 2,
@@ -2020,10 +2091,7 @@ local function newRow(tab, name, options)
         end
     end)
     row.Frame.MouseButton1Click:Connect(function()
-        -- Tiny squish so every click has feedback, even when the row is a press.
-        local size = row.Frame.Size
-        row.Frame.Size = UDim2.new(size.X.Scale, size.X.Offset, 0, M.RowHeight - 2)
-        tween(row.Frame, {Size = UDim2.new(size.X.Scale, size.X.Offset, 0, M.RowHeight)}, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
+        -- Feedback is a colour flash, never a size change.
         row:OnPrimaryClick()
         -- A short accent flash on the label confirms the press even for rows
         -- that do not change their background (buttons, dropdowns).
@@ -2069,6 +2137,9 @@ function Row:RefreshVisual(instant)
     elseif open or self.Hovered then
         fill, alpha = theme.Hover, open and 0.02 or 0.04
     end
+    -- Everything above is a "how strongly accented" value; this pushes the plate
+    -- toward see-through uniformly, so the menu is translucent end to end.
+    alpha = clamp(alpha + Minecraft.Opacity.Row, 0, 0.92)
 
     local labelColor = self.Locked and theme.Muted or theme.Text
 
@@ -2130,25 +2201,36 @@ end
 function Row:_ApplyHeight(instant, opening)
     local extra = self:_Extra()
     local target = UDim2.new(1, 0, 0, M.RowHeight + extra)
-    if instant then
-        self.Slot.Size = target
-    else
-        tween(self.Slot, {Size = target}, opening and T.Expand or T.Collapse)
-    end
+    -- Settings open instantly; the block fades rather than growing.
+    self.Slot.Size = target
     -- Keep the two collapsible blocks stacked below the header row.
     local listOffset = M.RowHeight + M.RowGap + (self.SettingsOpen and self.SettingsHeight or 0)
     local settingsTarget = UDim2.fromOffset(0, M.RowHeight + M.RowGap)
     local listTarget = UDim2.fromOffset(0, listOffset)
     local settingsSize = UDim2.new(1, 0, 0, math.max(self.SettingsHeight - M.RowGap, 0))
     local listSize = UDim2.new(1, 0, 0, math.max(self.ListHeight - M.RowGap, 0))
-    if instant then
-        self.Holder.Position = settingsTarget
-        self.Holder.Size = settingsSize
-        self.ListHolder.Position = listTarget
-        self.ListHolder.Size = listSize
-    else
-        tween(self.Holder, {Position = settingsTarget, Size = settingsSize}, opening and T.Expand or T.Collapse)
-        tween(self.ListHolder, {Position = listTarget, Size = listSize}, T.Layout)
+    self.Holder.Position = settingsTarget
+    self.Holder.Size = settingsSize
+    self.ListHolder.Position = listTarget
+    self.ListHolder.Size = listSize
+    if not instant then
+        -- The position/size change is instant above; this is the only motion --
+        -- the block's contents fade in instead of the box stretching.
+        local controls = self.Settings and self.Settings.Controls or {}
+        for _, control in ipairs(controls) do
+            if control.Frame and isAlive(control.Frame) then
+                local frame = control.Frame
+                if opening then
+                    if frame.ClassName == "TextLabel" or frame.ClassName == "TextButton" then
+                        frame.TextTransparency = 1
+                        tween(frame, {TextTransparency = 0}, T.Fade)
+                    elseif frame.ClassName == "ImageLabel" then
+                        frame.ImageTransparency = 1
+                        tween(frame, {ImageTransparency = 0}, T.Fade)
+                    end
+                end
+            end
+        end
     end
 end
 
@@ -2393,6 +2475,7 @@ function Settings:Toggle(options)
     local box = create("Frame", {
         Name = "Box",
         BackgroundColor3 = theme.Row,
+        BackgroundTransparency = Minecraft.Opacity.Control,
         BorderSizePixel = 0,
         Position = UDim2.new(1, -15, 0, 1),
         Size = UDim2.fromOffset(15, 15),
@@ -2475,16 +2558,10 @@ function Settings:Toggle(options)
             applyColor(pixel, "BackgroundColor3", value and theme.Text or theme.Accent, instant, 0.16)
         end
         local glyphW, glyphH = #TICK[1], #TICK
-        local scale = value and 1 or 0
+        -- No size animation anywhere: the tick is drawn at its final size and
+        -- only its colour/transparency animates, so the layout never breathes.
+        mark.Size = UDim2.fromOffset(glyphW, glyphH)
         mark.Visible = value
-        if instant then
-            mark.Size = UDim2.fromOffset(glyphW * scale, glyphH * scale)
-        else
-            if value then
-                mark.Size = UDim2.fromOffset(2, 2)
-            end
-            tween(mark, {Size = UDim2.fromOffset(glyphW * scale, glyphH * scale)}, T.Pop)
-        end
     end
 
     window:_Bind(frame, function(themeNow, instant)
@@ -2563,6 +2640,7 @@ function Settings:Slider(options)
     local track = create("Frame", {
         Name = "Track",
         BackgroundColor3 = theme.Track,
+        BackgroundTransparency = Minecraft.Opacity.Control,
         BorderSizePixel = 0,
         Position = UDim2.fromOffset(0, 16),
         Size = UDim2.new(1, 0, 0, 6),
@@ -2624,11 +2702,9 @@ function Settings:Slider(options)
     end
 
     local function setDragging(dragging)
-        tween(knob, {
-            Size = UDim2.fromOffset(dragging and 13 or 9, dragging and 13 or 9),
-            BackgroundTransparency = dragging and 0 or 0.05,
-        }, T.PopSoft)
-        tween(track, {Size = UDim2.new(1, 0, 0, dragging and 7 or 6)}, T.Hover)
+        -- No size change on drag: the knob only brightens, the rail stays put.
+        tween(knob, {BackgroundTransparency = dragging and 0 or 0.05}, T.PopSoft)
+        tween(track, {BackgroundTransparency = dragging and (Minecraft.Opacity.Control * 0.6) or Minecraft.Opacity.Control}, T.Hover)
     end
 
     window:_Bind(frame, function(themeNow, instant)
@@ -2708,6 +2784,7 @@ function Settings:Input(options)
     local box = create("Frame", {
         Name = "Box",
         BackgroundColor3 = theme.Track,
+        BackgroundTransparency = Minecraft.Opacity.Control,
         BorderSizePixel = 0,
         Position = UDim2.fromOffset(0, 12),
         Size = UDim2.new(1, 0, 0, 15),
@@ -2852,6 +2929,7 @@ function Settings:Keybind(options)
     local api = {Key = options.Default}
     local function paint()
         keyLabel.Text = api.Key and api.Key.Name or "None"
+        keyButton.BackgroundTransparency = Minecraft.Opacity.Control
         applyColor(keyButton, "BackgroundColor3", api.Key and window.Theme.Row or window.Theme.Track, true)
         applyColor(keyLabel, "TextColor3", api.Key and window.Theme.Text or window.Theme.Muted, true)
     end
@@ -3108,13 +3186,9 @@ function Settings:Dropdown(options)
         list.Visible = open
         local target = UDim2.new(1, 0, 0, open and height or 0)
         local frameTarget = UDim2.new(1, 0, 0, 20 + (open and (height + 2) or 0))
-        if instant then
-            list.Size = target
-            frame.Size = frameTarget
-        else
-            tween(list, {Size = target}, T.Layout)
-            tween(frame, {Size = frameTarget}, T.Layout)
-        end
+        -- Option lists snap open and closed; nothing grows smoothly.
+        list.Size = target
+        frame.Size = frameTarget
         entry.Height = 20 + (open and (height + 2) or 0)
         self:_Resize()
     end
@@ -3875,7 +3949,7 @@ function Minecraft:ClosePopup(instant)
     if instant then
         popup.Panel.Visible = false
     else
-        tween(popup.Panel, {Size = UDim2.fromOffset(popup.Width, popup.Height * 0.92), BackgroundTransparency = 1}, T.FadeFast)
+        tween(popup.Panel, {BackgroundTransparency = 1}, T.FadeFast)
     end
     task.delay(instant and 0 or 0.14, function()
         if not self.Popup and isAlive(popup.Panel) then
@@ -4247,6 +4321,7 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
     local hex = create("TextButton", {
         Name = "Hex",
         BackgroundColor3 = theme.Track,
+        BackgroundTransparency = Minecraft.Opacity.Control,
         AutoButtonColor = false,
         BorderSizePixel = 0,
         Text = "",
@@ -4386,10 +4461,9 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
         state.Acrylic:SetVisible(true)
     end
 
-    -- Pop in from the anchor: slightly small + fully transparent -> settled.
-    panel.Size = UDim2.fromOffset(width, height * 0.94)
+    -- Fade in from fully transparent; the popup never changes size.
     panel.BackgroundTransparency = 1
-    tween(panel, {Size = UDim2.fromOffset(width, height), BackgroundTransparency = 0}, T.Pop)
+    tween(panel, {BackgroundTransparency = 0}, T.Fade)
     return state
 end
 

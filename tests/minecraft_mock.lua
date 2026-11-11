@@ -487,7 +487,8 @@ assert(combat.Column.Size.X.Offset == 236 and combat.Column.Size.Y.Offset == 536
 assert(combat.Panel.Size.X.Scale == 1 and combat.Panel.Size.Y.Scale == 1, "panel fills its column")
 assert(movement.Column.Position.X.Offset == 246 and visuals.Column.Position.X.Offset == 492, "panel gap")
 assert(window.Root.Size.X.Offset == 3 * 236 + 2 * 10, "root grows with tabs")
-assert(combat.Title.Text == "Combat" and combat.Title.TextXAlignment == Enum.TextXAlignment.Center)
+assert(combat.Title.Text == "COMBAT" and combat.Title.TextXAlignment == Enum.TextXAlignment.Center,
+    "captions are upper case")
 
 --==========================================================================--
 -- Search field lives under the panels
@@ -528,7 +529,7 @@ assert(combat.Scroll.ScrollBarImageColor3 == window.Theme.Accent, "accent scroll
 -- The tab name is a caption ABOVE the panel. It must live OUTSIDE the panel,
 -- because the panel clips its descendants and would swallow the caption.
 assert(combat.TitleLine == nil, "no accent pill or underline under the caption")
-assert(combat.Title and combat.Title.Text == "Combat", "caption exists")
+assert(combat.Title and combat.Title.Text == "COMBAT", "caption exists, in capitals")
 assert(combat.Title.Parent == combat.Column, "caption lives in the non-clipping column")
 assert(combat.Column.ClipsDescendants == false, "the column never clips")
 assert(combat.Title.Position.Y.Offset + combat.Title.Size.Y.Offset < 0,
@@ -549,6 +550,16 @@ assert(combat.Glow.Size.X.Offset > 0 and combat.Glow.Size.Y.Offset > 0,
     "glow spreads horizontally and vertically")
 assert(combat.Glow.Size.X.Offset >= 30 and combat.Glow.Size.Y.Offset >= 30,
     "glow margin is visible on every side")
+
+-- Glow is two layers: a tight core and a wide soft spread. A single soft
+-- texture at low alpha was invisible over a busy scene, which is why the
+-- glow "could not be seen" in game.
+assert(combat.GlowFar and combat.GlowFar.ClassName == "ImageLabel", "the glow has a far layer")
+assert(combat.GlowFar.ZIndex < combat.Panel.ZIndex, "the far layer sits behind the panel too")
+assert(combat.GlowFar.Size.X.Offset > combat.Glow.Size.X.Offset,
+    "the far layer spreads wider than the core")
+assert(combat.GlowFar.ImageTransparency < 1 and combat.Glow.ImageTransparency < 1,
+    "both glow layers are visible")
 assert(window.SearchGlow and window.SearchGlow.Image == "rbxasset://textures/glow.png",
     "search bar glow too")
 
@@ -589,6 +600,37 @@ assert(contentHeight > 6 * 32, "canvas grew with the settings block")
 aura.Frame.MouseButton2Down:Fire()
 assert(not aura.SettingsOpen and aura.Slot.Size.Y.Offset == 32)
 assert(combat.Content.Size.Y.Offset == 6 * 32 + 5 * 5, "canvas shrinks back")
+
+-- Everything is translucent, so the frosted game shows through the menu.
+assert(Minecraft.Opacity and Minecraft.Opacity.Row > 0, "there is an opacity knob")
+local plainRow = combat:AddToggle({Name = "Transparent"})
+assert(plainRow.Box.BackgroundTransparency >= 0.3,
+    "a resting row lets the glass through: " .. plainRow.Box.BackgroundTransparency)
+local probeRow = combat:AddToggle({Name = "Opacity probe", Settings = function(st)
+    st:Slider({Name = "Rail", Min = 0, Max = 10, Default = 5})
+end})
+probeRow.Frame.MouseButton2Down:Fire()
+local rail
+for _, child in ipairs(probeRow.Settings.Controls[1].Frame.children) do
+    if child.Name == "Track" then rail = child end
+    for _, grand in ipairs(child.children or {}) do
+        if grand.Name == "Track" then rail = grand end
+    end
+end
+assert(rail and rail.BackgroundTransparency > 0.1,
+    "the slider rail inside settings is translucent: " .. tostring(rail and rail.BackgroundTransparency))
+probeRow.Frame.MouseButton2Down:Fire()
+local probeTick = combat:AddToggle({Name = "Tick probe", Settings = function(st)
+    st:Toggle({Name = "Inner", Default = false})
+end})
+probeTick.Frame.MouseButton2Down:Fire()
+local box
+for _, child in ipairs(probeTick.Settings.Controls[1].Frame.children) do
+    if child.Name == "Box" then box = child end
+end
+assert(box, "the checkbox well exists")
+assert(box.BackgroundTransparency > 0.1, "the checkbox well is translucent: " .. tostring(box.BackgroundTransparency))
+probeTick.Frame.MouseButton2Down:Fire()
 
 -- Every row gets a distinct layout order, so rows are drawn one below another.
 for index, row in ipairs(combat.Rows) do
@@ -641,7 +683,8 @@ for _, child in ipairs(innerToggle.Frame.children) do
 end
 assert(innerHit, "checkbox hit area exists")
 innerHit.MouseButton1Click:Fire()
-assert(tickMark.Visible == false and tickMark.Size.X.Offset == 0, "tick disappears when switched off")
+assert(tickMark.Visible == false, "tick disappears when switched off")
+assert(tickMark.Size.X.Offset > 0, "the tick keeps its size; only visibility changes (no size animation)")
 tickRow.Frame.MouseButton2Down:Fire()
 
 -- The user asked for no left-edge bars, no underlines and no premium badges.
@@ -862,17 +905,20 @@ local knob = findChild(rail, "Knob")
 assert(fill and knob, "fill and knob exist")
 assert(knob.Position.X.Scale == 0.25 and knob.AnchorPoint.X == 0.5, "knob sits at the value")
 assert(knob.Size.X.Offset == 9 and knob.Size.Y.Offset == 9, "knob is a 9px dot")
--- Dragging grows the knob and releasing deflates it.
+-- Dragging never resizes anything: only colours change.
 local sliderHit
 for _, child in ipairs(knobGroup.children) do
     if child.Name == "Hit" then sliderHit = child end
 end
 assert(sliderHit, "slider hit area exists")
 sliderHit.InputBegan:Fire({UserInputType = Enum.UserInputType.MouseButton1, Position = {X = 40, Y = 8}})
-assert(knob.Size.X.Offset == 13, "knob grows while dragging")
-assert(rail.Size.Y.Offset == 7, "rail thickens while dragging")
+assert(knob.Size.X.Offset == 9 and knob.Size.Y.Offset == 9,
+    "the knob keeps its size while dragging (no size animation)")
+assert(rail.Size.Y.Offset == 6, "the rail never thickens")
+local knobBright = knob.BackgroundTransparency
 input.InputEnded:Fire({UserInputType = Enum.UserInputType.MouseButton1, Position = {X = 40, Y = 8}})
-assert(knob.Size.X.Offset == 9 and rail.Size.Y.Offset == 6, "knob and rail settle back")
+assert(knob.Size.X.Offset == 9 and rail.Size.Y.Offset == 6, "sizes stay put after release")
+assert(knobBright < 0.05 + 1e-6, "dragging brightens the knob instead")
 knobRow.Frame.MouseButton2Down:Fire()
 
 -- Dropdowns inside settings use a real chevron that rotates when opened.
@@ -1062,10 +1108,33 @@ for _, tab in ipairs(window.Tabs) do
     assert(tab.Stars[1].Holder.Parent == tab.StarLayer, "meteor parented to its field")
 end
 local star = window.Tabs[1].Stars[1]
-assert(star.Holder.Rotation == -34, "stars fall diagonally")
-assert(star.Tail and star.Head and star.Halo, "a meteor has tail, head and bloom")
-assert(star.Halo.Image == "rbxasset://textures/glow.png", "head bloom uses the soft texture")
-assert(star.Tail.BackgroundColor3 ~= star.Head.BackgroundColor3, "head is brighter than the tail")
+assert((star.Holder.Rotation or 0) == 0, "the star itself stays upright")
+assert(star.Trail.Rotation == 34, "only the trail follows the fall direction")
+assert(star.Body and star.Trail and star.Halo, "a star has a pixel body, a trail and a bloom")
+assert(star.Halo.Image == "rbxasset://textures/glow.png", "bloom uses the soft texture")
+-- The body is a real five-pointed silhouette, not a blob: it must have a wide
+-- row (the points) and rows made of separated runs (the notches).
+local bodyRows, widest, separated = 0, 0, false
+for _, child in ipairs(star.Body.children) do
+    if child.ClassName == "Frame" and child.Name == "Pixel" then
+        bodyRows = bodyRows + 1
+        widest = math.max(widest, child.Size.X.Offset)
+    end
+end
+assert(bodyRows >= 10, "the star glyph is built from pixel runs: " .. bodyRows)
+assert(widest >= 16, "a five-pointed star spreads wide at the arms: " .. widest)
+-- Symmetry: the widest row must start at the left edge and reach the middle,
+-- so the star has two equal arms rather than one long and one short.
+local widestStart, widestLen = 99, 0
+for _, child in ipairs(star.Body.children) do
+    if child.ClassName == "Frame" and child.Name == "Pixel" and child.Size.X.Offset >= 16 then
+        widestStart = math.min(widestStart, child.Position.X.Offset)
+        widestLen = math.max(widestLen, child.Size.X.Offset)
+    end
+end
+assert(widestStart <= 4, "one arm reaches the left edge: " .. widestStart)
+assert(star.Trail.BackgroundColor3 ~= star.Body.children[1].BackgroundColor3,
+    "the trail is dimmer than the body")
 assert(star.Holder.ZIndex < window.Tabs[1].Scroll.ZIndex, "stars stay behind the rows")
 assert(#window.Tabs[1].Stars == #window.Tabs[2].Stars, "every tab gets the same count")
 
