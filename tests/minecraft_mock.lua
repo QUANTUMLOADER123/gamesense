@@ -172,6 +172,9 @@ local function newInstance(class)
         Focused = signal(),
     }
     function obj:IsA(name)
+        if name == self.ClassName then
+            return true
+        end
         return name == 'GuiObject' and (self.ClassName == 'Frame' or self.ClassName == 'ScrollingFrame'
             or self.ClassName == 'TextButton' or self.ClassName == 'TextLabel' or self.ClassName == 'TextBox'
             or self.ClassName == 'ImageLabel' or self.ClassName == 'CanvasGroup')
@@ -219,8 +222,14 @@ local lighting = {children = {}, FindFirstChild = function(self, name)
         if child.Name == name then return child end
     end
     return nil
+end, GetDescendants = function(self)
+    local out = {}
+    for _, child in ipairs(self.children) do
+        table.insert(out, child)
+    end
+    return out
 end}
-game = {GetService = function(_, name)
+game = {GetService = function(self, name)
     if name == 'Lighting' then return lighting end
     if name == 'Players' then return {LocalPlayer = localPlayer} end
     if name == 'TextService' then return textService end
@@ -391,6 +400,25 @@ assert(window.Tabs[1].Acrylic and window.Tabs[1].Acrylic.Model.Transparency == 0
 assert(window.AcrylicTint == nil, "no dark plate is laid behind the panels")
 assert(window.AcrylicFolder and window.AcrylicFolder.Name == "MinecraftUIAcrylic", "one folder per window")
 
+
+--==========================================================================--
+-- Glass blur: DepthOfField with FarIntensity = 0
+--==========================================================================--
+-- The acrylic plate only frosts if a depth-of-field effect blurs the sliver of
+-- space right in front of the camera. Without it the panels are just
+-- translucent rectangles -- which is exactly how the blur "vanished".
+assert(window.GlassBlur, "the glass gets its depth-of-field blur")
+assert(window.GlassBlur.Parent == lighting, "the effect lives in Lighting")
+assert(window.GlassBlur.FarIntensity == 0, "the world stays sharp")
+assert(window.GlassBlur.NearIntensity == 1, "the near plane -- the glass -- is blurred")
+assert(window.GlassBlur.InFocusRadius <= 0.1, "only the glass sliver is in focus radius")
+local blurEffect = window.GlassBlur
+window:SetAcrylic("off")
+assert(window.GlassBlur == nil and blurEffect.destroyed, "turning acrylic off removes the blur")
+window:SetAcrylic("on")
+flush()
+assert(window.GlassBlur and window.GlassBlur ~= blurEffect, "and it comes back with the glass")
+
 -- A late camera is picked up by the bounded retry instead of leaving the menu
 -- without glass for the whole session.
 local savedCamera = workspace.CurrentCamera
@@ -455,8 +483,9 @@ local combat = window:AddTab("Combat")
 local movement = window:AddTab("Movement")
 local visuals = window:AddTab("Visuals")
 assert(#window.Tabs == 3)
-assert(combat.Panel.Size.X.Offset == 236 and combat.Panel.Size.Y.Offset == 536, "equal panel size")
-assert(movement.Panel.Position.X.Offset == 246 and visuals.Panel.Position.X.Offset == 492, "panel gap")
+assert(combat.Column.Size.X.Offset == 236 and combat.Column.Size.Y.Offset == 536, "equal column size")
+assert(combat.Panel.Size.X.Scale == 1 and combat.Panel.Size.Y.Scale == 1, "panel fills its column")
+assert(movement.Column.Position.X.Offset == 246 and visuals.Column.Position.X.Offset == 492, "panel gap")
 assert(window.Root.Size.X.Offset == 3 * 236 + 2 * 10, "root grows with tabs")
 assert(combat.Title.Text == "Combat" and combat.Title.TextXAlignment == Enum.TextXAlignment.Center)
 
@@ -496,20 +525,30 @@ assert(window.SearchFrame.BackgroundTransparency == 0.32, "blur returns the rest
 -- Faded scrollbar uses the accent colour, not a grey line.
 assert(combat.Scroll.ScrollBarImageColor3 == window.Theme.Accent, "accent scrollbar")
 
--- The tab name is a caption ABOVE the panel, not a title bar inside it.
+-- The tab name is a caption ABOVE the panel. It must live OUTSIDE the panel,
+-- because the panel clips its descendants and would swallow the caption.
 assert(combat.TitleLine == nil, "no accent pill or underline under the caption")
 assert(combat.Title and combat.Title.Text == "Combat", "caption exists")
-assert(combat.Title.Parent == combat.Panel, "caption rides with its panel")
-assert(combat.Title.AnchorPoint.Y == 1, "caption is anchored above the panel")
-assert(combat.Title.Position.Y.Offset < 0, "caption sits outside the panel's top edge")
-assert(combat.Title.Position.X.Scale == 0.5, "caption is centred over its panel")
-assert(combat.Title.ZIndex > combat.Panel.ZIndex - 10, "caption draws above the panel")
+assert(combat.Title.Parent == combat.Column, "caption lives in the non-clipping column")
+assert(combat.Column.ClipsDescendants == false, "the column never clips")
+assert(combat.Title.Position.Y.Offset + combat.Title.Size.Y.Offset < 0,
+    "caption sits fully above the panel's top edge")
+assert(combat.Title.Position.X.Scale == 0.5 and combat.Title.AnchorPoint.X == 0.5,
+    "caption is centred over its panel")
+assert(combat.Title.ZIndex > combat.Panel.ZIndex, "caption draws above the panel")
 assert(combat.TopShine == nil and combat.Sheen == nil, "no edge highlight line that reads as an outline")
 
--- Panels have real glow (soft radial texture), not stacked frames.
+-- Panels have real glow (soft radial texture), not stacked frames. The glow is
+-- a SIBLING drawn under the panel, and it must spread past all four edges --
+-- as a child of the panel only the bottom strip ever showed.
 assert(combat.Glow and combat.Glow.ClassName == "ImageLabel", "panel glow is an image")
 assert(combat.Glow.Image == "rbxasset://textures/glow.png", "panel glow uses the soft texture")
-assert(combat.Glow.ZIndex >= 1 and combat.Glow.BackgroundTransparency == 1, "glow has no hard fill")
+assert(combat.Glow.Parent == combat.Column, "glow is outside the clipping panel")
+assert(combat.Glow.ZIndex < combat.Panel.ZIndex, "glow sits behind the panel")
+assert(combat.Glow.Size.X.Offset > 0 and combat.Glow.Size.Y.Offset > 0,
+    "glow spreads horizontally and vertically")
+assert(combat.Glow.Size.X.Offset >= 30 and combat.Glow.Size.Y.Offset >= 30,
+    "glow margin is visible on every side")
 assert(window.SearchGlow and window.SearchGlow.Image == "rbxasset://textures/glow.png",
     "search bar glow too")
 
@@ -1011,27 +1050,29 @@ input.InputBegan:Fire({UserInputType = Enum.UserInputType.Keyboard, KeyCode = En
 assert(window.Open == false, "Insert toggles the menu")
 
 --==========================================================================--
--- Falling stars
+-- Falling stars live INSIDE the tab panels
 --==========================================================================--
-assert(window.StarsLayer, "star field layer exists")
-assert(window.StarsLayer.Parent == window.Gui and window.StarsLayer.ZIndex == 0, "stars sit behind the menu")
-assert(#window.Stars >= 10, "a field of meteors is spawned: " .. #window.Stars)
-local star = window.Stars[1]
-assert(star.Holder and star.Holder.Parent == window.StarsLayer, "each star is parented to the field")
-assert(star.Holder.Rotation == -38, "stars fall diagonally")
-assert(star.Tail and star.Head, "stars have a tail and a head")
+-- They are a background for the tabs, not for the screen: a full-viewport star
+-- field read as scratches over the game.
+assert(window.StarsLayer == nil, "no screen-wide star layer")
+for _, tab in ipairs(window.Tabs) do
+    assert(tab.StarLayer, "every tab owns a star field")
+    assert(tab.StarLayer.Parent == tab.Panel, "stars are clipped inside the panel")
+    assert(#tab.Stars >= 3, "each tab gets its own meteors: " .. #tab.Stars)
+    assert(tab.Stars[1].Holder.Parent == tab.StarLayer, "meteor parented to its field")
+end
+local star = window.Tabs[1].Stars[1]
+assert(star.Holder.Rotation == -34, "stars fall diagonally")
+assert(star.Tail and star.Head and star.Halo, "a meteor has tail, head and bloom")
+assert(star.Halo.Image == "rbxasset://textures/glow.png", "head bloom uses the soft texture")
 assert(star.Tail.BackgroundColor3 ~= star.Head.BackgroundColor3, "head is brighter than the tail")
-local starGrad = findChild(star.Tail, "UIGradient")
-assert(starGrad, "tail carries a transparency gradient")
-assert(#star.Motes == 2, "lagging motes make the trail glitter")
-assert(star.Halo and star.Halo.Image == "rbxasset://textures/glow.png",
-    "the head carries a soft bloom so a meteor is not a scratch")
-assert(star.Halo.SliceCenter, "bloom uses nine-slice scaling")
-window:Toggle(false)
-assert(window.StarsLayer.Visible == false, "stars disappear with the menu")
-window:Toggle(true)
-assert(window.StarsLayer.Visible == true, "and come back")
+assert(star.Holder.ZIndex < window.Tabs[1].Scroll.ZIndex, "stars stay behind the rows")
+assert(#window.Tabs[1].Stars == #window.Tabs[2].Stars, "every tab gets the same count")
 
+window:Toggle(false)
+assert(window.Tabs[1].StarLayer.Visible == false, "stars hide with the menu")
+window:Toggle(true)
+assert(window.Tabs[1].StarLayer.Visible == true, "and come back")
 
 local config = window:SaveConfig()
 assert(config.__theme == 4 and config.aura ~= nil and config.mode == "Rage")

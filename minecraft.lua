@@ -20,8 +20,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.11.0"
-Minecraft.Build = 21 -- incremented on every visible change, used by examples to detect stale caches
+Minecraft.Version = "1.12.0"
+Minecraft.Build = 22 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -648,20 +648,6 @@ function Minecraft.new(options)
     window.AcrylicSupported = Acrylic.Supported()
     window.AcrylicEnabled = window.AcrylicMode ~= "off" and (window.AcrylicMode == "on" or window.AcrylicSupported)
 
-    -- Falling stars --------------------------------------------------------
-    -- A field of slow, diagonal meteors behind the menu. Each star is a thin
-    -- streak with a bright head and a fading tail, and it leaves a short trail
-    -- of dimmer motes that lag behind it. Everything is tween-driven, so there
-    -- is no per-frame loop and the cost stays flat.
-    window.StarsLayer = create("Frame", {
-        Name = "Stars",
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 0,
-        ClipsDescendants = false,
-    }, window.Gui)
-    window.Stars = {}
 
     window.PopupLayer = create("Frame", {
         Name = "PopupLayer",
@@ -688,7 +674,6 @@ function Minecraft.new(options)
     window:SetupSearch()
     window:SetupInput()
     window:_SetupAcrylic()
-    window:_SetupStars()
 
     -- Fade the menu in once it is built. The acrylic sheets come up slightly
     -- later so the glass reads as "condensing" under the menu, not as a flash.
@@ -1091,6 +1076,7 @@ function Minecraft:_SetupAcrylic()
     -- single sheet spanning the whole menu: each region gets its own frosted
     -- island, and the gaps between columns stay perfectly sharp.
     local ok = pcall(function()
+        self:_EnsureGlassBlur()
         for _, tab in ipairs(self.Tabs) do
             if not tab.Acrylic then
                 tab.Acrylic = self:_AttachAcrylic(tab.Panel, {Distance = 0.001})
@@ -1115,6 +1101,56 @@ function Minecraft:_SetupAcrylic()
     if self.SearchAcrylic then
         self.SearchAcrylic:SetVisible(false)
     end
+end
+
+-- The glass plates on their own refract almost nothing. Every acrylic
+-- implementation (Fluent included) pairs them with a depth-of-field effect that
+-- has FarIntensity = 0 and a tiny InFocusRadius: that blurs ONLY geometry within
+-- a tenth of a stud of the camera -- i.e. the glass plates, which sit 0.001
+-- studs in front of it. The world stays sharp, the ScreenGui is never touched,
+-- but the plate itself turns into frosted glass. Without this the panels are
+-- just translucent rectangles, which is exactly why the blur "disappeared".
+function Minecraft:_EnsureGlassBlur()
+    if self.GlassBlur or not self.AcrylicEnabled then
+        return
+    end
+    local ok, effect = pcall(function()
+        local made = Instance.new("DepthOfFieldEffect")
+        made.Name = "MinecraftUIGlassBlur"
+        made.FarIntensity = 0
+        made.InFocusRadius = 0.1
+        made.NearIntensity = 1
+        -- Remember any effect the game already had, so removing ours restores it.
+        self._RestoreEffects = self._RestoreEffects or {}
+        local lighting = game:GetService("Lighting")
+        for _, child in ipairs(lighting:GetDescendants()) do
+            if child:IsA("DepthOfFieldEffect") and child ~= made then
+                self._RestoreEffects[child] = child.Enabled
+            end
+        end
+        made.Parent = lighting
+        return made
+    end)
+    if ok and effect then
+        self.GlassBlur = effect
+    end
+end
+
+function Minecraft:_RemoveGlassBlur()
+    if self.GlassBlur then
+        pcall(function()
+            self.GlassBlur:Destroy()
+        end)
+        self.GlassBlur = nil
+    end
+    for effect, enabled in pairs(self._RestoreEffects or {}) do
+        pcall(function()
+            if effect and effect.Parent then
+                effect.Enabled = enabled
+            end
+        end)
+    end
+    self._RestoreEffects = nil
 end
 
 -- Called when a new tab appears after the window was built.
@@ -1182,6 +1218,7 @@ function Minecraft:SetAcrylic(mode)
         end
         self.AcrylicFolder = nil
         self.AcrylicEnabled = false
+        self:_RemoveGlassBlur()
         return
     end
     if not self.AcrylicEnabled then
@@ -1192,24 +1229,27 @@ function Minecraft:SetAcrylic(mode)
 end
 
 --==========================================================================--
--- Falling stars
+-- Falling stars (inside the tab panels)
 --==========================================================================--
--- Each meteor is: a head (small round dot), a tail (a thin frame rotated to the
--- travel direction, fading out backwards) and two lagging motes that read as a
--- glitter trail. They spawn above/left of the viewport and fall diagonally, then
--- respawn. Tweens only, no RunService loop, so dozens of them are cheap.
-local STAR_ANGLE = 38          -- degrees, falling down-right
+-- The stars live INSIDE each panel, behind the rows, clipped by the panel's
+-- rounded corners. They are a background for the tabs, not for the screen: two
+-- before, the meteors flew across the whole viewport and read as scratches over
+-- the game. Now each column gets its own slow field, seeded differently so the
+-- panels do not pulse in lockstep.
+--
+-- Each meteor is a thin streak with a bright head, a fading tail and a soft
+-- bloom around the head. Tween-driven, no RunService loop.
+local STAR_ANGLE = 34
 local STAR_COLORS = {
-    {Color3.fromRGB(255, 255, 255), Color3.fromRGB(150, 130, 255)},
-    {Color3.fromRGB(190, 235, 255), Color3.fromRGB(86, 226, 255)},
-    {Color3.fromRGB(255, 225, 245), Color3.fromRGB(255, 132, 216)},
+    {Color3.fromRGB(255, 255, 255), Color3.fromRGB(160, 140, 255)},
+    {Color3.fromRGB(196, 238, 255), Color3.fromRGB(96, 200, 255)},
+    {Color3.fromRGB(255, 226, 246), Color3.fromRGB(255, 140, 220)},
 }
 
-local function makeStar(window, index)
-    local theme = window.Theme
+local function makeStar(parent, index, seed)
     local palette = STAR_COLORS[(index - 1) % #STAR_COLORS + 1]
-    local length = 18 + (index * 7) % 26
-    local thickness = (index % 3 == 0) and 2 or 1
+    local length = 34 + (index * 13) % 40
+    local thickness = (index % 4 == 0) and 2 or 1
 
     local holder = create("Frame", {
         Name = "Star" .. index,
@@ -1218,151 +1258,111 @@ local function makeStar(window, index)
         AnchorPoint = Vector2.new(0.5, 1),
         Rotation = -STAR_ANGLE,
         Size = UDim2.fromOffset(thickness, length),
-        ZIndex = 0,
-    }, window.StarsLayer)
+        ZIndex = 1,
+    }, parent)
 
-    -- Tail: fades from the head (bottom, opaque) to the tip (top, clear).
     local tail = create("Frame", {
         Name = "Tail",
         BackgroundColor3 = palette[2],
-        BackgroundTransparency = 0.35,
+        BackgroundTransparency = 0.32,
         BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 1, 0),
-        ZIndex = 0,
+        ZIndex = 1,
     }, holder)
     create("UICorner", {CornerRadius = UDim.new(1, 0)}, tail)
     create("UIGradient", {
         Rotation = 90,
         Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.15),
-            NumberSequenceKeypoint.new(0.55, 0.75),
+            NumberSequenceKeypoint.new(0, 0.2),
+            NumberSequenceKeypoint.new(0.6, 0.8),
             NumberSequenceKeypoint.new(1, 1),
         }),
     }, tail)
 
-    -- Head: a bright core wrapped in a soft bloom (radial texture), so the
-    -- meteor reads as a light source instead of a scratch on the screen.
     local halo = create("ImageLabel", {
         Name = "Halo",
         BackgroundTransparency = 1,
         Image = GLOW_TEXTURE,
         ImageColor3 = palette[1],
-        ImageTransparency = 0.35,
+        ImageTransparency = 0.3,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 1, 0),
-        Size = UDim2.fromOffset(18, 18),
+        Size = UDim2.fromOffset(20, 20),
         SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
         ScaleType = Enum.ScaleType.Slice,
         ZIndex = 1,
     }, holder)
+
     local head = create("Frame", {
         Name = "Head",
         BackgroundColor3 = palette[1],
-        BackgroundTransparency = 0.05,
+        BackgroundTransparency = 0.1,
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 1, 0),
         Size = UDim2.fromOffset(3, 3),
-        ZIndex = 2,
+        ZIndex = 1,
     }, holder)
     create("UICorner", {CornerRadius = UDim.new(1, 0)}, head)
-
-    -- Two lagging motes give the streak a glittery feel.
-    local motes = {}
-    for m = 1, 2 do
-        motes[m] = create("Frame", {
-            Name = "Mote" .. m,
-            BackgroundColor3 = palette[1],
-            BackgroundTransparency = 0.5,
-            BorderSizePixel = 0,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.new(0.5, 0, 1, m * 3),
-            Size = UDim2.fromOffset(2, 2),
-            ZIndex = 0,
-        }, holder)
-        create("UICorner", {CornerRadius = UDim.new(1, 0)}, motes[m])
-    end
 
     return {
         Holder = holder,
         Tail = tail,
         Head = head,
         Halo = halo,
-        Motes = motes,
-        Palette = palette,
+        Seed = seed,
         Length = length,
-        Seed = index,
     }
 end
 
-function Minecraft:_StarViewport()
-    local ok, size = pcall(function()
-        local camera = workspace.CurrentCamera
-        return camera and camera.ViewportSize or nil
-    end)
-    if ok and size and size.X > 0 and size.Y > 0 then
-        return size
-    end
-    return Vector2.new(1280, 720)
-end
-
--- One fall cycle: start off-screen top-left, land off-screen bottom-right.
-function Minecraft:_LaunchStar(star, firstRun)
+-- One fall cycle inside a panel: enter above the top edge, leave below the
+-- bottom edge. Coordinates are in the parent's own pixel space, so the panel's
+-- ClipsDescendants does the cropping for us and a star can never escape.
+function Minecraft:_LaunchStar(star, area, firstRun)
     if not star or not isAlive(star.Holder) then
         return
     end
-    local viewport = self:_StarViewport()
-    local padding = 120
-    -- Spread starts over the full width plus a margin on the left so stars enter
-    -- from beyond the edge instead of popping in inside the screen.
-    local startX = -padding + (star.Seed * 0.61803398875 % 1) * (viewport.X + padding * 2)
-    local startY = -padding - (star.Seed * 0.2718281828 % 1) * viewport.Y * 0.6
-    local travel = viewport.Y + padding * 2
+    local width, height = area.X, area.Y
+    if width <= 0 or height <= 0 then
+        return
+    end
+    local spread = width * 0.9
+    local startX = -14 + (star.Seed * 0.61803398875 % 1) * spread
+    local startY = -30 - (star.Seed * 0.2718281828 % 1) * height * 0.45
+    local travel = height + 90
     local endX = startX + travel * math.sin(math.rad(STAR_ANGLE))
     local endY = startY + travel * math.cos(math.rad(STAR_ANGLE))
 
     star.Holder.Position = UDim2.fromOffset(startX, startY)
     star.Holder.Visible = true
 
-    local duration = 2.6 + (star.Seed % 5) * 0.55
-    local delay = firstRun and ((star.Seed % 11) * 0.28) or ((star.Seed * 0.37) % 2.4)
+    local duration = 3.2 + (star.Seed % 5) * 0.6
+    local delay = firstRun and ((star.Seed % 9) * 0.42) or ((star.Seed * 0.37) % 3)
 
     local function fly()
         if not isAlive(star.Holder) then
             return
         end
-        tween(star.Holder, {
-            Position = UDim2.fromOffset(endX, endY),
-        }, TweenInfo.new(duration, Enum.EasingStyle.Linear))
-
-        -- Fade in at the top and out at the bottom so nothing pops.
-        local fadeIn = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local fadeOut = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        tween(star.Tail, {BackgroundTransparency = 0.25}, fadeIn)
+        tween(star.Holder, {Position = UDim2.fromOffset(endX, endY)}, TweenInfo.new(duration, Enum.EasingStyle.Linear))
+        -- Gentle fade so nothing pops at the panel edge.
+        local fadeIn = TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        tween(star.Tail, {BackgroundTransparency = 0.2}, fadeIn)
         tween(star.Head, {BackgroundTransparency = 0}, fadeIn)
-        if star.Halo then
-            tween(star.Halo, {ImageTransparency = 0.2}, fadeIn)
-        end
-        task.delay(duration - 0.9, function()
+        tween(star.Halo, {ImageTransparency = 0.25}, fadeIn)
+        task.delay(duration * 0.82, function()
             if not isAlive(star.Tail) then
                 return
             end
+            local fadeOut = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
             tween(star.Tail, {BackgroundTransparency = 1}, fadeOut)
             tween(star.Head, {BackgroundTransparency = 1}, fadeOut)
-            if star.Halo then
-                tween(star.Halo, {ImageTransparency = 1}, fadeOut)
-            end
-            for _, mote in ipairs(star.Motes) do
-                tween(mote, {BackgroundTransparency = 1}, fadeOut)
-            end
+            tween(star.Halo, {ImageTransparency = 1}, fadeOut)
         end)
-
-        -- Restart after the flight plus a random-ish pause.
-        task.delay(duration + 0.35 + (star.Seed % 7) * 0.45, function()
+        task.delay(duration + 0.4 + (star.Seed % 6) * 0.5, function()
             if not self.Open or not isAlive(star.Holder) then
                 return
             end
-            self:_LaunchStar(star, false)
+            self:_LaunchStar(star, area, false)
         end)
     end
 
@@ -1373,20 +1373,51 @@ function Minecraft:_LaunchStar(star, firstRun)
     end
 end
 
-function Minecraft:_SetupStars(count)
+function Minecraft:_SetupStars(forceCount)
     if self.Options.Stars == false then
         return
     end
-    self.StarCount = count or self.Options.StarCount or 14
-    for index = 1, self.StarCount do
-        if not self.Stars[index] then
-            local star = makeStar(self, index)
-            star.Holder.Visible = false
-            self.Stars[index] = star
+    local perTab = forceCount or self.Options.StarsPerTab or 6
+    for tabIndex, tab in ipairs(self.Tabs) do
+        if not tab.StarLayer and isAlive(tab.Panel) then
+            -- Inside the panel, under the scroll frame, so the rows stay on top.
+            tab.StarLayer = create("Frame", {
+                Name = "Stars",
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                ClipsDescendants = false,
+                Size = UDim2.fromScale(1, 1),
+                ZIndex = 1,
+            }, tab.Panel)
+            tab.Stars = {}
+        end
+        if tab.StarLayer then
+            for index = 1, perTab do
+                if not tab.Stars[index] then
+                    tab.Stars[index] = makeStar(tab.StarLayer, index, tabIndex * 9 + index * 3)
+                end
+            end
         end
     end
-    for index, star in ipairs(self.Stars) do
-        self:_LaunchStar(star, true)
+    self:_LaunchAllStars()
+end
+
+-- Re-launch every star against the current panel size (called on open and
+-- whenever a tab is added).
+function Minecraft:_LaunchAllStars()
+    for _, tab in ipairs(self.Tabs) do
+        if tab.StarLayer and isAlive(tab.StarLayer) then
+            local area = tab.StarLayer.AbsoluteSize
+            if area.X <= 0 or area.Y <= 0 then
+                area = Vector2.new(M.PanelWidth, M.PanelHeight)
+            end
+            tab.StarLayer.Visible = self.Open
+            if self.Open then
+                for _, star in ipairs(tab.Stars or {}) do
+                    self:_LaunchStar(star, area, true)
+                end
+            end
+        end
     end
 end
 
@@ -1437,8 +1468,13 @@ function Minecraft:Toggle(value)
     end
     -- Acrylic follows the menu: it appears with the intro (after the first
     -- frame, when the root has real AbsolutePosition) and vanishes with it.
-    if self.StarsLayer then
-        self.StarsLayer.Visible = self.Open
+    for _, tab in ipairs(self.Tabs) do
+        if tab.StarLayer then
+            tab.StarLayer.Visible = self.Open
+        end
+    end
+    if self.Open and self.Options.Stars ~= false then
+        self:_LaunchAllStars()
     end
     if self.AcrylicEnabled then
         if self.Open then
@@ -1512,9 +1548,9 @@ function Minecraft:_UpdateLayout(instant)
     for index, tab in ipairs(self.Tabs) do
         local target = UDim2.fromOffset((index - 1) * (M.PanelWidth + M.Gap), 0)
         if instant then
-            tab.Panel.Position = target
+            tab.Column.Position = target
         else
-            tween(tab.Panel, {Position = target}, T.Layout)
+            tween(tab.Column, {Position = target}, T.Layout)
         end
     end
 
@@ -1554,45 +1590,60 @@ function Minecraft:AddTab(name, options)
         HasRows = false,
     }, Tab)
 
+    -- One non-clipping column per tab. Everything that must be allowed to
+    -- breathe OUTSIDE the panel rectangle lives here: the glow (which spreads
+    -- past all four edges) and the caption (which floats above the top edge).
+    -- Putting them inside the panel was the bug -- the panel clips descendants,
+    -- so the caption vanished and only the bottom sliver of the glow showed.
+    tab.Column = create("Frame", {
+        Name = "Column_" .. tab.Name,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ClipsDescendants = false,
+        Size = UDim2.fromOffset(M.PanelWidth, M.PanelHeight),
+        Position = UDim2.fromOffset((#window.Tabs) * (M.PanelWidth + M.Gap), 0),
+        ZIndex = 2,
+    }, window.Body)
+
     tab.Panel = create("Frame", {
         Name = "Panel_" .. tab.Name,
         BackgroundColor3 = theme.Panel,
         BackgroundTransparency = window.PanelTransparency,
         BorderSizePixel = 0,
         ClipsDescendants = true,
-        Size = UDim2.fromOffset(M.PanelWidth, M.PanelHeight),
-        Position = UDim2.fromOffset((#window.Tabs) * (M.PanelWidth + M.Gap), -10),
+        -- Fill the column exactly: glow and caption hang off the column, so the
+        -- panel itself must not carry the title band any more.
+        Size = UDim2.new(1, 0, 1, 0),
+        Position = UDim2.fromOffset(0, 0),
         ZIndex = 2,
-    }, window.Body)
+    }, tab.Column)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel)}, tab.Panel)
-    -- Real bloom behind the panel (soft radial texture), so each tab reads as a
-    -- lit slab instead of a flat rectangle with a fake layered halo.
+
+    -- Real bloom behind the panel. It is a SIBLING of the panel (not a child),
+    -- drawn one ZIndex below it, and it extends past every edge, so what you see
+    -- is a soft halo all around the slab instead of only the strip under it.
     tab.Glow = create("ImageLabel", {
         Name = "PanelGlow",
         BackgroundTransparency = 1,
-        Image = "rbxasset://textures/glow.png",
+        Image = GLOW_TEXTURE,
         ImageColor3 = theme.Accent,
-        ImageTransparency = 0.72,
+        ImageTransparency = 0.55,
         ScaleType = Enum.ScaleType.Slice,
         SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.new(1, 26, 1, 26),
+        -- Spread on all four sides, not just vertically.
+        Size = UDim2.new(1, 44, 1, 44),
         ZIndex = 1,
-    }, tab.Panel)
-    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel)}, tab.Glow)
+    }, tab.Column)
+
     -- Soft vertical tint so the glass has depth instead of one flat colour.
     tab.Gradient = create("UIGradient", {
         Rotation = 90,
         Color = ColorSequence.new(theme.PanelTop, theme.PanelBottom),
     }, tab.Panel)
-    -- Outer neon ring (the "glow").
-    -- No edge highlight: a 1px line along the top read as an outline, and
-    -- transparency gradients render flat on some clients. The panel's own
-    -- PanelTop -> PanelBottom gradient already gives the glass its depth.
 
-    -- The tab name is a caption ABOVE the panel, not a title bar inside it. It
-    -- lives in Body (so it animates with the column) and floats over the gap.
+    -- Caption above the panel: centred over the column, drawn above everything.
     tab.Title = create("TextLabel", {
         Name = "Title",
         BackgroundTransparency = 1,
@@ -1602,12 +1653,11 @@ function Minecraft:AddTab(name, options)
         TextColor3 = theme.Text,
         TextXAlignment = Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Center,
-        AnchorPoint = Vector2.new(0.5, 1),
-        Position = UDim2.new(0.5, 0, 0, -10),
-        Size = UDim2.new(1, 0, 0, 20),
-        ZIndex = 6,
-    }, tab.Panel)
-
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, -(M.Title - 6)),
+        Size = UDim2.new(1, 0, 0, M.Title - 8),
+        ZIndex = 7,
+    }, tab.Column)
 
     tab.Scroll = create("ScrollingFrame", {
         Name = "Scroll",
@@ -1711,20 +1761,24 @@ function Minecraft:AddTab(name, options)
         -- Each new column rises into place a beat after the previous one, so
         -- adding three tabs looks like the menu unfolding sideways.
         local index = #window.Tabs
-        tab.Panel.Position = UDim2.fromOffset(resting.X.Offset, -12)
+        tab.Column.Position = UDim2.fromOffset(resting.X.Offset, -12)
         task.delay(math.min(index - 1, 5) * 0.035, function()
-            if isAlive(tab.Panel) then
-                tween(tab.Panel, {Position = resting}, T.Layout)
+            if isAlive(tab.Column) then
+                tween(tab.Column, {Position = resting}, T.Layout)
             end
         end)
     else
-        tab.Panel.Position = resting
+        tab.Column.Position = resting
     end
 
-    -- A tab added after the window exists still gets its own frosted island.
+    -- A tab added after the window exists still gets its own frosted island
+    -- and its own star field.
     if window.AcrylicEnabled then
         window:_AttachTabAcrylic(tab)
         window:_SetAcrylicVisible(window.Open)
+    end
+    if window.Options.Stars ~= false then
+        window:_SetupStars()
     end
     return tab
 end
@@ -1752,6 +1806,7 @@ function Minecraft:Destroy()
         end)
         self.BlurEffect = nil
     end
+    self:_RemoveGlassBlur()
     for _, sheet in ipairs(self.Acrylics or {}) do
         pcall(function()
             sheet:Destroy()
