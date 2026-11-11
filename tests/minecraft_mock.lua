@@ -765,6 +765,17 @@ local knob = findChild(rail, "Knob")
 assert(fill and knob, "fill and knob exist")
 assert(knob.Position.X.Scale == 0.25 and knob.AnchorPoint.X == 0.5, "knob sits at the value")
 assert(knob.Size.X.Offset == 9 and knob.Size.Y.Offset == 9, "knob is a 9px dot")
+-- Dragging grows the knob and releasing deflates it.
+local sliderHit
+for _, child in ipairs(knobGroup.children) do
+    if child.Name == "Hit" then sliderHit = child end
+end
+assert(sliderHit, "slider hit area exists")
+sliderHit.InputBegan:Fire({UserInputType = Enum.UserInputType.MouseButton1, Position = {X = 40, Y = 8}})
+assert(knob.Size.X.Offset == 13, "knob grows while dragging")
+assert(rail.Size.Y.Offset == 7, "rail thickens while dragging")
+input.InputEnded:Fire({UserInputType = Enum.UserInputType.MouseButton1, Position = {X = 40, Y = 8}})
+assert(knob.Size.X.Offset == 9 and rail.Size.Y.Offset == 6, "knob and rail settle back")
 knobRow.Frame.MouseButton2Down:Fire()
 
 -- Dropdowns inside settings use a real chevron that rotates when opened.
