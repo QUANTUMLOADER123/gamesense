@@ -947,6 +947,19 @@ local chevronFrame = chevronRow.Settings.Controls[1].Frame
 local header = findChild(chevronFrame, "Header")
 assert(header, "dropdown header exists")
 local arrow = findChild(header, "Arrow")
+-- The chevron must be a hollow "v": on its top row the two arms are two
+-- separate runs with a gap between them. A solid triangle read as a black
+-- arrowhead stuck to the row.
+local topRow = {}
+for _, pixel in ipairs(arrow.children) do
+    if pixel.Position.Y.Offset == 0 then
+        topRow[#topRow + 1] = pixel
+    end
+end
+assert(#topRow >= 2, "the chevron's top row has two separate arms: " .. #topRow)
+table.sort(topRow, function(a, b) return a.Position.X.Offset < b.Position.X.Offset end)
+local gap = topRow[2].Position.X.Offset - (topRow[1].Position.X.Offset + topRow[1].Size.X.Offset)
+assert(gap >= 2, "the arms are separated by an empty middle: gap " .. gap)
 assert(arrow, "dropdown has a pixel chevron")
 local chevronPixels = findClass(arrow, "Frame")
 assert(#chevronPixels >= 6, "chevron is drawn from pixels")
@@ -1144,11 +1157,12 @@ assert(star.Beam.Rotation == 34, "the beam has its own rotation")
 assert(star.Holder.Rotation == nil or star.Holder.Rotation == 0,
     "the holder itself is not rotated: the parts are rotated individually")
 
--- The beam must grow to the LEFT of its anchor (negative X). Rotated by +34 the
--- "left" direction becomes "up-left", i.e. exactly opposite the down-right fall.
-assert(star.Beam.Size.X.Offset < 0, "the beam grows away from the star: " .. star.Beam.Size.X.Offset)
-assert(star.Beam.AnchorPoint.X == 1, "the beam is anchored at the star end")
-assert(star.BeamCore.Size.X.Offset < 0, "the bright core follows the beam")
+-- Positive size, anchored by its RIGHT edge: the beam extends to the left and
+-- touches the star. Negative UDim2 sizes look fine in a mock but Roblox renders
+-- them detached from the anchor, which is why the beam floated off the star.
+assert(star.Beam.Size.X.Offset > 0, "the beam has a positive width: " .. star.Beam.Size.X.Offset)
+assert(star.Beam.AnchorPoint.X == 1, "the beam is anchored by its right edge")
+assert(star.BeamCore.Size.X.Offset > 0, "the bright core follows the beam")
 assert(math.abs(star.Beam.Size.X.Offset) > star.Beam.Size.Y.Offset * 3,
     "the beam is a long streak, not a stub")
 

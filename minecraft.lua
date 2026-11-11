@@ -20,8 +20,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.16.0"
-Minecraft.Build = 26 -- incremented on every visible change, used by examples to detect stale caches
+Minecraft.Version = "1.17.0"
+Minecraft.Build = 27 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -362,11 +362,14 @@ Minecraft.addGlow = addGlow
 Minecraft.Icons = {
     -- Hollow chevron: six pixel runs, so it reads as an outline arrow rather
     -- than a solid triangle at 1x.
+    -- A hollow "v": two arms with an empty middle. A solid triangle read as a
+    -- black arrowhead stuck to the row.
     Chevron = {
-        "##...##",
-        ".##.##.",
-        "..###..",
-        "...#...",
+        "##.....##",
+        ".##...##.",
+        "..##.##..",
+        "...###...",
+        "....#....",
     },
     Search = {
         ".####..",
@@ -1312,9 +1315,13 @@ local function makeStar(parent, index, seed)
         BackgroundColor3 = tint[2],
         BackgroundTransparency = 0.3,
         BorderSizePixel = 0,
+        -- POSITIVE size, anchored by its RIGHT edge on the star and grown to the
+        -- left. A negative Size.X looked fine in the mock but Roblox renders such
+        -- a frame detached from its anchor, which is why the beam floated away
+        -- from the star instead of touching it.
         AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.new(0, -beamLength, 0, beamHeight),
+        Position = UDim2.new(0.5, starSize * 0.22, 0.5, 0),
+        Size = UDim2.new(0, beamLength, 0, beamHeight),
         Rotation = STAR_ANGLE,
         ZIndex = 1,
     }, holder)
@@ -1322,9 +1329,9 @@ local function makeStar(parent, index, seed)
         -- Local X runs from the far tip (0) to the star (1): faint at the tip,
         -- solid at the star.
         Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0.0, 0.9),
-            NumberSequenceKeypoint.new(0.45, 0.62),
-            NumberSequenceKeypoint.new(1.0, 0.12),
+            NumberSequenceKeypoint.new(0.0, 0.95),  -- far tip: almost gone
+            NumberSequenceKeypoint.new(0.5, 0.7),
+            NumberSequenceKeypoint.new(1.0, 0.08),  -- at the star: bright
         }),
     }, beam)
 
@@ -1335,8 +1342,8 @@ local function makeStar(parent, index, seed)
         BackgroundTransparency = 0.2,
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.new(0, -beamLength * 0.94, 0, math.max(1, beamHeight * 0.34)),
+        Position = UDim2.new(0.5, starSize * 0.22, 0.5, 0),
+        Size = UDim2.new(0, beamLength * 0.94, 0, math.max(1, beamHeight * 0.34)),
         Rotation = STAR_ANGLE,
         ZIndex = 2,
     }, holder)
