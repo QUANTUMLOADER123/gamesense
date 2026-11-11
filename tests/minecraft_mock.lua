@@ -543,12 +543,15 @@ assert(combat.TopShine == nil and combat.Sheen == nil, "no edge highlight line t
 -- a SIBLING drawn under the panel, and it must spread past all four edges --
 -- as a child of the panel only the bottom strip ever showed.
 assert(combat.Glow and combat.Glow.ClassName == "ImageLabel", "panel glow is an image")
-assert(combat.Glow.Image == "rbxasset://textures/glow.png", "panel glow uses the soft texture")
+assert(combat.Glow.Image == "rbxassetid://8992230677",
+    "panel glow uses the soft rounded blur, not the spoked system texture")
+assert(combat.Glow.Image ~= "rbxasset://textures/glow.png", "never the spoked asset")
+assert(combat.Glow.ScaleType == Enum.ScaleType.Slice, "the blur is nine-sliced so it hugs the panel")
 assert(combat.Glow.Parent == combat.Column, "glow is outside the clipping panel")
 assert(combat.Glow.ZIndex < combat.Panel.ZIndex, "glow sits behind the panel")
 assert(combat.Glow.Size.X.Offset > 0 and combat.Glow.Size.Y.Offset > 0,
     "glow spreads horizontally and vertically")
-assert(combat.Glow.Size.X.Offset >= 8 and combat.Glow.Size.Y.Offset >= 8,
+assert(combat.Glow.Size.X.Offset >= 4 and combat.Glow.Size.Y.Offset >= 4,
     "glow margin is visible on every side")
 -- Each tab's halo must stay inside its own slot: a wide bloom overlapped the
 -- neighbours across the 10px gap and the five panels fused into one slab.
@@ -566,8 +569,8 @@ assert(combat.GlowFar.Size.X.Offset >= combat.Glow.Size.X.Offset,
     "the far layer is at least as wide as the core")
 assert(combat.GlowFar.ImageTransparency < 1 and combat.Glow.ImageTransparency < 1,
     "both glow layers are visible")
-assert(window.SearchGlow and window.SearchGlow.Image == "rbxasset://textures/glow.png",
-    "search bar glow too")
+assert(window.SearchGlow and window.SearchGlow.Image == "rbxassetid://8992230677",
+    "search bar glow uses the same soft blur")
 
 -- Rows start where the panel starts: no reseved title bar inside.
 assert(combat.Scroll.Position.Y.Offset == 0, "scroll starts at the top of the panel")
@@ -732,7 +735,7 @@ for _, row in ipairs(combat.Rows) do
     assert(row.GlowStroke == nil, "no stroke-based glow")
     if row.Glow then
         assert(row.Glow.ClassName == "ImageLabel", "row glow is a texture, not a frame stack")
-        assert(row.Glow.Image == "rbxasset://textures/glow.png", "row glow uses the soft radial texture")
+        assert(row.Glow.Image == "rbxassetid://8992230677", "row glow uses the soft blur")
         assert(row.GlowSlice or true)
     end
 end
@@ -1126,13 +1129,33 @@ for _, tab in ipairs(window.Tabs) do
     noSpokes(tab.StarLayer)
 end
 local star = window.Tabs[1].Stars[1]
-assert((star.Holder.Rotation or 0) == 0, "the star itself stays upright")
-assert(star.Tail.Rotation == 34, "only the tail follows the fall direction")
-assert(star.Body and star.Tail and star.Halo, "a star has a pixel body, a tail and a halo")
--- The halo must NOT be the stock glow texture: that asset has spokes and
--- produced the "sphere with rays" artefact the user rejected.
-assert(star.Halo.ClassName == "Frame", "the halo is a soft rounded frame, not the spoked texture")
-assert(star.Halo.BackgroundTransparency > 0.6, "the halo is a faint even wash")
+-- The star leans into its own path: a shooting star tilted with the fall.
+assert(star.Holder.Rotation == -34, "the star is tilted along its fall direction")
+assert(star.Body and star.Beam and star.BeamCore, "a star has a body, a beam and a bright core")
+-- Geometry: the holder is rotated -34 (down-right fall), so the trail inside it
+-- must be a VERTICAL bar growing UP (negative Y). The rotation turns "up" into
+-- "up-left", i.e. backwards along the fall. A horizontal bar rotated the same way
+-- swings DOWN-LEFT -- that was the beam pointing the wrong way.
+assert(star.Beam.Size.Y.Offset < 0, "the beam grows upward inside the holder: " .. star.Beam.Size.Y.Offset)
+assert(star.Beam.AnchorPoint.Y == 1, "the beam is anchored at the star end")
+assert(star.BeamCore.Size.Y.Offset < 0, "the bright core follows the beam")
+assert(math.abs(star.Beam.Size.Y.Offset) > star.Beam.Size.X.Offset * 3,
+    "the beam is a long streak, not a stub")
+-- And the rotation is what turns it into the correct up-left direction.
+local function rot(dx, dy, deg)
+    local t = math.rad(deg)
+    return dx * math.cos(t) - dy * math.sin(t), dx * math.sin(t) + dy * math.cos(t)
+end
+local bx, by = rot(0, -1, -34)
+assert(bx < -0.3 and by < -0.5, "the beam points up-left on screen: " .. bx .. "," .. by)
+
+-- No round backdrop: a 2x circle behind the glyph read as a background disc.
+assert(star.Halo == nil, "no circular halo behind the star")
+assert(star.Bloom.ClassName == "ImageLabel", "the star has a soft bloom instead")
+assert(star.Bloom.Size.X.Offset <= 18 * 1.6, "the bloom hugs the glyph, it is not a disc")
+-- It must be the soft blur asset, never the spoked system texture.
+assert(star.Bloom.Image == "rbxassetid://8992230677", "bloom uses the soft blur asset")
+assert(star.Bloom.Image ~= "rbxasset://textures/glow.png", "no spoked texture anywhere")
 
 -- The glyph must be a real five-pointed star: one narrow column at the top (the
 -- crown), one very wide row (the arms), and a notched bottom (the legs).
@@ -1152,7 +1175,6 @@ for y, width in pairs(rows) do
 end
 assert(widest >= 14, "a five-pointed star spreads wide at the arms: " .. widest)
 assert(topWidth <= 4, "the crown is a single narrow point: " .. topWidth)
--- Bottom row must be split into two separate runs = the legs.
 local legs = 0
 for _, child in ipairs(star.Body.children) do
     if child.Name == "Pixel" and child.Position.Y.Offset == 12 then
@@ -1160,6 +1182,19 @@ for _, child in ipairs(star.Body.children) do
     end
 end
 assert(legs >= 2, "the bottom row splits into two legs: " .. legs)
+
+-- Stars are coloured, and the colours differ between stars.
+local seen = {}
+for _, item in ipairs(window.Tabs[1].Stars) do
+    for _, pixel in ipairs(item.Body.children) do
+        local c = pixel.BackgroundColor3
+        local key = string.format("%.2f_%.2f_%.2f", c.R, c.G, c.B)
+        seen[key] = true
+    end
+end
+local distinct = 0
+for _ in pairs(seen) do distinct = distinct + 1 end
+assert(distinct >= 2, "the stars are coloured, not all white: " .. distinct)
 
 assert(#window.Tabs[1].Stars == #window.Tabs[2].Stars, "every tab gets the same count")
 
