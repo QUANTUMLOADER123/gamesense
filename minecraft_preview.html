@@ -1,30 +1,30 @@
 <!DOCTYPE html><html><head><meta charset="utf-8"><style>
 * { box-sizing: border-box; }
-body { margin:0; background:#0b0d14 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='40' height='40' fill='%230b0d14'/><circle cx='8' cy='8' r='2' fill='%23223'/><circle cx='28' cy='24' r='3' fill='%23234'/></svg>"); font-family: Verdana, Tahoma, sans-serif; padding:26px; }
+body { padding-top:44px; margin:0; background:#0b0d14 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='40' height='40' fill='%230b0d14'/><circle cx='8' cy='8' r='2' fill='%23223'/><circle cx='28' cy='24' r='3' fill='%23234'/></svg>"); font-family: Verdana, Tahoma, sans-serif; padding:26px; }
 h1 { color:#c9d4e8; font-size:15px; font-weight:400; margin:0 0 18px; letter-spacing:.4px; }
 .theme { margin-bottom: 34px; }
 .caption { color:#93a4be; font-size:13px; margin-bottom:8px; letter-spacing:.5px; }
 .glass { background: transparent; padding:0; width:max-content; }
 .panels { display:flex; gap:10px; height:536px; }
-.panel { backdrop-filter: blur(11px) saturate(135%); width:236px; height:536px; border:0; border-radius:11px; position:relative; box-shadow: 0 18px 50px rgba(0,0,0,.55); }
-.ptitle { color: var(--text); text-align:center; font-size:17px; height:46px; line-height:46px; font-weight:500; letter-spacing:.3px; }
-.pline { position:absolute; left:50%; margin-left:-13px; top:34px; width:26px; height:2px; background: var(--accent); opacity:.75; border-radius:2px; }
-.rows { padding:12px 14px 14px 12px; display:flex; flex-direction:column; gap:5px; height: 490px; overflow:hidden; }
-.row { height:32px; display:flex; align-items:center; gap:6px; background: linear-gradient(180deg, color-mix(in srgb, var(--row) 92%, #fff 8%), var(--row)); border:0; border-radius:8px; padding:0 11px; color: var(--text); font-size:15px; position:relative; transition: background .18s ease, transform .18s ease; }
+.panel { backdrop-filter: blur(11px) saturate(135%); width:236px; height:536px; border:0; border-radius:18px; position:relative; box-shadow: 0 0 46px -8px var(--glow), 0 18px 50px rgba(0,0,0,.5); }
+.ptitle { position:absolute; left:0; right:0; top:-30px; height:24px; line-height:24px; text-align:center; color:var(--text); font-size:16px; font-weight:500; letter-spacing:.3px; text-shadow:0 0 18px var(--accent); }
+.pline { display:none; }
+.rows { padding:12px 14px 14px 12px; display:flex; flex-direction:column; gap:5px; height: 512px; overflow:hidden; }
+.row { height:32px; display:flex; align-items:center; gap:6px; background: linear-gradient(180deg, color-mix(in srgb, var(--row) 92%, #fff 8%), var(--row)); border:0; border-radius:10px; padding:0 11px; color: var(--text); font-size:15px; position:relative; transition: background .18s ease, transform .18s ease; }
 .row:hover { background: var(--hover); transform: translateY(-1px); }
-.row.on { background: linear-gradient(180deg, var(--on), color-mix(in srgb, var(--on) 70%, var(--row))); }
-.row.on::before { content:""; position:absolute; left:3px; top:50%; transform:translateY(-50%); width:3px; height:18px; border-radius:99px; background: var(--accent); }
-.row.on { padding-left: 14px; }
+.row.on { background: linear-gradient(180deg, var(--on), color-mix(in srgb, var(--on) 70%, var(--row))); box-shadow: 0 0 24px -7px var(--accent); }
+
+
 .row span:first-child { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .dots { color: var(--muted); font-size:15px; letter-spacing:1px; }
 .badge { color: var(--accent); font-size:10px; }
-.search { margin: 10px auto 0; width:300px; height:34px; background: linear-gradient(180deg, var(--top), var(--bot)); border:0; border-radius:11px; color: var(--muted); font-size:13px; display:flex; align-items:center; gap:9px; padding:0 12px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.search { margin: 10px auto 0; width:300px; height:36px; background: linear-gradient(180deg, var(--top), var(--bot)); border:0; border-radius:18px; box-shadow: 0 0 34px -8px var(--accent); color: var(--muted); font-size:13px; display:flex; align-items:center; gap:9px; padding:0 12px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
 
 .detail { display:flex; gap:10px; margin-top:10px; }
-.dcard { width:236px; overflow:hidden; background: linear-gradient(180deg, rgba(38,28,74,.72), rgba(26,19,52,.8)); backdrop-filter: blur(14px) saturate(130%); border:0; border-radius:11px; padding:11px; box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+.dcard { width:236px; overflow:hidden; background: linear-gradient(180deg, rgba(38,28,74,.72), rgba(26,19,52,.8)); backdrop-filter: blur(14px) saturate(130%); border:0; border-radius:18px; padding:11px; box-shadow: 0 18px 50px rgba(0,0,0,.55); }
 .dtitle { color:#e9e5ff; font-size:16px; text-align:center; padding-bottom:9px; margin-bottom:10px; position:relative; }
 .dtitle::after { content:""; position:absolute; left:50%; margin-left:-13px; bottom:0; width:26px; height:2px; border-radius:2px; background:#9678ff; }
-.dblock { background: rgba(10,6,24,.45); border:0; border-radius:8px; padding:9px; display:flex; flex-direction:column; gap:7px; }
+.dblock { background: rgba(10,6,24,.45); border:0; border-radius:10px; padding:9px; display:flex; flex-direction:column; gap:7px; }
 .dlabel { color:#b9b1d8; font-size:11px; display:flex; justify-content:space-between; }
 .dlabel b { color:#e9e5ff; font-weight:500; }
 .drow { display:flex; align-items:center; justify-content:space-between; color:#e9e5ff; font-size:13px; }
@@ -38,7 +38,24 @@ h1 { color:#c9d4e8; font-size:15px; font-weight:400; margin:0 0 18px; letter-spa
 body::before { content:""; position:fixed; inset:0; background: inherit; filter: blur(12px) saturate(120%); opacity:.6; z-index:-1; }
 body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:-1; }
 .panel { backdrop-filter: blur(3px) saturate(140%); }
-</style></head><body><h1>Minecraft UI v1.10 — acrylic-стекло в стиле Fluent, пружинные анимации, новые отступы</h1><div class="theme"><div class="caption">Nebula</div>
+
+/* Falling stars: thin diagonal streaks, bloomed head, CSS-only. */
+.stars { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.stars i { position:absolute; display:block; width:2px; border-radius:2px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(190,180,255,.5) 72%, rgba(255,255,255,.95) 100%);
+  filter: drop-shadow(0 0 6px rgba(185,165,255,.85));
+  animation: fall linear infinite; }
+.stars i::after { content:""; position:absolute; left:50%; bottom:-3px; width:7px; height:7px;
+  margin-left:-3.5px; border-radius:50%; background:#fff; box-shadow: 0 0 12px 4px rgba(190,175,255,.9); }
+@keyframes fall {
+  0%   { transform: translate3d(-16vw,-32vh,0) rotate(38deg); opacity: 0; }
+  9%   { opacity: 1; }
+  85%  { opacity: .95; }
+  100% { transform: translate3d(48vw,124vh,0) rotate(38deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .stars { display: none; } }
+</style></head><body><h1>Minecraft UI v1.11 — acrylic-стекло в стиле Fluent, пружинные анимации, новые отступы</h1><div class="stars" aria-hidden="true"><i style="left:4%;height:54px;animation-duration:9s;animation-delay:-0s"></i><i style="left:13%;height:38px;animation-duration:12s;animation-delay:-4s"></i><i style="left:21%;height:70px;animation-duration:10s;animation-delay:-2s"></i><i style="left:29%;height:44px;animation-duration:14s;animation-delay:-7s"></i><i style="left:36%;height:60px;animation-duration:11s;animation-delay:-1s"></i><i style="left:44%;height:34px;animation-duration:13s;animation-delay:-5s"></i><i style="left:52%;height:80px;animation-duration:9s;animation-delay:-3s"></i><i style="left:60%;height:46px;animation-duration:12s;animation-delay:-8s"></i><i style="left:68%;height:58px;animation-duration:10s;animation-delay:-6s"></i><i style="left:75%;height:36px;animation-duration:15s;animation-delay:-2s"></i><i style="left:83%;height:64px;animation-duration:11s;animation-delay:-9s"></i><i style="left:90%;height:42px;animation-duration:13s;animation-delay:-4s"></i><i style="left:96%;height:52px;animation-duration:10s;animation-delay:-6s"></i><i style="left:25%;height:30px;animation-duration:16s;animation-delay:-10s"></i><i style="left:63%;height:28px;animation-duration:17s;animation-delay:-11s"></i></div>
+<div class="theme"><div class="caption">Nebula</div>
       <div class="glass" style="--panel:#261c4a;--border:#786cad;--top:#3c335c;--bot:#211840">
         <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--hover:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
 <div class="ptitle">Combat</div><div class="pline"></div><div class="rows">

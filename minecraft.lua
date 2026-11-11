@@ -20,8 +20,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.10.0"
-Minecraft.Build = 20 -- incremented on every visible change, used by examples to detect stale caches
+Minecraft.Version = "1.11.0"
+Minecraft.Build = 21 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -38,11 +38,13 @@ local M = {
     PanelWidth = 236,
     PanelHeight = 536,
     Gap = 10,
-    Title = 46,
+    -- The tab name sits ABOVE the panel, like a caption; the panel itself starts
+    -- straight into its rows (no inner title bar any more).
+    Title = 34,
     RowHeight = 32,
     RowGap = 5,
     Inset = 12,
-    Search = 34,
+    Search = 36,
     SearchWidth = 300,
     -- Shared vertical rhythm. Every control in a settings block uses these, so
     -- the column reads as one evenly-spaced list instead of a pile of boxes.
@@ -52,8 +54,9 @@ local M = {
     -- rounded corners of the panel still get their own edge shading.
     AcrylicInset = 2,
 }
--- One place to tune the whole look: panel 6px, rows 5px, small controls 3-4px.
-Minecraft.Radius = {Panel = 11, Row = 8, Control = 6, Small = 5}
+-- One place to tune the whole look: panels are the roundest, then rows,
+-- then the small controls inside settings blocks.
+Minecraft.Radius = {Panel = 18, Row = 10, Control = 7, Small = 5}
 Minecraft.Metrics = M
 
 -- Motion tokens. One family of curves for the whole menu: Quint for movement
@@ -307,6 +310,35 @@ local function pixelIcon(parent, pattern, color, zIndex)
     end
     return holder, pixels
 end
+
+-- Real glow ------------------------------------------------------------------
+-- Not stacked translucent frames (that reads as a halo of rings): Roblox ships a
+-- soft radial texture, so one ImageLabel tinted to the accent and stretched with
+-- Slice gives a genuinely blurred bloom around any rounded rectangle.
+local GLOW_TEXTURE = "rbxasset://textures/glow.png"
+
+local function addGlow(parent, color, options)
+    options = options or {}
+    local padding = options.Padding or 10
+    local glow = create("ImageLabel", {
+        Name = options.Name or "Glow",
+        BackgroundTransparency = 1,
+        Image = GLOW_TEXTURE,
+        ImageColor3 = color or Color3.new(1, 1, 1),
+        ImageTransparency = options.Transparency or 0.45,
+        ScaleType = Enum.ScaleType.Slice,
+        SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
+        SliceScale = options.SliceScale or 1,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, padding * 2, 1, padding * 2),
+        ZIndex = options.ZIndex or 1,
+    }, parent)
+    glow.Padding = padding
+    return glow
+end
+
+Minecraft.addGlow = addGlow
 
 Minecraft.Icons = {
     -- Hollow chevron: six pixel runs, so it reads as an outline arrow rather
@@ -562,52 +594,13 @@ function Minecraft.new(options)
         window.Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
     end
 
-    -- Blur modes:
-    --   "local" (default) -> no viewport blur; frosted panels do the work
-    --   "screen"          -> BlurEffect over the whole 3D view, like a CS menu
-    -- Default "screen": the world is blurred behind the menu. Pass
-    -- BlurMode = "local" to keep the game sharp and only dim behind the panels.
-    window.BlurMode = options.BlurMode or "screen"
+    -- There is no full-screen blur and no full-screen scrim. The game stays
+    -- sharp and bright everywhere; only the strips directly behind the panels,
+    -- the search bar and the popups get frosted, via the acrylic sheets below.
+    -- BlurMode is kept for API compatibility: "screen" used to add a global
+    -- BlurEffect + black Dim. It no longer does anything.
+    window.BlurMode = options.BlurMode or "local"
     window.BlurSize = options.BlurSize or 24
-    if window.BlurMode == "screen" and options.BlurEffect ~= false then
-        local okLighting, lighting = pcall(function()
-            return game:GetService("Lighting")
-        end)
-        if okLighting and lighting then
-            local existing = lighting:FindFirstChild("MinecraftUIBlur")
-            if existing then
-                existing:Destroy()
-            end
-            local okBlur, blur = pcall(function()
-                return create("BlurEffect", {Name = "MinecraftUIBlur", Size = 0, Enabled = true}, lighting)
-            end)
-            if okBlur and blur then
-                window.BlurEffect = blur
-                task.defer(function()
-                    if isAlive(blur) and window.Open then
-                        tween(blur, {Size = window.BlurSize}, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
-                    end
-                end)
-            end
-        end
-    end
-
-    -- Dark scrim. In "local" mode it only sits behind the panels (a sibling of
-    -- the root, sized to it), so the screen keeps its colour. In "screen" mode
-    -- it covers the viewport together with the blur.
-    window.DimValue = options.DimTransparency or (window.BlurMode == "screen" and 0.55 or 0.55)
-    if options.Dim ~= false then
-        if window.BlurMode == "screen" then
-            window.Dim = create("Frame", {
-                Name = "Dim",
-                BackgroundColor3 = Color3.new(0, 0, 0),
-                BackgroundTransparency = window.DimValue,
-                BorderSizePixel = 0,
-                Size = UDim2.fromScale(1, 1),
-                ZIndex = 1,
-            }, window.Gui)
-        end
-    end
 
     -- CanvasGroup lets the whole menu fade as one unit. Fall back to a Frame on
     -- clients that do not expose CanvasGroup yet.
@@ -636,36 +629,13 @@ function Minecraft.new(options)
         Name = "Body",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(0, 0),
+        Position = UDim2.fromOffset(0, M.Title),
         Size = UDim2.fromOffset(M.PanelWidth, M.PanelHeight),
         ZIndex = 5,
     }, window.Root)
 
-    if window.BlurMode ~= "screen" and window.Options.Dim ~= false then
-        -- Two soft rings instead of one hard plate: a wide, very faint halo plus a
-        -- tight plate hugging the panels. Reads as depth, not a black rectangle.
-        window.DimHalo = create("Frame", {
-            Name = "LocalDimHalo",
-            BackgroundColor3 = Color3.new(0, 0, 0),
-            BackgroundTransparency = math.min(0.92, window.DimValue + 0.42),
-            BorderSizePixel = 0,
-            Position = UDim2.fromOffset(-M.Gap - 10, -M.Gap - 10),
-            Size = UDim2.new(1, (M.Gap + 10) * 2, 1, (M.Gap + 10) * 2),
-            ZIndex = 0,
-        }, window.Root)
-        create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel + 10)}, window.DimHalo)
-
-        window.Dim = create("Frame", {
-            Name = "LocalDim",
-            BackgroundColor3 = Color3.new(0, 0, 0),
-            BackgroundTransparency = window.DimValue,
-            BorderSizePixel = 0,
-            Position = UDim2.fromOffset(-M.Gap - 2, -M.Gap - 2),
-            Size = UDim2.new(1, (M.Gap + 2) * 2, 1, (M.Gap + 2) * 2),
-            ZIndex = 0,
-        }, window.Root)
-        create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel + 6)}, window.Dim)
-    end
+    -- No dark plate behind the panels: it was rejected twice. The acrylic sheet
+    -- and the panel tint carry the contrast instead.
 
     -- Acrylic (real frosted glass behind the panels) --------------------------
     -- "auto" -> on when the client's graphics quality can render glass
@@ -677,6 +647,21 @@ function Minecraft.new(options)
     window.Acrylics = {}
     window.AcrylicSupported = Acrylic.Supported()
     window.AcrylicEnabled = window.AcrylicMode ~= "off" and (window.AcrylicMode == "on" or window.AcrylicSupported)
+
+    -- Falling stars --------------------------------------------------------
+    -- A field of slow, diagonal meteors behind the menu. Each star is a thin
+    -- streak with a bright head and a fading tail, and it leaves a short trail
+    -- of dimmer motes that lag behind it. Everything is tween-driven, so there
+    -- is no per-frame loop and the cost stays flat.
+    window.StarsLayer = create("Frame", {
+        Name = "Stars",
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 0,
+        ClipsDescendants = false,
+    }, window.Gui)
+    window.Stars = {}
 
     window.PopupLayer = create("Frame", {
         Name = "PopupLayer",
@@ -703,6 +688,7 @@ function Minecraft.new(options)
     window:SetupSearch()
     window:SetupInput()
     window:_SetupAcrylic()
+    window:_SetupStars()
 
     -- Fade the menu in once it is built. The acrylic sheets come up slightly
     -- later so the glass reads as "condensing" under the menu, not as a flash.
@@ -772,11 +758,9 @@ function Minecraft:AnimateTheme()
             end
         end)
     end
-    -- Acrylic is a 3D object, not part of the CanvasGroup: nudge its tint by
-    -- re-fitting so it does not look frozen while the GUI cross-fades.
-    if self.BodyAcrylic then
-        self.BodyAcrylic:Refresh()
-    end
+    -- Acrylic is a 3D object, not part of the CanvasGroup: re-fit every sheet so
+    -- it does not look frozen while the GUI cross-fades.
+    self:_RefreshAcrylic()
 end
 
 function Minecraft:SetTheme(value)
@@ -813,27 +797,20 @@ end
 
 -- Real world blur strength. In "local" mode this promotes the window to a
 -- full-screen blur on demand (the BlurEffect is created once, lazily).
+-- Kept for API compatibility. A global BlurEffect is exactly what the menu must
+-- NOT have, so this only records the value and turns the local acrylic up.
 function Minecraft:SetBlur(size)
     self.BlurSize = math.max(tonumber(size) or 0, 0)
-    if not self.BlurEffect then
-        local ok, lighting = pcall(function()
-            return game:GetService("Lighting")
+    self.BlurMode = "local"
+    if self.BlurEffect and isAlive(self.BlurEffect) then
+        pcall(function()
+            self.BlurEffect:Destroy()
         end)
-        if not ok or not lighting then
-            return
-        end
-        local okBlur, blur = pcall(function()
-            return create("BlurEffect", {Name = "MinecraftUIBlur", Size = 0, Enabled = true}, lighting)
-        end)
-        if not okBlur then
-            return
-        end
-        self.BlurEffect = blur
-        self.BlurMode = "screen"
+        self.BlurEffect = nil
     end
-    if isAlive(self.BlurEffect) then
-        tween(self.BlurEffect, {Size = self.Open and self.BlurSize or 0}, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
-    end
+    -- A stronger "blur" reads as more acrylic: nudge the panel tint a bit denser
+    -- so the local frosting visibly deepens instead of doing nothing.
+    self:SetGlass(clamp(0.22 - self.BlurSize / 400, 0, 1))
 end
 
 function Minecraft:SetScale(scale)
@@ -859,6 +836,20 @@ function Minecraft:SetupSearch()
         ZIndex = 6,
     }, window.Root)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel)}, window.SearchFrame)
+    window.SearchGlow = create("ImageLabel", {
+        Name = "SearchGlow",
+        BackgroundTransparency = 1,
+        Image = "rbxasset://textures/glow.png",
+        ImageColor3 = window.Theme.Accent,
+        ImageTransparency = 0.68,
+        ScaleType = Enum.ScaleType.Slice,
+        SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, 16, 1, 16),
+        ZIndex = 1,
+    }, window.SearchFrame)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel)}, window.SearchGlow)
     window.SearchGradient = create("UIGradient", {
         Rotation = 90,
         Color = ColorSequence.new(window.Theme.PanelTop, window.Theme.PanelBottom),
@@ -942,6 +933,9 @@ function Minecraft:SetupSearch()
     end)
     window:_Bind(window.SearchFrame, function(theme, instant)
         applyColor(window.SearchFrame, "BackgroundColor3", theme.Panel, instant, 0.26)
+        if window.SearchGlow and isAlive(window.SearchGlow) then
+            applyColor(window.SearchGlow, "ImageColor3", theme.Accent, instant, 0.26)
+        end
         if window.SearchGradient and isAlive(window.SearchGradient) then
             window.SearchGradient.Color = ColorSequence.new(theme.PanelTop, theme.PanelBottom)
         end
@@ -1060,7 +1054,9 @@ function Minecraft:_RebindAcrylic()
         end)
     end
     self.Acrylics = {}
-    self.BodyAcrylic = nil
+    for _, tab in ipairs(self.Tabs) do
+        tab.Acrylic = nil
+    end
     self.SearchAcrylic = nil
     self:_SetupAcrylic()
     self:_SetAcrylicVisible(self.Open)
@@ -1082,7 +1078,7 @@ function Minecraft:_SetupAcrylic()
         self._AcrylicRetries = (self._AcrylicRetries or 0) + 1
         if self._AcrylicRetries <= 10 then
             task.delay(0.5, function()
-                if self.AcrylicEnabled and not self.BodyAcrylic and isAlive(self.Gui) then
+                if self.AcrylicEnabled and not self.SearchAcrylic and isAlive(self.Gui) then
                     self:_SetupAcrylic()
                     self:_SetAcrylicVisible(self.Open)
                 end
@@ -1090,12 +1086,19 @@ function Minecraft:_SetupAcrylic()
         end
         return
     end
-    -- One sheet under the whole panel cluster: it covers the gaps between
-    -- columns too, which looks like a single sheet of glass instead of strips.
-    -- pcall so a failure still clears the re-entrancy flag.
+
+    -- One sheet PER panel + one for the search bar. There is deliberately no
+    -- single sheet spanning the whole menu: each region gets its own frosted
+    -- island, and the gaps between columns stay perfectly sharp.
     local ok = pcall(function()
-        self.BodyAcrylic = self:_AttachAcrylic(self.Body, {Distance = 0.001})
-        self.SearchAcrylic = self:_AttachAcrylic(self.SearchFrame, {Distance = 0.0012})
+        for _, tab in ipairs(self.Tabs) do
+            if not tab.Acrylic then
+                tab.Acrylic = self:_AttachAcrylic(tab.Panel, {Distance = 0.001})
+            end
+        end
+        if not self.SearchAcrylic then
+            self.SearchAcrylic = self:_AttachAcrylic(self.SearchFrame, {Distance = 0.0012})
+        end
     end)
     self._AcrylicBuilding = false
     if not ok then
@@ -1104,20 +1107,55 @@ function Minecraft:_SetupAcrylic()
 
     -- Start hidden; the intro reveals the sheets after the first frame so the
     -- glass never snaps on before the menu has settled.
-    if self.BodyAcrylic then
-        self.BodyAcrylic:SetVisible(false)
+    for _, tab in ipairs(self.Tabs) do
+        if tab.Acrylic then
+            tab.Acrylic:SetVisible(false)
+        end
     end
     if self.SearchAcrylic then
         self.SearchAcrylic:SetVisible(false)
     end
 end
 
+-- Called when a new tab appears after the window was built.
+function Minecraft:_AttachTabAcrylic(tab)
+    if not self.AcrylicEnabled or not tab or not tab.Panel then
+        return
+    end
+    local camera
+    pcall(function()
+        camera = workspace.CurrentCamera
+    end)
+    if not camera then
+        return
+    end
+    if not tab.Acrylic then
+        tab.Acrylic = self:_AttachAcrylic(tab.Panel, {Distance = 0.001})
+    end
+    if tab.Acrylic then
+        tab.Acrylic:SetVisible(false)
+    end
+end
+
 function Minecraft:_SetAcrylicVisible(value)
-    if self.BodyAcrylic then
-        self.BodyAcrylic:SetVisible(value)
+    for _, tab in ipairs(self.Tabs) do
+        if tab.Acrylic then
+            tab.Acrylic:SetVisible(value)
+        end
     end
     if self.SearchAcrylic then
         self.SearchAcrylic:SetVisible(value)
+    end
+end
+
+function Minecraft:_RefreshAcrylic()
+    for _, tab in ipairs(self.Tabs) do
+        if tab.Acrylic and tab.Acrylic.Visible then
+            tab.Acrylic:Refresh()
+        end
+    end
+    if self.SearchAcrylic and self.SearchAcrylic.Visible then
+        self.SearchAcrylic:Refresh()
     end
 end
 
@@ -1127,9 +1165,11 @@ function Minecraft:SetAcrylic(mode)
     end
     self.AcrylicMode = mode
     if mode == "off" then
-        if self.BodyAcrylic then
-            self.BodyAcrylic:Destroy()
-            self.BodyAcrylic = nil
+        for _, tab in ipairs(self.Tabs) do
+            if tab.Acrylic then
+                tab.Acrylic:Destroy()
+                tab.Acrylic = nil
+            end
         end
         if self.SearchAcrylic then
             self.SearchAcrylic:Destroy()
@@ -1148,6 +1188,205 @@ function Minecraft:SetAcrylic(mode)
         self.AcrylicEnabled = true
         self:_SetupAcrylic()
         self:_SetAcrylicVisible(self.Open)
+    end
+end
+
+--==========================================================================--
+-- Falling stars
+--==========================================================================--
+-- Each meteor is: a head (small round dot), a tail (a thin frame rotated to the
+-- travel direction, fading out backwards) and two lagging motes that read as a
+-- glitter trail. They spawn above/left of the viewport and fall diagonally, then
+-- respawn. Tweens only, no RunService loop, so dozens of them are cheap.
+local STAR_ANGLE = 38          -- degrees, falling down-right
+local STAR_COLORS = {
+    {Color3.fromRGB(255, 255, 255), Color3.fromRGB(150, 130, 255)},
+    {Color3.fromRGB(190, 235, 255), Color3.fromRGB(86, 226, 255)},
+    {Color3.fromRGB(255, 225, 245), Color3.fromRGB(255, 132, 216)},
+}
+
+local function makeStar(window, index)
+    local theme = window.Theme
+    local palette = STAR_COLORS[(index - 1) % #STAR_COLORS + 1]
+    local length = 18 + (index * 7) % 26
+    local thickness = (index % 3 == 0) and 2 or 1
+
+    local holder = create("Frame", {
+        Name = "Star" .. index,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0.5, 1),
+        Rotation = -STAR_ANGLE,
+        Size = UDim2.fromOffset(thickness, length),
+        ZIndex = 0,
+    }, window.StarsLayer)
+
+    -- Tail: fades from the head (bottom, opaque) to the tip (top, clear).
+    local tail = create("Frame", {
+        Name = "Tail",
+        BackgroundColor3 = palette[2],
+        BackgroundTransparency = 0.35,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 1, 0),
+        ZIndex = 0,
+    }, holder)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, tail)
+    create("UIGradient", {
+        Rotation = 90,
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.15),
+            NumberSequenceKeypoint.new(0.55, 0.75),
+            NumberSequenceKeypoint.new(1, 1),
+        }),
+    }, tail)
+
+    -- Head: a bright core wrapped in a soft bloom (radial texture), so the
+    -- meteor reads as a light source instead of a scratch on the screen.
+    local halo = create("ImageLabel", {
+        Name = "Halo",
+        BackgroundTransparency = 1,
+        Image = GLOW_TEXTURE,
+        ImageColor3 = palette[1],
+        ImageTransparency = 0.35,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 1, 0),
+        Size = UDim2.fromOffset(18, 18),
+        SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
+        ScaleType = Enum.ScaleType.Slice,
+        ZIndex = 1,
+    }, holder)
+    local head = create("Frame", {
+        Name = "Head",
+        BackgroundColor3 = palette[1],
+        BackgroundTransparency = 0.05,
+        BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 1, 0),
+        Size = UDim2.fromOffset(3, 3),
+        ZIndex = 2,
+    }, holder)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, head)
+
+    -- Two lagging motes give the streak a glittery feel.
+    local motes = {}
+    for m = 1, 2 do
+        motes[m] = create("Frame", {
+            Name = "Mote" .. m,
+            BackgroundColor3 = palette[1],
+            BackgroundTransparency = 0.5,
+            BorderSizePixel = 0,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 1, m * 3),
+            Size = UDim2.fromOffset(2, 2),
+            ZIndex = 0,
+        }, holder)
+        create("UICorner", {CornerRadius = UDim.new(1, 0)}, motes[m])
+    end
+
+    return {
+        Holder = holder,
+        Tail = tail,
+        Head = head,
+        Halo = halo,
+        Motes = motes,
+        Palette = palette,
+        Length = length,
+        Seed = index,
+    }
+end
+
+function Minecraft:_StarViewport()
+    local ok, size = pcall(function()
+        local camera = workspace.CurrentCamera
+        return camera and camera.ViewportSize or nil
+    end)
+    if ok and size and size.X > 0 and size.Y > 0 then
+        return size
+    end
+    return Vector2.new(1280, 720)
+end
+
+-- One fall cycle: start off-screen top-left, land off-screen bottom-right.
+function Minecraft:_LaunchStar(star, firstRun)
+    if not star or not isAlive(star.Holder) then
+        return
+    end
+    local viewport = self:_StarViewport()
+    local padding = 120
+    -- Spread starts over the full width plus a margin on the left so stars enter
+    -- from beyond the edge instead of popping in inside the screen.
+    local startX = -padding + (star.Seed * 0.61803398875 % 1) * (viewport.X + padding * 2)
+    local startY = -padding - (star.Seed * 0.2718281828 % 1) * viewport.Y * 0.6
+    local travel = viewport.Y + padding * 2
+    local endX = startX + travel * math.sin(math.rad(STAR_ANGLE))
+    local endY = startY + travel * math.cos(math.rad(STAR_ANGLE))
+
+    star.Holder.Position = UDim2.fromOffset(startX, startY)
+    star.Holder.Visible = true
+
+    local duration = 2.6 + (star.Seed % 5) * 0.55
+    local delay = firstRun and ((star.Seed % 11) * 0.28) or ((star.Seed * 0.37) % 2.4)
+
+    local function fly()
+        if not isAlive(star.Holder) then
+            return
+        end
+        tween(star.Holder, {
+            Position = UDim2.fromOffset(endX, endY),
+        }, TweenInfo.new(duration, Enum.EasingStyle.Linear))
+
+        -- Fade in at the top and out at the bottom so nothing pops.
+        local fadeIn = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local fadeOut = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+        tween(star.Tail, {BackgroundTransparency = 0.25}, fadeIn)
+        tween(star.Head, {BackgroundTransparency = 0}, fadeIn)
+        if star.Halo then
+            tween(star.Halo, {ImageTransparency = 0.2}, fadeIn)
+        end
+        task.delay(duration - 0.9, function()
+            if not isAlive(star.Tail) then
+                return
+            end
+            tween(star.Tail, {BackgroundTransparency = 1}, fadeOut)
+            tween(star.Head, {BackgroundTransparency = 1}, fadeOut)
+            if star.Halo then
+                tween(star.Halo, {ImageTransparency = 1}, fadeOut)
+            end
+            for _, mote in ipairs(star.Motes) do
+                tween(mote, {BackgroundTransparency = 1}, fadeOut)
+            end
+        end)
+
+        -- Restart after the flight plus a random-ish pause.
+        task.delay(duration + 0.35 + (star.Seed % 7) * 0.45, function()
+            if not self.Open or not isAlive(star.Holder) then
+                return
+            end
+            self:_LaunchStar(star, false)
+        end)
+    end
+
+    if delay > 0 then
+        task.delay(delay, fly)
+    else
+        fly()
+    end
+end
+
+function Minecraft:_SetupStars(count)
+    if self.Options.Stars == false then
+        return
+    end
+    self.StarCount = count or self.Options.StarCount or 14
+    for index = 1, self.StarCount do
+        if not self.Stars[index] then
+            local star = makeStar(self, index)
+            star.Holder.Visible = false
+            self.Stars[index] = star
+        end
+    end
+    for index, star in ipairs(self.Stars) do
+        self:_LaunchStar(star, true)
     end
 end
 
@@ -1193,18 +1432,14 @@ function Minecraft:Toggle(value)
     if self.BlurEffect and isAlive(self.BlurEffect) then
         tween(self.BlurEffect, {Size = self.Open and self.BlurSize or 0}, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
     end
-    if self.Dim then
-        tween(self.Dim, {BackgroundTransparency = self.Open and self.DimValue or 1}, T.Color)
-    end
-    if self.DimHalo then
-        local haloValue = math.min(0.92, (self.DimValue or 0.35) + 0.42)
-        tween(self.DimHalo, {BackgroundTransparency = self.Open and haloValue or 1}, T.Color)
-    end
     if self.Popup then
         self:ClosePopup(true)
     end
     -- Acrylic follows the menu: it appears with the intro (after the first
     -- frame, when the root has real AbsolutePosition) and vanishes with it.
+    if self.StarsLayer then
+        self.StarsLayer.Visible = self.Open
+    end
     if self.AcrylicEnabled then
         if self.Open then
             task.defer(function()
@@ -1248,21 +1483,22 @@ function Minecraft:_UpdateLayout(instant)
     local count = math.max(#self.Tabs, 1)
     local bodyWidth = count * M.PanelWidth + (count - 1) * M.Gap
     local width = bodyWidth
-    local height = M.PanelHeight + M.Gap + M.Search
+    -- Captions sit in the title band above the panels, so the body starts lower.
+    local height = M.Title + M.PanelHeight + M.Gap + M.Search
 
     if instant then
         self.Root.Size = UDim2.fromOffset(width, height)
         self.Body.Size = UDim2.fromOffset(bodyWidth, M.PanelHeight)
-        self.Body.Position = UDim2.fromOffset(0, 0)
+        self.Body.Position = UDim2.fromOffset(0, M.Title)
     else
         tween(self.Root, {Size = UDim2.fromOffset(width, height)}, T.Layout)
-        tween(self.Body, {Size = UDim2.fromOffset(bodyWidth, M.PanelHeight), Position = UDim2.fromOffset(0, 0)}, T.Layout)
+        tween(self.Body, {Size = UDim2.fromOffset(bodyWidth, M.PanelHeight), Position = UDim2.fromOffset(0, M.Title)}, T.Layout)
     end
 
     self:_Fit(width, height)
 
     if self.SearchFrame then
-        local target = UDim2.new(0.5, 0, 0, M.PanelHeight + M.Gap)
+        local target = UDim2.new(0.5, 0, 0, M.Title + M.PanelHeight + M.Gap)
         -- With a single panel the search bar must not stick out past it.
         local searchWidth = math.min(M.SearchWidth, bodyWidth)
         if instant then
@@ -1286,12 +1522,7 @@ function Minecraft:_UpdateLayout(instant)
     -- once more so the glass lands exactly on the settled rectangle.
     if self.AcrylicEnabled then
         task.delay(0.36, function()
-            if self.BodyAcrylic then
-                self.BodyAcrylic:Refresh()
-            end
-            if self.SearchAcrylic then
-                self.SearchAcrylic:Refresh()
-            end
+            self:_RefreshAcrylic()
         end)
     end
 end
@@ -1334,6 +1565,22 @@ function Minecraft:AddTab(name, options)
         ZIndex = 2,
     }, window.Body)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel)}, tab.Panel)
+    -- Real bloom behind the panel (soft radial texture), so each tab reads as a
+    -- lit slab instead of a flat rectangle with a fake layered halo.
+    tab.Glow = create("ImageLabel", {
+        Name = "PanelGlow",
+        BackgroundTransparency = 1,
+        Image = "rbxasset://textures/glow.png",
+        ImageColor3 = theme.Accent,
+        ImageTransparency = 0.72,
+        ScaleType = Enum.ScaleType.Slice,
+        SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, 26, 1, 26),
+        ZIndex = 1,
+    }, tab.Panel)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel)}, tab.Glow)
     -- Soft vertical tint so the glass has depth instead of one flat colour.
     tab.Gradient = create("UIGradient", {
         Rotation = 90,
@@ -1344,6 +1591,8 @@ function Minecraft:AddTab(name, options)
     -- transparency gradients render flat on some clients. The panel's own
     -- PanelTop -> PanelBottom gradient already gives the glass its depth.
 
+    -- The tab name is a caption ABOVE the panel, not a title bar inside it. It
+    -- lives in Body (so it animates with the column) and floats over the gap.
     tab.Title = create("TextLabel", {
         Name = "Title",
         BackgroundTransparency = 1,
@@ -1353,30 +1602,19 @@ function Minecraft:AddTab(name, options)
         TextColor3 = theme.Text,
         TextXAlignment = Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Center,
-        Size = UDim2.new(1, 0, 0, M.Title),
-        ZIndex = 2,
+        AnchorPoint = Vector2.new(0.5, 1),
+        Position = UDim2.new(0.5, 0, 0, -10),
+        Size = UDim2.new(1, 0, 0, 20),
+        ZIndex = 6,
     }, tab.Panel)
 
-    -- Short accent pill under the title instead of a full-width rule: it reads
-    -- as a tab indicator, not a divider, and keeps the header airy.
-    tab.TitleLine = create("Frame", {
-        Name = "TitleLine",
-        BackgroundColor3 = theme.Accent,
-        BackgroundTransparency = 0.25,
-        BorderSizePixel = 0,
-        AnchorPoint = Vector2.new(0.5, 0),
-        Position = UDim2.new(0.5, 0, 0, M.Title - 12),
-        Size = UDim2.fromOffset(26, 2),
-        ZIndex = 3,
-    }, tab.Panel)
-    create("UICorner", {CornerRadius = UDim.new(1, 0)}, tab.TitleLine)
 
     tab.Scroll = create("ScrollingFrame", {
         Name = "Scroll",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(0, M.Title),
-        Size = UDim2.new(1, 0, 1, -M.Title),
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.new(1, 0, 1, 0),
         CanvasSize = UDim2.new(0, 0, 0, 0),
         ScrollingDirection = Enum.ScrollingDirection.Y,
         ScrollBarThickness = 3,
@@ -1451,9 +1689,9 @@ function Minecraft:AddTab(name, options)
 
     window:_Bind(tab.Title, function(themeNow, instant)
         applyColor(tab.Title, "TextColor3", themeNow.Text, instant, 0.26)
-    end)
-    window:_Bind(tab.TitleLine, function(themeNow, instant)
-        applyColor(tab.TitleLine, "BackgroundColor3", themeNow.Accent, instant, 0.26)
+        if tab.Glow and isAlive(tab.Glow) then
+            applyColor(tab.Glow, "ImageColor3", themeNow.Accent, instant, 0.26)
+        end
     end)
     window:_Bind(tab.Panel, function(themeNow, instant)
         applyColor(tab.Panel, "BackgroundColor3", themeNow.Panel, instant, 0.26)
@@ -1470,13 +1708,6 @@ function Minecraft:AddTab(name, options)
     window:_UpdateLayout(false)
     local resting = UDim2.fromOffset((#window.Tabs - 1) * (M.PanelWidth + M.Gap), 0)
     if not window.Options.NoIntro then
-        -- The accent pill draws itself in under the title.
-        tab.TitleLine.Size = UDim2.fromOffset(0, 2)
-        task.delay(0.06 + (#window.Tabs - 1) * 0.035, function()
-            if isAlive(tab.TitleLine) then
-                tween(tab.TitleLine, {Size = UDim2.fromOffset(26, 2)}, T.Pop)
-            end
-        end)
         -- Each new column rises into place a beat after the previous one, so
         -- adding three tabs looks like the menu unfolding sideways.
         local index = #window.Tabs
@@ -1488,6 +1719,12 @@ function Minecraft:AddTab(name, options)
         end)
     else
         tab.Panel.Position = resting
+    end
+
+    -- A tab added after the window exists still gets its own frosted island.
+    if window.AcrylicEnabled then
+        window:_AttachTabAcrylic(tab)
+        window:_SetAcrylicVisible(window.Open)
     end
     return tab
 end
@@ -1527,7 +1764,9 @@ function Minecraft:Destroy()
     end
     self.AcrylicFolder = nil
     self.Acrylics = {}
-    self.BodyAcrylic = nil
+    for _, tab in ipairs(self.Tabs) do
+        tab.Acrylic = nil
+    end
     self.SearchAcrylic = nil
     if self.Gui then
         self.Gui:Destroy()
@@ -1612,20 +1851,6 @@ local function newRow(tab, name, options)
         Color = ColorSequence.new(theme.Row:Lerp(Color3.new(1, 1, 1), 0.045), theme.Row),
     }, row.Box)
 
-    -- A small accent bar on the left edge of enabled rows. Purely a fill, not a
-    -- stroke; it sits inside the row so it can never look like an outline.
-    row.Marker = create("Frame", {
-        Name = "Marker",
-        BackgroundColor3 = theme.Accent,
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        AnchorPoint = Vector2.new(0, 0.5),
-        Position = UDim2.new(0, 3, 0.5, 0),
-        Size = UDim2.fromOffset(3, M.RowHeight - 14),
-        ZIndex = 3,
-    }, row.Box)
-    create("UICorner", {CornerRadius = UDim.new(1, 0)}, row.Marker)
-
     row.Label = create("TextLabel", {
         Name = "Label",
         BackgroundTransparency = 1,
@@ -1673,26 +1898,6 @@ local function newRow(tab, name, options)
         ZIndex = 3,
     }, row.Frame)
 
-    -- Premium badge: a small accent pill, not bare text floating in the row.
-    local badgeWidth = math.max(34, 10 + #(options.Badge or "PREMIUM") * 5)
-    row.Badge = create("TextLabel", {
-        Name = "Badge",
-        BackgroundColor3 = theme.Accent,
-        BackgroundTransparency = 0.82,
-        Font = window.Font,
-        Text = options.Badge or "PREMIUM",
-        TextSize = 9,
-        TextColor3 = theme.Accent,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        TextYAlignment = Enum.TextYAlignment.Center,
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, -M.Inset - 24, 0.5, 0),
-        Size = UDim2.fromOffset(badgeWidth, 15),
-        Visible = options.Premium == true,
-        ZIndex = 3,
-    }, row.Frame)
-    create("UICorner", {CornerRadius = UDim.new(1, 0)}, row.Badge)
-
     row.Holder = create("Frame", {
         Name = "SettingsHolder",
         BackgroundTransparency = 1,
@@ -1702,6 +1907,24 @@ local function newRow(tab, name, options)
         ClipsDescendants = true,
         ZIndex = 2,
     }, row.Slot)
+
+    -- Row glow: a soft bloom that only shows for enabled rows and on hover.
+    -- It lives in the slot (not on the plate) so the row's rounded clip never
+    -- cuts it into a visible ring.
+    row.Glow = create("ImageLabel", {
+        Name = "RowGlow",
+        BackgroundTransparency = 1,
+        Image = "rbxasset://textures/glow.png",
+        ImageColor3 = theme.Accent,
+        ImageTransparency = 1,
+        ScaleType = Enum.ScaleType.Slice,
+        SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, 16, 0, M.RowHeight + 16),
+        ZIndex = 1,
+    }, row.Slot)
+    create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Row)}, row.Glow)
 
     row.ListHolder = create("Frame", {
         Name = "ListHolder",
@@ -1719,8 +1942,6 @@ local function newRow(tab, name, options)
 
     window:_Bind(row.Box, function(themeNow, instant)
         applyColor(row.ValueLabel, "TextColor3", themeNow.Muted, instant, 0.2)
-        applyColor(row.Badge, "TextColor3", themeNow.Accent, instant, 0.2)
-        applyColor(row.Badge, "BackgroundColor3", themeNow.Accent, instant, 0.2)
         row:RefreshVisual(instant)
     end)
 
@@ -1788,11 +2009,32 @@ function Row:RefreshVisual(instant)
         else
             fill, alpha = theme.On, 0.08
         end
+    elseif self.Action then
+        fill, alpha = theme.On, (self.Hovered or open) and 0.02 or 0.10
     elseif open or self.Hovered then
         fill, alpha = theme.Hover, open and 0.02 or 0.04
     end
 
     local labelColor = self.Locked and theme.Muted or theme.Text
+
+    -- Soft bloom: strong on enabled rows, faint on hover, off otherwise. It is a
+    -- radial texture, so it fades out smoothly instead of drawing a ring.
+    if self.Glow and isAlive(self.Glow) then
+        applyColor(self.Glow, "ImageColor3", theme.Accent, instant, 0.22)
+        -- Only rows that are ON or the action CTA glow; a hovered plain row
+        -- should not light up, otherwise the whole list shimmers.
+        local glowTarget = 1
+        if self.OnState then
+            glowTarget = (self.Hovered or open) and 0.42 or 0.60
+        elseif self.Action then
+            glowTarget = (self.Hovered or open) and 0.55 or 0.72
+        end
+        if instant then
+            self.Glow.ImageTransparency = glowTarget
+        else
+            tween(self.Glow, {ImageTransparency = glowTarget}, T.Hover)
+        end
+    end
 
     applyColor(self.Box, "BackgroundColor3", fill, instant, 0.20)
     applyColor(self.Box, "BackgroundTransparency", alpha, instant, 0.20)
@@ -1802,20 +2044,6 @@ function Row:RefreshVisual(instant)
     end
     applyColor(self.Label, "TextColor3", labelColor, instant, 0.20)
     applyColor(self.Dots, "TextColor3", (self.OnState or open) and theme.Accent or theme.Muted, instant, 0.20)
-    if self.Marker and not self.HideMarker and isAlive(self.Marker) then
-        applyColor(self.Marker, "BackgroundColor3", theme.Accent, instant, 0.20)
-        -- It only appears for rows that are actually switched on.
-        local markerAlpha = self.OnState and 0 or 1
-        local shift = UDim2.fromOffset(self.OnState and M.Inset + 4 or M.Inset, 0)
-        if instant then
-            self.Marker.BackgroundTransparency = markerAlpha
-            self.Label.Position = shift
-            self.Label.Size = UDim2.new(1, -(M.Inset * 2 + 26), 1, 0)
-        else
-            tween(self.Marker, {BackgroundTransparency = markerAlpha}, T.Hover)
-            tween(self.Label, {Position = shift}, T.Hover)
-        end
-    end
     -- The three-dot affordance lifts on hover instead of sitting dead.
     applyColor(self.Dots, "TextTransparency", (self.Dots.Visible and (self.Hovered or open)) and 0 or 0.35, instant, 0.20)
 
@@ -1828,9 +2056,7 @@ function Row:SetValueText(value)
         return
     end
     self.ValueLabel.Visible = true
-    -- A premium pill eats ~44px on the right; give the value less room there.
-    local room = self.Badge.Visible and 13 or 16
-    self.ValueLabel.Text = shorten(value, room)
+    self.ValueLabel.Text = shorten(value, 16)
 end
 
 function Row:OnPrimaryClick()
@@ -3062,6 +3288,8 @@ function Tab:AddToggle(options)
     return row
 end
 
+-- A plain "press me" row. With Settings it behaves like every other row: the
+-- three dots appear on the right and a right click unfolds the controls below.
 function Tab:AddButton(options)
     if type(options) == "string" then
         options = {Name = options}
@@ -3074,6 +3302,25 @@ function Tab:AddButton(options)
         end
     end
     self:_Track(row)
+    return row
+end
+
+-- Pressable row that always renders as an accent CTA (used for Apply/Unload
+-- style actions). Same Settings behaviour as AddButton.
+function Tab:AddAction(options)
+    if type(options) == "string" then
+        options = {Name = options}
+    end
+    options = options or {}
+    local row = self:AddButton(options)
+    row.Action = true
+    row.Box.BackgroundColor3 = row.Window.Theme.On
+    row.Box.BackgroundTransparency = 0.1
+    row.Label.TextXAlignment = Enum.TextXAlignment.Center
+    if row.Glow then
+        row.Glow.ImageTransparency = 0.72
+        row.Glow.ImageColor3 = row.Window.Theme.Accent
+    end
     return row
 end
 
@@ -3370,24 +3617,13 @@ function Tab:AddSection(name, options)
     row.Frame.AutoButtonColor = false
     row.Box.Visible = false
     row.Dots.Visible = false
-    row.HideMarker = true
-    row.Marker.Visible = false
-    row.Label.Position = UDim2.fromOffset(0, 8)
+    row.Label.Position = UDim2.fromOffset(0, 6)
     row.Label.Size = UDim2.new(1, 0, 0, 14)
     row.Label.TextSize = 12
     row.Label.TextXAlignment = Enum.TextXAlignment.Left
     row.Label.Text = (name or "Section"):upper()
     row.Label.TextColor3 = theme.Muted
-    local line = create("Frame", {
-        Name = "Rule",
-        BackgroundColor3 = theme.Border,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(0, 22),
-        Size = UDim2.new(1, 0, 0, 1),
-        ZIndex = 2,
-    }, row.Frame)
-    window:_Bind(line, function(themeNow, instant)
-        applyColor(line, "BackgroundColor3", themeNow.Border, instant, 0.2)
+    window:_Bind(row.Label, function(themeNow, instant)
         applyColor(row.Label, "TextColor3", themeNow.Muted, instant, 0.2)
     end)
     row.OnClick = function() end
@@ -3397,12 +3633,9 @@ end
 
 function Tab:AddLabel(text)
     local row = newRow(self, text or "", {})
-    row.Marker.Visible = false
-    row.HideMarker = true
     row.Label.TextSize = 12
     row.Label.TextColor3 = self.Window.Theme.Text
     row.Box.Visible = false
-    row.Marker.Visible = false
     row.Label.Size = UDim2.new(1, 0, 1, 0)
     row.Label.Position = UDim2.fromOffset(0, 0)
     row.OnClick = function() end
@@ -3681,15 +3914,21 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
         return "Frame"
     end
 
-    -- CanvasGroup (not a plain Frame) so the two gradient overlays are clipped
-    -- by the rounded corners; a UIGradient child ignores UICorner clipping.
-    -- The field is painted as a grid of exact colours instead of stacked
-    -- UIGradients. Transparency-based gradients render inconsistently (some
-    -- clients ignore UIGradient.Transparency entirely, which left the field flat),
-    -- while solid cells look identical everywhere. 20x13 = 260 tiny frames.
+    -- The saturation/value field. Two layers, on purpose:
+    --
+    --   1. a solid-colour cell grid (20x13) that ALWAYS renders, used as the
+    --      fallback — transparency gradients are unreliable on some clients;
+    --   2. a smooth gradient image on top, tinted with the current hue, which is
+    --      what you actually see when it loads (same approach as Fluent).
+    --
+    -- The grid is what made the old field look blocky; the image removes that,
+    -- and if the image ever fails the field degrades to the grid instead of
+    -- going flat white.
+    local SV_GRADIENT = "rbxassetid://4155801252"
+
     local sv = create(roundedClass(), {
         Name = "SV",
-        BackgroundColor3 = Color3.new(0, 0, 0),
+        BackgroundColor3 = Color3.fromHSV(0, 1, 1),
         BorderSizePixel = 0,
         Position = UDim2.fromOffset(8, 8),
         Size = UDim2.fromOffset(fieldW, fieldH),
@@ -3716,6 +3955,18 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
             }, sv)
         end
     end
+
+    -- Smooth gradient plate: white -> hue horizontally, transparent -> black
+    -- vertically, exactly like the reference pickers.
+    local gradientLayer = create("ImageLabel", {
+        Name = "Gradient",
+        BackgroundTransparency = 1,
+        Image = SV_GRADIENT,
+        ScaleType = Enum.ScaleType.Stretch,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 73,
+        Visible = false,
+    }, sv)
 
     -- Repaint the grid for a hue. Runs of near-identical cells share one colour,
     -- so a drag only touches a handful of frames per row instead of 260.
@@ -3746,15 +3997,40 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
                 end
             end
         end
+        if isAlive(gradientLayer) then
+            gradientLayer.ImageColor3 = Color3.fromHSV(hue, 1, 1)
+        end
     end
+
+    -- Show the smooth layer only once Roblox confirms the texture decoded.
+    pcall(function()
+        sv:GetPropertyChangedSignal("AbsoluteSize"):Fire()
+    end)
+    local function revealGradient()
+        if not isAlive(gradientLayer) then
+            return
+        end
+        local loaded
+        pcall(function()
+            loaded = gradientLayer.IsLoaded
+        end)
+        if loaded == false then
+            return
+        end
+        gradientLayer.Visible = true
+    end
+    task.defer(function()
+        revealGradient()
+        task.delay(0.35, revealGradient)
+    end)
 
     local cursor = create("Frame", {
         Name = "Cursor",
-        BackgroundColor3 = Color3.new(0, 0, 0),
-        BackgroundTransparency = 0.4,
+        BackgroundColor3 = Color3.fromRGB(18, 16, 26),
+        BackgroundTransparency = 0.25,
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Size = UDim2.fromOffset(13, 13),
+        Size = UDim2.fromOffset(15, 15),
         ZIndex = 76,
     }, sv)
     create("UICorner", {CornerRadius = UDim.new(1, 0)}, cursor)

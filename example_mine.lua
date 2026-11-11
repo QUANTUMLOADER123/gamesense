@@ -18,7 +18,7 @@
 
 -- Shared libraries cache HTTP results, so the URL carries a version query to
 -- make sure the newest minecraft.lua is fetched. Bump it if you edit the file.
-local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua?v=1.10.0"
+local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua?v=1.11.0"
 
 local function httpGet(url)
     -- Several executors cache game:HttpGet; request(url, true) forces a refresh.
@@ -61,11 +61,10 @@ local window = Minecraft.new({
     -- Acrylic = "auto",    -- "auto" (default) = real frosted glass behind the
     --                      --   panels when the client supports it (graphics
     --                      --   quality >= 8), "on" = force, "off" = never
-    -- BlurMode = "screen", -- "screen" = blur the whole view (default)
-    --                      -- "local"  = keep the game sharp, dim only behind panels
-    -- BlurSize = 24,       -- blur strength
-    -- Dim = true,          -- dark scrim
-    -- DimTransparency = 0.55, -- 0 = black, 1 = none
+    -- Frosted glass is per-panel: each tab, the search bar and every popup get
+    -- their own blur island. There is no full-screen blur and no screen scrim.
+    -- Stars = true,        -- falling meteor field behind the menu (default on)
+    -- StarCount = 14,      -- how many meteors
     -- GlassTransparency = 0.22, -- panel opacity, 0 = solid, 1 = fully clear
     Search = true,
     -- Parent = Player:WaitForChild("PlayerGui"), -- for a Studio LocalScript
@@ -172,7 +171,7 @@ visuals:AddToggle({
             Callback = function(color, alpha) print("Outline", color, alpha) end})
     end,
 })
-visuals:AddToggle({Name = "China Hat", Flag = "china_hat", Premium = true})
+visuals:AddToggle({Name = "China Hat", Flag = "china_hat"})
 visuals:AddToggle({
     Name = "Full Bright",
     Flag = "full_bright",
@@ -213,7 +212,7 @@ playerTab:AddToggle({Name = "Auto Respawn", Flag = "auto_respawn", Default = tru
 playerTab:AddToggle({Name = "Auto Tool", Flag = "auto_tool"})
 playerTab:AddToggle({Name = "Auto Trade", Flag = "auto_trade"})
 playerTab:AddToggle({Name = "Auto Transfer", Flag = "auto_transfer"})
-playerTab:AddToggle({Name = "Blink", Premium = true})
+playerTab:AddToggle({Name = "Blink"})
 
 --==========================================================================--
 -- Miscellaneous
@@ -237,6 +236,20 @@ misc:AddButton({Name = "Print all flags", Callback = function()
         print(string.format("%s = %s", flag, tostring(value)))
     end
 end})
+-- A button is just a press: it never latches. Give it Settings and it gains the
+-- same three dots + animated panel as every other row.
+misc:AddButton({
+    Name = "Reset settings",
+    Callback = function() print("settings reset") end,
+    Settings = function(s)
+        s:Label("Clears every flag in this menu")
+        s:Button({Name = "Confirm", Callback = function() print("confirmed") end})
+    end,
+})
+
+-- AddAction is the centred accent CTA variant.
+misc:AddAction({Name = "Apply everything", Callback = function() print("applied") end})
+
 misc:AddButton({Name = "Unload menu", Callback = function()
     window:Destroy()
 end})
@@ -261,5 +274,5 @@ window:Toggle(true)
 -- Handy for consoles: announce where the library lives.
 print(("Minecraft UI v%s loaded for %s"):format(Minecraft.Version, Player.Name))
 -- If this fires, your executor served a cached copy of minecraft.lua.
-assert(Minecraft.Build and Minecraft.Build >= 20,
+assert(Minecraft.Build and Minecraft.Build >= 21,
     "stale minecraft.lua in cache -- clear the executor cache or bump LIB_URL")

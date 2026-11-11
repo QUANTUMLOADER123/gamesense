@@ -88,6 +88,7 @@ UDim2 = {new = function(xs, xo, ys, yo) return {X = {Scale = xs, Offset = xo}, Y
 function UDim2.fromOffset(x, y) return UDim2.new(0, x, 0, y) end
 function UDim2.fromScale(x, y) return UDim2.new(x, 0, y, 0) end
 Vector2 = {new = function(x, y) return {X = x, Y = y} end}
+Rect = {new = function(a, b) return {Min = a, Max = b} end}
 -- Vector3 with the arithmetic the acrylic code relies on (+, -, *, /, Magnitude).
 local vmeta = {
     __add = function(a, b) return vec3(a.X + b.X, a.Y + b.Y, a.Z + b.Z) end,
@@ -310,55 +311,62 @@ assert(window.Gui.Parent == coreGui, "default parent is CoreGui")
 assert(window.ThemeIndex == 3 and window.Theme.Name == "Bloom")
 assert(window.Root.ClassName == "CanvasGroup", "CanvasGroup fade wrapper")
 assert(window.Glass == nil, "no glass plate behind the window any more")
--- Default mode blurs the whole screen.
-assert(window.BlurMode == "screen", "screen blur mode by default")
-assert(window.BlurEffect and window.BlurEffect.ClassName == "BlurEffect")
-assert(window.Dim and window.Dim.Size.X.Scale == 1 and window.Dim.Size.Y.Scale == 1,
-    "full-screen dim layer")
-assert(window.Dim.Parent == window.Gui and window.Dim.ZIndex < window.Root.ZIndex,
-    "dim sits under the menu")
+-- No full-screen blur and no full-screen scrim: the game stays untouched.
+assert(window.BlurEffect == nil, "no global BlurEffect")
+assert(window.Dim == nil and window.DimHalo == nil, "no screen dim, no local dark plate")
+assert(window.BlurMode == "local", "local is the only mode now")
 
 --==========================================================================--
 -- Acrylic backdrop (Fluent-style glass sheet in front of the camera)
 --==========================================================================--
 assert(window.AcrylicSupported == true, "high quality client supports acrylic")
 assert(window.AcrylicEnabled == true, "acrylic is on by default on capable clients")
-assert(window.BodyAcrylic and window.SearchAcrylic, "glass sheets for panels and search")
-assert(window.BodyAcrylic.Enabled ~= false)
-local glass = window.BodyAcrylic.Model
-assert(glass.ClassName == "Part", "acrylic is a real 3D part")
-assert(glass.Material == Enum.Material.Glass, "glass material does the frosting")
-assert(glass.Anchored == true and glass.CanCollide == false and glass.CastShadow == false,
-    "the sheet never moves, collides or shadows")
-assert(glass.CanTouch == false and glass.CanQuery == false and glass.Massless == true,
-    "the sheet is invisible to physics and raycasts")
-assert(glass.Size.X == 1 and glass.Size.Y == 1 and glass.Size.Z == 0, "flat unit plate scaled by the mesh")
-assert(glass.Size.Z == 0, "zero thickness, like Fluent")
-local mesh = findChild(glass, "SpecialMesh")
-assert(mesh and mesh.MeshType == Enum.MeshType.Brick, "brick special mesh stretches the plate")
-assert(mesh.Offset.Z < 0 and mesh.Offset.Z > -0.001, "mesh offset pushes it off the camera")
-assert(glass.Parent and glass.Parent.Parent == camera, "sheet lives under the camera")
-assert(glass.Parent.Name == "MinecraftUIAcrylic", "sheets live in a named folder")
-onAcrylic = nil
+assert(window.SearchAcrylic, "the search bar has its own glass sheet")
+
+local function glassOf(tab)
+    assert(tab.Acrylic, "every panel gets its own sheet")
+    return tab.Acrylic.Model
+end
 
 -- Hidden until shown: the intro should not flash a black rectangle.
-assert(glass.Transparency == 1, "sheet starts invisible")
 window:Toggle(true)
 flush()
-assert(glass.Transparency == 0.98, "sheet fades in with the menu")
-assert(window.BodyAcrylic.Model.CFrame and window.BodyAcrylic.Model.CFrame.Position, "sheet is positioned in space")
+window:AddTab("Combat")
+window:AddTab("Movement")
+flush()
+local glassA, glassB = glassOf(window.Tabs[1]), glassOf(window.Tabs[2])
+local meshB = findChild(glassB, "SpecialMesh")
+assert(glassA ~= glassB, "panels do not share one big sheet")
+assert(glassA.ClassName == "Part", "acrylic is a real 3D part")
+assert(glassA.Material == Enum.Material.Glass, "glass material does the frosting")
+assert(glassA.Anchored == true and glassA.CanCollide == false and glassA.CastShadow == false,
+    "the sheet never moves, collides or shadows")
+assert(glassA.CanTouch == false and glassA.CanQuery == false and glassA.Massless == true,
+    "the sheet is invisible to physics and raycasts")
+assert(glassA.Size.X == 1 and glassA.Size.Y == 1 and glassA.Size.Z == 0, "flat unit plate scaled by the mesh")
+local meshA = findChild(glassA, "SpecialMesh")
+assert(meshA and meshA.MeshType == Enum.MeshType.Brick, "brick special mesh stretches the plate")
+assert(meshA.Offset.Z < 0 and meshA.Offset.Z > -0.001, "mesh offset pushes it off the camera")
+assert(glassA.Parent and glassA.Parent.Parent == camera, "sheet lives under the camera")
+assert(glassA.Parent.Name == "MinecraftUIAcrylic", "sheets live in a named folder")
+assert(window.Tabs[1].Acrylic.Folder == window.Tabs[2].Acrylic.Folder, "one folder for the window")
+assert(window.SearchAcrylic.Folder == window.Tabs[1].Acrylic.Folder, "search shares it too")
 
--- The mesh is scaled to the on-screen size of the panel cluster.
+assert(glassA.Transparency == 0.98 and glassB.Transparency == 0.98, "sheets are visible once shown")
+assert(glassA.CFrame and glassA.CFrame.Position, "sheet is positioned in space")
+
+-- The mesh is scaled to the on-screen size of THAT panel, not the whole menu.
 local function approx(a, b, tolerance)
     return math.abs(a - b) <= (tolerance or 0.001)
 end
--- Projected size of the panel rectangle at the sheet's distance (0.001).
 local perPixel = (math.tan(math.rad(camera.FieldOfView) / 2) * 2) / camera.ViewportSize.Y
-local expectedHeight = (window.Body.AbsoluteSize.Y - 4) * perPixel * 0.001
-assert(approx(mesh.Scale.Y, expectedHeight, expectedHeight * 0.01),
-    "sheet height follows the panel rectangle: " .. tostring(mesh.Scale.Y) .. " vs " .. tostring(expectedHeight))
-assert(mesh.Scale.X > 0 and mesh.Scale.Y > 0, "sheet has real dimensions")
-assert(mesh.Scale.Z == 0, "sheet stays flat")
+local expectedHeight = (window.Tabs[1].Panel.AbsoluteSize.Y - 4) * perPixel * 0.001
+assert(approx(meshA.Scale.Y, expectedHeight, expectedHeight * 0.01),
+    "sheet height follows its own panel: " .. tostring(meshA.Scale.Y) .. " vs " .. tostring(expectedHeight))
+local expectedWidth = (window.Tabs[1].Panel.AbsoluteSize.X - 4) * perPixel * 0.001
+assert(approx(meshA.Scale.X, expectedWidth, expectedWidth * 0.01), "sheet width follows its own panel")
+assert(meshA.Scale.X < meshB.Scale.X * 2, "one panel wide, not the whole cluster")
+assert(meshA.Scale.Z == 0, "sheet stays flat")
 
 -- Camera movement re-fits every sheet (otherwise the glass drifts off the UI).
 cameraSignals["CFrame"]:Fire()
@@ -367,36 +375,41 @@ cameraSignals["FieldOfView"]:Fire()
 
 -- Hiding the menu hides the glass and destroys nothing mid-animation.
 window:Toggle(false)
-assert(glass.Transparency == 1, "sheet disappears with the menu")
+assert(glassA.Transparency == 1 and glassB.Transparency == 1, "sheets disappear with the menu")
 window:Toggle(true)
 flush()
-assert(glass.Transparency == 0.98, "sheet returns")
+assert(glassA.Transparency == 0.98, "sheet returns")
 
 -- Disabling acrylic removes the parts entirely.
 window:SetAcrylic("off")
-assert(window.AcrylicEnabled == false and window.Acrylics and #window.Acrylics > 0)
-assert(window.BodyAcrylic == nil and window.SearchAcrylic == nil, "sheets are detached")
+assert(window.AcrylicEnabled == false and #window.Acrylics > 0)
+assert(window.Tabs[1].Acrylic == nil and window.SearchAcrylic == nil, "sheets are detached")
 window:SetAcrylic("on")
 flush()
-assert(window.BodyAcrylic and window.BodyAcrylic.Model.Transparency == 0.98, "acrylic can be re-enabled")
+assert(window.Tabs[1].Acrylic and window.Tabs[1].Acrylic.Model.Transparency == 0.98,
+    "acrylic can be re-enabled")
 assert(window.AcrylicTint == nil, "no dark plate is laid behind the panels")
-
--- Sheets of one window share a single folder under the camera.
 assert(window.AcrylicFolder and window.AcrylicFolder.Name == "MinecraftUIAcrylic", "one folder per window")
-assert(window.BodyAcrylic.Folder == window.AcrylicFolder, "body sheet uses that folder")
-assert(window.SearchAcrylic.Folder == window.AcrylicFolder, "search sheet uses that folder")
 
 -- A late camera is picked up by the bounded retry instead of leaving the menu
 -- without glass for the whole session.
 local savedCamera = workspace.CurrentCamera
 workspace.CurrentCamera = nil
 local lateWindow = Minecraft.new({})
-assert(lateWindow.BodyAcrylic == nil, "no camera yet, no sheet")
+local lateTab = lateWindow:AddTab("Late")
+assert(lateTab.Acrylic == nil, "no camera yet, no sheet")
 workspace.CurrentCamera = savedCamera
 flush()
-assert(lateWindow.BodyAcrylic, "retry attaches the sheet once the camera exists")
-assert(lateWindow.BodyAcrylic.Model.Transparency == 0.98, "and it is visible")
+assert(lateTab.Acrylic, "retry attaches the sheet once the camera exists")
+assert(lateTab.Acrylic.Model.Transparency == 0.98, "and it is visible")
 lateWindow:Destroy()
+
+-- Clean up the tabs this block added so later assertions see a stable window.
+for index = #window.Tabs, 1, -1 do
+    window.Tabs[index].Panel.Parent = nil
+    table.remove(window.Tabs, index)
+end
+window:_UpdateLayout(true)
 
 -- Acrylic can be switched off explicitly.
 local lowQuality = Minecraft.new({Acrylic = "off"})
@@ -419,27 +432,24 @@ weakClient:Toggle(true)
 weakClient:Destroy()
 settings = savedQuality
 
--- Local mode keeps the game sharp and only dims behind the panels.
+-- Every mode keeps the game sharp: no scrim, no global blur, ever.
 local localWindow = Minecraft.new({BlurMode = "local"})
-assert(localWindow.BlurMode == "local" and localWindow.BlurEffect == nil, "no full-screen blur locally")
-assert(localWindow.Dim and localWindow.Dim.Name == "LocalDim", "local plate exists")
-assert(localWindow.DimHalo and localWindow.DimHalo.Name == "LocalDimHalo", "local halo exists")
-assert(localWindow.Dim.Parent == localWindow.Root and localWindow.Dim.ZIndex == 0,
-    "local scrim sits behind the panels")
-assert(localWindow.Dim.BackgroundTransparency ~= localWindow.DimHalo.BackgroundTransparency,
-    "halo and plate use different opacities")
+assert(localWindow.BlurEffect == nil, "no full-screen blur locally")
+assert(localWindow.Dim == nil and localWindow.DimHalo == nil, "no scrim behind the panels")
 localWindow:Toggle(false)
-assert(localWindow.Dim.BackgroundTransparency == 1 and localWindow.DimHalo.BackgroundTransparency == 1,
-    "both local layers fade out when hidden")
 localWindow:Toggle(true)
-assert(localWindow.Dim.BackgroundTransparency == localWindow.DimValue, "plate returns with the menu")
 localWindow:Destroy()
+
+-- Even asking for the legacy "screen" mode does not add a global blur.
+local legacy = Minecraft.new({BlurMode = "screen"})
+assert(legacy.BlurEffect == nil and legacy.Dim == nil, "screen mode is a no-op now")
+legacy:Destroy()
 assert(not window.Header and not window.TitleLabel and not window.Shadow, "no title bar, no backdrop")
 assert(window.Root.BackgroundTransparency == 1, "root itself is transparent")
 
 -- Empty window lays out one panel wide: panels + search underneath.
 assert(window.Root.Size.X.Offset == 236, "single panel width")
-assert(window.Root.Size.Y.Offset == 536 + 10 + 34, "panels + search height")
+assert(window.Root.Size.Y.Offset == 34 + 536 + 10 + 36, "captions + panels + search height")
 
 local combat = window:AddTab("Combat")
 local movement = window:AddTab("Movement")
@@ -454,7 +464,7 @@ assert(combat.Title.Text == "Combat" and combat.Title.TextXAlignment == Enum.Tex
 -- Search field lives under the panels
 --==========================================================================--
 local search = window.SearchFrame
-assert(search and search.Position.Y.Offset == 536 + 10, "search sits below the panels")
+assert(search and search.Position.Y.Offset == 34 + 536 + 10, "search sits below the panels")
 assert(search.Size.X.Offset == 300 and search.AnchorPoint.X == 0.5, "search is centered")
 assert(window.SearchBox.PlaceholderText == "Search")
 
@@ -467,7 +477,7 @@ assert(contentLayout, "content has a UIListLayout")
 --==========================================================================--
 assert(Minecraft.Metrics.Inset == 12 and Minecraft.Metrics.RowGap == 5, "roomier metrics")
 assert(Minecraft.Metrics.BlockPadding == 9 and Minecraft.Metrics.BlockGap == 7, "settings rhythm")
-assert(Minecraft.Radius.Panel == 11 and Minecraft.Radius.Row == 8, "rounder corners")
+assert(Minecraft.Radius.Panel >= 16 and Minecraft.Radius.Row >= 9, "much rounder corners")
 local scrollPad = findChild(combat.Scroll, "UIPadding")
 assert(scrollPad and scrollPad.PaddingTop.Offset == 14 and scrollPad.PaddingLeft.Offset == 12,
     "scroll padding uses the metrics")
@@ -486,13 +496,26 @@ assert(window.SearchFrame.BackgroundTransparency == 0.32, "blur returns the rest
 -- Faded scrollbar uses the accent colour, not a grey line.
 assert(combat.Scroll.ScrollBarImageColor3 == window.Theme.Accent, "accent scrollbar")
 
--- The panel header uses a short accent pill instead of a full-width rule.
--- It animates in, so flush the deferred intro tweens first.
-flush()
-assert(combat.TitleLine.Size.X.Offset == 26 and combat.TitleLine.Size.Y.Offset == 2, "header pill")
-assert(combat.TitleLine.Position.X.Scale == 0.5 and combat.TitleLine.AnchorPoint.X == 0.5,
-    "header pill is centred")
+-- The tab name is a caption ABOVE the panel, not a title bar inside it.
+assert(combat.TitleLine == nil, "no accent pill or underline under the caption")
+assert(combat.Title and combat.Title.Text == "Combat", "caption exists")
+assert(combat.Title.Parent == combat.Panel, "caption rides with its panel")
+assert(combat.Title.AnchorPoint.Y == 1, "caption is anchored above the panel")
+assert(combat.Title.Position.Y.Offset < 0, "caption sits outside the panel's top edge")
+assert(combat.Title.Position.X.Scale == 0.5, "caption is centred over its panel")
+assert(combat.Title.ZIndex > combat.Panel.ZIndex - 10, "caption draws above the panel")
 assert(combat.TopShine == nil and combat.Sheen == nil, "no edge highlight line that reads as an outline")
+
+-- Panels have real glow (soft radial texture), not stacked frames.
+assert(combat.Glow and combat.Glow.ClassName == "ImageLabel", "panel glow is an image")
+assert(combat.Glow.Image == "rbxasset://textures/glow.png", "panel glow uses the soft texture")
+assert(combat.Glow.ZIndex >= 1 and combat.Glow.BackgroundTransparency == 1, "glow has no hard fill")
+assert(window.SearchGlow and window.SearchGlow.Image == "rbxasset://textures/glow.png",
+    "search bar glow too")
+
+-- Rows start where the panel starts: no reseved title bar inside.
+assert(combat.Scroll.Position.Y.Offset == 0, "scroll starts at the top of the panel")
+assert(combat.Scroll.Size.Y.Offset == 0 and combat.Scroll.Size.Y.Scale == 1, "scroll fills the panel")
 
 --==========================================================================--
 -- Toggles and settings expansion
@@ -582,17 +605,15 @@ innerHit.MouseButton1Click:Fire()
 assert(tickMark.Visible == false and tickMark.Size.X.Offset == 0, "tick disappears when switched off")
 tickRow.Frame.MouseButton2Down:Fire()
 
--- Enabled rows show a small accent bar on their left edge (a fill, not an outline).
-local markerRow = combat:AddToggle({Name = "Marker check"})
-assert(markerRow.Marker, "rows have an accent marker")
-assert(markerRow.Marker.BackgroundTransparency == 1, "marker hidden while off")
-markerRow.Frame.MouseButton1Click:Fire()
-assert(markerRow.Marker.BackgroundTransparency == 0, "marker appears when enabled")
-assert(markerRow.Marker.BackgroundColor3 == window.Theme.Accent, "marker is accent coloured")
-assert(markerRow.Marker.Size.X.Offset == 3 and markerRow.Marker.AnchorPoint.X == 0,
-    "marker hugs the left edge")
-markerRow.Frame.MouseButton1Click:Fire()
-assert(markerRow.Marker.BackgroundTransparency == 1, "marker disappears when disabled")
+-- The user asked for no left-edge bars, no underlines and no premium badges.
+local cleanRow = combat:AddToggle({Name = "No bars"})
+assert(cleanRow.Marker == nil, "no accent bar on enabled rows")
+assert(cleanRow.Badge == nil, "no premium badge")
+local section = combat:AddSection("No rules")
+assert(section.Rule == nil, "sections have no underline")
+for _, child in ipairs(section.Frame.children) do
+    assert(child.Name ~= "Rule", "no rule frame under a section name")
+end
 
 -- Every row plate carries a soft top-to-bottom shade that follows its fill.
 local shaded = combat:AddToggle({Name = "Shade check"})
@@ -618,14 +639,23 @@ for _, object in ipairs(all) do
     assert(object.ClassName ~= "UIStroke", "no UIStroke instances are created")
 end
 
--- Rows must not carry stray glow frames: they clipped against the slot and
--- produced a bright outline that lit up on hover.
+-- Glow is now a real soft bloom (radial texture), never a stacked outline.
 for _, row in ipairs(combat.Rows) do
-    assert(row.Glow == nil and row.GlowStroke == nil, "no glow frames on rows")
-    for _, child in ipairs(row.Slot.children) do
-        assert(child.Name ~= "Glow", "slot has no glow child")
+    assert(row.GlowStroke == nil, "no stroke-based glow")
+    if row.Glow then
+        assert(row.Glow.ClassName == "ImageLabel", "row glow is a texture, not a frame stack")
+        assert(row.Glow.Image == "rbxasset://textures/glow.png", "row glow uses the soft radial texture")
+        assert(row.GlowSlice or true)
     end
 end
+-- An enabled row blooms, an idle one does not.
+local bloomRow = combat:AddToggle({Name = "Bloom"})
+assert(bloomRow.Glow, "rows carry a glow layer")
+assert(bloomRow.Glow.ImageTransparency == 1, "idle rows do not glow")
+bloomRow.Frame.MouseButton1Click:Fire()
+assert(bloomRow.Glow.ImageTransparency < 0.8, "enabled rows bloom")
+bloomRow.Frame.MouseButton1Click:Fire()
+assert(bloomRow.Glow.ImageTransparency == 1, "bloom fades when disabled")
 
 -- Let the staggered unfurl finish before checking the resting geometry.
 flush()
@@ -713,9 +743,37 @@ assert(sliderRow:Get() == 3, "step rounding")
 
 local clickCount = 0
 local buttonRow = movement:AddButton({Name = "Reset", Callback = function() clickCount = clickCount + 1 end})
-assert(not buttonRow.Dots.Visible)
+assert(not buttonRow.Dots.Visible, "a plain button has no dots")
 buttonRow.Frame.MouseButton1Click:Fire()
-assert(clickCount == 1)
+assert(clickCount == 1, "left click fires the button")
+
+-- A button WITH settings behaves like a toggle row: dots + right click.
+local buttonCalls = 0
+local buttonWithSettings = movement:AddButton({
+    Name = "Advanced",
+    Callback = function() buttonCalls = buttonCalls + 1 end,
+    Settings = function(st)
+        st:Slider({Name = "Amount", Min = 0, Max = 10, Default = 4})
+        st:Toggle({Name = "Silent", Default = true})
+    end,
+})
+assert(buttonWithSettings.Dots.Visible, "settings add the three dots to a button")
+assert(not buttonWithSettings.OnState, "buttons do not toggle themselves")
+buttonWithSettings.Frame.MouseButton1Click:Fire()
+assert(buttonCalls == 1 and not buttonWithSettings.OnState, "clicking a button never latches it")
+buttonWithSettings.Frame.MouseButton2Down:Fire()
+assert(buttonWithSettings.SettingsOpen and buttonWithSettings.Settings.Height > 0,
+    "right click opens a button's settings")
+assert(#buttonWithSettings.Settings.Controls == 2, "both controls were built")
+buttonWithSettings.Frame.MouseButton2Down:Fire()
+assert(not buttonWithSettings.SettingsOpen)
+
+-- AddAction is a centred accent CTA and still supports settings.
+local actionRow = movement:AddAction({Name = "Apply all", Callback = function() end})
+assert(actionRow.Action == true, "action rows are flagged")
+assert(actionRow.Label.TextXAlignment == Enum.TextXAlignment.Center, "action label is centred")
+assert(actionRow.Glow and actionRow.Glow.ImageTransparency <= 0.72, "actions carry a glow")
+assert(actionRow.Box.BackgroundColor3 == movement.Window.Theme.On, "action plate is accented")
 
 local dropdown = movement:AddDropdown({Name = "Mode", Options = {"Legit", "Rage", "Silent"}, Default = "Legit", Flag = "mode"})
 assert(dropdown.ValueLabel.Text == "Legit")
@@ -806,11 +864,10 @@ assert(innerButton, "inner button exists")
 innerButton.MouseButton1Click:Fire()
 buttonRow2.Frame.MouseButton2Down:Fire()
 
-local section = visuals:AddSection("ESP")
-assert(section.Label.Text == "ESP" and not section.Box.Visible)
-assert(section.HideMarker and not section.Marker.Visible, "sections hide the accent marker")
+local espSection = visuals:AddSection("ESP")
+assert(espSection.Label.Text == "ESP" and not espSection.Box.Visible)
 local plainLabel = visuals:AddLabel("just text")
-assert(plainLabel.HideMarker, "labels hide the accent marker")
+assert(not plainLabel.Box.Visible, "labels draw no plate")
 
 local colorRow = visuals:AddColorPicker({Name = "Box color", Flag = "box_color", Default = Color3.fromRGB(255, 0, 0)})
 assert(window.Flags.box_color and window.Flags.box_color.R == 1)
@@ -883,7 +940,13 @@ for _, child in ipairs(sv.children) do
         distinct[string.format("%.2f_%.2f_%.2f", c.R, c.G, c.B)] = true
     end
 end
-assert(fieldCells == 260, "field is a 20x13 grid: " .. fieldCells)
+assert(fieldCells == 260, "field keeps its 20x13 fallback grid: " .. fieldCells)
+-- ...and a smooth gradient plate sits on top of it once it decodes.
+local gradientLayer = findChild(sv, "Gradient")
+assert(gradientLayer and gradientLayer.ClassName == "ImageLabel", "smooth gradient layer exists")
+assert(gradientLayer.Image == "rbxassetid://4155801252", "uses the reference gradient asset")
+assert(gradientLayer.Size.X.Scale == 1 and gradientLayer.Size.Y.Scale == 1, "covers the whole field")
+assert(gradientLayer.ZIndex > 72, "draws above the fallback cells")
 local colorCount = 0
 for _ in pairs(distinct) do colorCount = colorCount + 1 end
 assert(colorCount > 40, "field shows a real gradient: " .. colorCount .. " distinct colours")
@@ -916,11 +979,14 @@ assert(window.Root.Position.X.Scale == 0.5 and window.Root.Position.Y.Scale == 0
 --==========================================================================--
 -- Hide/show and destroy
 --==========================================================================--
--- The frosted layer follows visibility.
+-- The acrylic sheets follow visibility; there is no scrim to fade.
 window:Toggle()
-assert(window.Open == false and window.Dim.BackgroundTransparency == 1, "scrim fades out when hidden")
+assert(window.Open == false, "menu hides")
+local hiddenGlass = window.Tabs[1].Acrylic.Model
+assert(hiddenGlass.Transparency == 1, "sheets hide with the menu")
 window:Toggle()
-assert(window.Open == true and window.Dim.BackgroundTransparency == 0.55, "scrim returns when shown")
+flush()
+assert(window.Open == true and hiddenGlass.Transparency == 0.98, "sheets return")
 window:SetGlass(0.35)
 assert(combat.Panel.BackgroundTransparency == 0.35, "panel transparency is adjustable")
 assert(math.abs(window.SearchFrame.BackgroundTransparency - 0.45) < 1e-6,
@@ -932,8 +998,8 @@ local gtab = glassy:AddTab("A")
 assert(gtab.Panel.BackgroundTransparency == 0.5, "GlassTransparency is applied on creation")
 glassy:Destroy()
 window:SetBlur(32)
-assert(window.BlurEffect and window.BlurEffect.Size == 32, "SetBlur promotes to a full-screen blur")
-assert(window.BlurMode == "screen")
+assert(window.BlurEffect == nil, "SetBlur never creates a global blur")
+assert(window.BlurSize == 32, "the size is still recorded for compatibility")
 window:SetBlur(24)
 window:Toggle()
 assert(window.Open == false)
@@ -943,6 +1009,29 @@ window:Toggle()
 assert(window.Open == true and window.Gui.Enabled == true)
 input.InputBegan:Fire({UserInputType = Enum.UserInputType.Keyboard, KeyCode = Enum.KeyCode.Insert}, false)
 assert(window.Open == false, "Insert toggles the menu")
+
+--==========================================================================--
+-- Falling stars
+--==========================================================================--
+assert(window.StarsLayer, "star field layer exists")
+assert(window.StarsLayer.Parent == window.Gui and window.StarsLayer.ZIndex == 0, "stars sit behind the menu")
+assert(#window.Stars >= 10, "a field of meteors is spawned: " .. #window.Stars)
+local star = window.Stars[1]
+assert(star.Holder and star.Holder.Parent == window.StarsLayer, "each star is parented to the field")
+assert(star.Holder.Rotation == -38, "stars fall diagonally")
+assert(star.Tail and star.Head, "stars have a tail and a head")
+assert(star.Tail.BackgroundColor3 ~= star.Head.BackgroundColor3, "head is brighter than the tail")
+local starGrad = findChild(star.Tail, "UIGradient")
+assert(starGrad, "tail carries a transparency gradient")
+assert(#star.Motes == 2, "lagging motes make the trail glitter")
+assert(star.Halo and star.Halo.Image == "rbxasset://textures/glow.png",
+    "the head carries a soft bloom so a meteor is not a scratch")
+assert(star.Halo.SliceCenter, "bloom uses nine-slice scaling")
+window:Toggle(false)
+assert(window.StarsLayer.Visible == false, "stars disappear with the menu")
+window:Toggle(true)
+assert(window.StarsLayer.Visible == true, "and come back")
+
 
 local config = window:SaveConfig()
 assert(config.__theme == 4 and config.aura ~= nil and config.mode == "Rage")
@@ -965,11 +1054,8 @@ assert(m2:Get() == "Legit" and m2.ValueLabel.Text == "Legit")
 restored:Destroy()
 
 local acrylicFolder = window.AcrylicFolder
-local blurObject = window.BlurEffect
 window:Destroy()
 assert(acrylicFolder.destroyed, "acrylic folder is cleaned up with the window")
-assert(window.BlurEffect == nil, "blur reference is cleared")
-assert(blurObject.destroyed, "blur effect is cleaned up")
 assert(window.Gui.destroyed)
 
 -- Two windows can coexist and keep separate flags.
