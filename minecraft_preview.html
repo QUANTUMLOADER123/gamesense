@@ -5,37 +5,40 @@ h1 { color:#c9d4e8; font-size:15px; font-weight:400; margin:0 0 18px; letter-spa
 .theme { margin-bottom: 34px; }
 .caption { color:#93a4be; font-size:13px; margin-bottom:8px; letter-spacing:.5px; }
 .glass { background: transparent; padding:0; width:max-content; }
-.panels { display:flex; gap:9px; height:520px; }
-.panel { width:226px; height:520px; border:0; border-radius:9px; position:relative; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
-.ptitle { color: var(--text); text-align:center; font-size:16px; height:42px; line-height:42px; font-weight:500; }
-.pline { position:absolute; left:10px; right:10px; top:41px; height:1px; background: var(--accent); opacity:.45; border-radius:2px; }
-.rows { padding:10px 12px 10px 10px; display:flex; flex-direction:column; gap:4px; height: 476px; overflow:hidden; }
-.row { height:30px; display:flex; align-items:center; gap:6px; background: var(--row); border:0; border-radius:7px; padding:0 9px; color: var(--text); font-size:15px; position:relative; box-shadow: inset 0 1px 0 rgba(255,255,255,.07); }
+.panels { display:flex; gap:10px; height:536px; }
+.panel { width:236px; height:536px; border:0; border-radius:11px; position:relative; box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+.ptitle { color: var(--text); text-align:center; font-size:17px; height:46px; line-height:46px; font-weight:500; letter-spacing:.3px; }
+.pline { position:absolute; left:50%; margin-left:-13px; top:34px; width:26px; height:2px; background: var(--accent); opacity:.75; border-radius:2px; }
+.rows { padding:12px 14px 14px 12px; display:flex; flex-direction:column; gap:5px; height: 490px; overflow:hidden; }
+.row { height:32px; display:flex; align-items:center; gap:6px; background: linear-gradient(180deg, color-mix(in srgb, var(--row) 92%, #fff 8%), var(--row)); border:0; border-radius:8px; padding:0 11px; color: var(--text); font-size:15px; position:relative; transition: background .18s ease, transform .18s ease; }
+.row:hover { background: var(--hover); transform: translateY(-1px); }
 .row.on { background: linear-gradient(180deg, var(--on), var(--row)); }
 .row span:first-child { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .dots { color: var(--muted); font-size:15px; letter-spacing:1px; }
 .badge { color: var(--accent); font-size:10px; }
-.search { margin: 9px auto 0; width:280px; height:32px; background: linear-gradient(180deg, var(--top), var(--bot)); border:0; border-radius:9px; color: var(--muted); font-size:13px; display:flex; align-items:center; padding:0 11px; }
+.search { margin: 10px auto 0; width:300px; height:34px; background: linear-gradient(180deg, var(--top), var(--bot)); border:0; border-radius:11px; color: var(--muted); font-size:13px; display:flex; align-items:center; gap:9px; padding:0 12px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
 
-.detail { display:flex; gap:9px; margin-top:9px; }
-.dcard { width:226px; overflow:hidden; background: linear-gradient(180deg, rgba(38,28,74,.85), rgba(26,19,52,.9)); border:0; border-radius:9px; padding:10px; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
-.dtitle { color:#e9e5ff; font-size:15px; text-align:center; padding-bottom:8px; border-bottom:1px solid rgba(150,130,255,.45); margin-bottom:9px; }
-.dblock { background: rgba(10,6,24,.55); border:0; border-radius:7px; padding:8px; display:flex; flex-direction:column; gap:7px; }
+.detail { display:flex; gap:10px; margin-top:10px; }
+.dcard { width:236px; overflow:hidden; background: linear-gradient(180deg, rgba(38,28,74,.72), rgba(26,19,52,.8)); backdrop-filter: blur(14px) saturate(130%); border:0; border-radius:11px; padding:11px; box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+.dtitle { color:#e9e5ff; font-size:16px; text-align:center; padding-bottom:9px; margin-bottom:10px; position:relative; }
+.dtitle::after { content:""; position:absolute; left:50%; margin-left:-13px; bottom:0; width:26px; height:2px; border-radius:2px; background:#9678ff; }
+.dblock { background: rgba(10,6,24,.45); border:0; border-radius:8px; padding:9px; display:flex; flex-direction:column; gap:7px; }
 .dlabel { color:#b9b1d8; font-size:11px; display:flex; justify-content:space-between; }
 .dlabel b { color:#e9e5ff; font-weight:500; }
 .drow { display:flex; align-items:center; justify-content:space-between; color:#e9e5ff; font-size:13px; }
-.cbox { width:14px; height:14px; border-radius:4px; border:0; background: rgba(150,130,255,.55); position:relative; }
+.cbox { width:15px; height:15px; border-radius:5px; border:0; background: rgba(150,130,255,.55); position:relative; }
 .cbox i { position:absolute; inset:0; }
-.track { height:4px; border-radius:99px; background: rgba(255,255,255,.14); position:relative; }
-.track u { position:absolute; left:0; top:0; bottom:0; width:62%; border-radius:99px; background:#9678ff; box-shadow:0 0 10px #9678ff; }
-.dhead { height:26px; border-radius:5px; border:0; background: rgba(255,255,255,.07); display:flex; align-items:center; justify-content:space-between; padding:0 8px; color:#e9e5ff; font-size:12px; }
+.track { height:6px; border-radius:99px; background: rgba(255,255,255,.14); position:relative; }
+.track u { position:absolute; left:0; top:0; bottom:0; width:62%; border-radius:99px; background:#9678ff; }
+.track b { position:absolute; left:62%; top:50%; width:9px; height:9px; margin:-4.5px 0 0 -4.5px; border-radius:50%; background:#e9e5ff; }
+.dhead { height:28px; border-radius:6px; border:0; background: rgba(255,255,255,.07); display:flex; align-items:center; justify-content:space-between; padding:0 8px; color:#e9e5ff; font-size:12px; }
 
 body::before { content:""; position:fixed; inset:0; background: inherit; filter: blur(12px) saturate(120%); opacity:.6; z-index:-1; }
 body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:-1; }
 .panel { backdrop-filter: blur(2px); }
-</style></head><body><h1>Minecraft UI v1.9 — пиксельная галочка, поле пикера на точных цветах</h1><div class="theme"><div class="caption">Nebula</div>
+</style></head><body><h1>Minecraft UI v1.10 — acrylic-стекло в стиле Fluent, пружинные анимации, новые отступы</h1><div class="theme"><div class="caption">Nebula</div>
       <div class="glass" style="--panel:#261c4a;--border:#786cad;--top:#3c335c;--bot:#211840">
-        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
+        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--hover:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
 <div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Anti Bot</span><span class="dots">•••</span></div>
 <div class="row"><span>Attack Aura</span><span class="dots">•••</span></div>
@@ -50,7 +53,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row"><span>No Velocity</span><span class="dots">•••</span></div>
 <div class="row"><span>Trigger Bot</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
+<div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--hover:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
 <div class="ptitle">Movement</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Air Jump</span><span class="dots">•••</span></div>
 <div class="row"><span>Dragon Flight</span><span class="dots">•••</span></div>
@@ -65,7 +68,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row on"><span>Speed</span><span class="dots">•••</span></div>
 <div class="row"><span>Phase</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
+<div class="panel" style="background:linear-gradient(180deg,#3c335c,#211840);border-color:#786cad;--accent:#9682ff;--text:#e9e5ff;--muted:#9e98c4;--row:#443c63;--hover:#443c63;--rowStroke:#5e5779;--on:#6454ae;--glow:#9e78ff">
 <div class="ptitle">Visuals</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Ambience</span><span class="dots">•••</span></div>
 <div class="row"><span>Arrows</span><span class="dots">•••</span></div>
@@ -79,11 +82,11 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row"><span>Item Physics</span><span class="dots">•••</span></div>
 <div class="row"><span>Jump Circles</span><span class="dots">•••</span></div>
 </div></div></div>
-        <div class="search">Search</div>
+        <div class="search"><svg width="11" height="12" viewBox="0 0 7 7" shape-rendering="crispEdges"><path fill="currentColor" fill-opacity=".8" d="M1,0h4v1H1zM0,1h2v1H0zM5,1h1v1H5zM0,2h2v1H0zM5,2h1v1H5zM0,3h2v1H0zM5,3h1v1H5zM1,4h4v1H1zM4,5h2v1H4zM5,6h2v1H5z"/></svg>Search</div>
       </div></div>
 <div class="theme"><div class="caption">Cyber</div>
       <div class="glass" style="--panel:#142e48;--border:#5996ac;--top:#2c435a;--bot:#11283e">
-        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#2c435a,#11283e);border-color:#5996ac;--accent:#56e2ff;--text:#e0f4ff;--muted:#8cb2c8;--row:#354b62;--rowStroke:#516478;--on:#3891ad;--glow:#56d2ff">
+        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#2c435a,#11283e);border-color:#5996ac;--accent:#56e2ff;--text:#e0f4ff;--muted:#8cb2c8;--row:#354b62;--hover:#354b62;--rowStroke:#516478;--on:#3891ad;--glow:#56d2ff">
 <div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Anti Bot</span><span class="dots">•••</span></div>
 <div class="row"><span>Attack Aura</span><span class="dots">•••</span></div>
@@ -98,7 +101,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row"><span>No Velocity</span><span class="dots">•••</span></div>
 <div class="row"><span>Trigger Bot</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="background:linear-gradient(180deg,#2c435a,#11283e);border-color:#5996ac;--accent:#56e2ff;--text:#e0f4ff;--muted:#8cb2c8;--row:#354b62;--rowStroke:#516478;--on:#3891ad;--glow:#56d2ff">
+<div class="panel" style="background:linear-gradient(180deg,#2c435a,#11283e);border-color:#5996ac;--accent:#56e2ff;--text:#e0f4ff;--muted:#8cb2c8;--row:#354b62;--hover:#354b62;--rowStroke:#516478;--on:#3891ad;--glow:#56d2ff">
 <div class="ptitle">Movement</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Air Jump</span><span class="dots">•••</span></div>
 <div class="row"><span>Dragon Flight</span><span class="dots">•••</span></div>
@@ -113,7 +116,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row on"><span>Speed</span><span class="dots">•••</span></div>
 <div class="row"><span>Phase</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="background:linear-gradient(180deg,#2c435a,#11283e);border-color:#5996ac;--accent:#56e2ff;--text:#e0f4ff;--muted:#8cb2c8;--row:#354b62;--rowStroke:#516478;--on:#3891ad;--glow:#56d2ff">
+<div class="panel" style="background:linear-gradient(180deg,#2c435a,#11283e);border-color:#5996ac;--accent:#56e2ff;--text:#e0f4ff;--muted:#8cb2c8;--row:#354b62;--hover:#354b62;--rowStroke:#516478;--on:#3891ad;--glow:#56d2ff">
 <div class="ptitle">Visuals</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Ambience</span><span class="dots">•••</span></div>
 <div class="row"><span>Arrows</span><span class="dots">•••</span></div>
@@ -127,11 +130,11 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row"><span>Item Physics</span><span class="dots">•••</span></div>
 <div class="row"><span>Jump Circles</span><span class="dots">•••</span></div>
 </div></div></div>
-        <div class="search">Search</div>
+        <div class="search"><svg width="11" height="12" viewBox="0 0 7 7" shape-rendering="crispEdges"><path fill="currentColor" fill-opacity=".8" d="M1,0h4v1H1zM0,1h2v1H0zM5,1h1v1H5zM0,2h2v1H0zM5,2h1v1H5zM0,3h2v1H0zM5,3h1v1H5zM1,4h4v1H1zM4,5h2v1H4zM5,6h2v1H5z"/></svg>Search</div>
       </div></div>
 <div class="theme"><div class="caption">Bloom</div>
       <div class="glass" style="--panel:#381c3e;--border:#a46d9a;--top:#4c3351;--bot:#301835">
-        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#4c3351,#301835);border-color:#a46d9a;--accent:#ff84d8;--text:#fce4f6;--muted:#be96ba;--row:#543c59;--rowStroke:#6c5770;--on:#a55593;--glow:#ff6ed2">
+        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#4c3351,#301835);border-color:#a46d9a;--accent:#ff84d8;--text:#fce4f6;--muted:#be96ba;--row:#543c59;--hover:#543c59;--rowStroke:#6c5770;--on:#a55593;--glow:#ff6ed2">
 <div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Anti Bot</span><span class="dots">•••</span></div>
 <div class="row"><span>Attack Aura</span><span class="dots">•••</span></div>
@@ -146,7 +149,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row"><span>No Velocity</span><span class="dots">•••</span></div>
 <div class="row"><span>Trigger Bot</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="background:linear-gradient(180deg,#4c3351,#301835);border-color:#a46d9a;--accent:#ff84d8;--text:#fce4f6;--muted:#be96ba;--row:#543c59;--rowStroke:#6c5770;--on:#a55593;--glow:#ff6ed2">
+<div class="panel" style="background:linear-gradient(180deg,#4c3351,#301835);border-color:#a46d9a;--accent:#ff84d8;--text:#fce4f6;--muted:#be96ba;--row:#543c59;--hover:#543c59;--rowStroke:#6c5770;--on:#a55593;--glow:#ff6ed2">
 <div class="ptitle">Movement</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Air Jump</span><span class="dots">•••</span></div>
 <div class="row"><span>Dragon Flight</span><span class="dots">•••</span></div>
@@ -161,7 +164,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row on"><span>Speed</span><span class="dots">•••</span></div>
 <div class="row"><span>Phase</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="background:linear-gradient(180deg,#4c3351,#301835);border-color:#a46d9a;--accent:#ff84d8;--text:#fce4f6;--muted:#be96ba;--row:#543c59;--rowStroke:#6c5770;--on:#a55593;--glow:#ff6ed2">
+<div class="panel" style="background:linear-gradient(180deg,#4c3351,#301835);border-color:#a46d9a;--accent:#ff84d8;--text:#fce4f6;--muted:#be96ba;--row:#543c59;--hover:#543c59;--rowStroke:#6c5770;--on:#a55593;--glow:#ff6ed2">
 <div class="ptitle">Visuals</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Ambience</span><span class="dots">•••</span></div>
 <div class="row"><span>Arrows</span><span class="dots">•••</span></div>
@@ -175,11 +178,11 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row"><span>Item Physics</span><span class="dots">•••</span></div>
 <div class="row"><span>Jump Circles</span><span class="dots">•••</span></div>
 </div></div></div>
-        <div class="search">Search</div>
+        <div class="search"><svg width="11" height="12" viewBox="0 0 7 7" shape-rendering="crispEdges"><path fill="currentColor" fill-opacity=".8" d="M1,0h4v1H1zM0,1h2v1H0zM5,1h1v1H5zM0,2h2v1H0zM5,2h1v1H5zM0,3h2v1H0zM5,3h1v1H5zM1,4h4v1H1zM4,5h2v1H4zM5,6h2v1H5z"/></svg>Search</div>
       </div></div>
 <div class="theme"><div class="caption">Ember</div>
       <div class="glass" style="--panel:#3e1a22;--border:#a76a63;--top:#513138;--bot:#35161d">
-        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#513138,#35161d);border-color:#a76a63;--accent:#ff7e60;--text:#ffe8e2;--muted:#c49894;--row:#593a41;--rowStroke:#70565b;--on:#a85144;--glow:#ff6e50">
+        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#513138,#35161d);border-color:#a76a63;--accent:#ff7e60;--text:#ffe8e2;--muted:#c49894;--row:#593a41;--hover:#593a41;--rowStroke:#70565b;--on:#a85144;--glow:#ff6e50">
 <div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Anti Bot</span><span class="dots">•••</span></div>
 <div class="row"><span>Attack Aura</span><span class="dots">•••</span></div>
@@ -194,7 +197,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row"><span>No Velocity</span><span class="dots">•••</span></div>
 <div class="row"><span>Trigger Bot</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="background:linear-gradient(180deg,#513138,#35161d);border-color:#a76a63;--accent:#ff7e60;--text:#ffe8e2;--muted:#c49894;--row:#593a41;--rowStroke:#70565b;--on:#a85144;--glow:#ff6e50">
+<div class="panel" style="background:linear-gradient(180deg,#513138,#35161d);border-color:#a76a63;--accent:#ff7e60;--text:#ffe8e2;--muted:#c49894;--row:#593a41;--hover:#593a41;--rowStroke:#70565b;--on:#a85144;--glow:#ff6e50">
 <div class="ptitle">Movement</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Air Jump</span><span class="dots">•••</span></div>
 <div class="row"><span>Dragon Flight</span><span class="dots">•••</span></div>
@@ -209,7 +212,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row on"><span>Speed</span><span class="dots">•••</span></div>
 <div class="row"><span>Phase</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="background:linear-gradient(180deg,#513138,#35161d);border-color:#a76a63;--accent:#ff7e60;--text:#ffe8e2;--muted:#c49894;--row:#593a41;--rowStroke:#70565b;--on:#a85144;--glow:#ff6e50">
+<div class="panel" style="background:linear-gradient(180deg,#513138,#35161d);border-color:#a76a63;--accent:#ff7e60;--text:#ffe8e2;--muted:#c49894;--row:#593a41;--hover:#593a41;--rowStroke:#70565b;--on:#a85144;--glow:#ff6e50">
 <div class="ptitle">Visuals</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Ambience</span><span class="dots">•••</span></div>
 <div class="row"><span>Arrows</span><span class="dots">•••</span></div>
@@ -223,11 +226,11 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row"><span>Item Physics</span><span class="dots">•••</span></div>
 <div class="row"><span>Jump Circles</span><span class="dots">•••</span></div>
 </div></div></div>
-        <div class="search">Search</div>
+        <div class="search"><svg width="11" height="12" viewBox="0 0 7 7" shape-rendering="crispEdges"><path fill="currentColor" fill-opacity=".8" d="M1,0h4v1H1zM0,1h2v1H0zM5,1h1v1H5zM0,2h2v1H0zM5,2h1v1H5zM0,3h2v1H0zM5,3h1v1H5zM1,4h4v1H1zM4,5h2v1H4zM5,6h2v1H5z"/></svg>Search</div>
       </div></div>
 <div class="theme"><div class="caption">Mint</div>
       <div class="glass" style="--panel:#14342e;--border:#5c9f88;--top:#2c4843;--bot:#112d28">
-        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#2c4843,#112d28);border-color:#5c9f88;--accent:#5ef5ba;--text:#e0fff4;--muted:#92beb0;--row:#35504b;--rowStroke:#516964;--on:#3d9e7b;--glow:#50f0b0">
+        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#2c4843,#112d28);border-color:#5c9f88;--accent:#5ef5ba;--text:#e0fff4;--muted:#92beb0;--row:#35504b;--hover:#35504b;--rowStroke:#516964;--on:#3d9e7b;--glow:#50f0b0">
 <div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Anti Bot</span><span class="dots">•••</span></div>
 <div class="row"><span>Attack Aura</span><span class="dots">•••</span></div>
@@ -242,7 +245,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row"><span>No Velocity</span><span class="dots">•••</span></div>
 <div class="row"><span>Trigger Bot</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="background:linear-gradient(180deg,#2c4843,#112d28);border-color:#5c9f88;--accent:#5ef5ba;--text:#e0fff4;--muted:#92beb0;--row:#35504b;--rowStroke:#516964;--on:#3d9e7b;--glow:#50f0b0">
+<div class="panel" style="background:linear-gradient(180deg,#2c4843,#112d28);border-color:#5c9f88;--accent:#5ef5ba;--text:#e0fff4;--muted:#92beb0;--row:#35504b;--hover:#35504b;--rowStroke:#516964;--on:#3d9e7b;--glow:#50f0b0">
 <div class="ptitle">Movement</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Air Jump</span><span class="dots">•••</span></div>
 <div class="row"><span>Dragon Flight</span><span class="dots">•••</span></div>
@@ -257,7 +260,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row on"><span>Speed</span><span class="dots">•••</span></div>
 <div class="row"><span>Phase</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="background:linear-gradient(180deg,#2c4843,#112d28);border-color:#5c9f88;--accent:#5ef5ba;--text:#e0fff4;--muted:#92beb0;--row:#35504b;--rowStroke:#516964;--on:#3d9e7b;--glow:#50f0b0">
+<div class="panel" style="background:linear-gradient(180deg,#2c4843,#112d28);border-color:#5c9f88;--accent:#5ef5ba;--text:#e0fff4;--muted:#92beb0;--row:#35504b;--hover:#35504b;--rowStroke:#516964;--on:#3d9e7b;--glow:#50f0b0">
 <div class="ptitle">Visuals</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Ambience</span><span class="dots">•••</span></div>
 <div class="row"><span>Arrows</span><span class="dots">•••</span></div>
@@ -271,11 +274,11 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row"><span>Item Physics</span><span class="dots">•••</span></div>
 <div class="row"><span>Jump Circles</span><span class="dots">•••</span></div>
 </div></div></div>
-        <div class="search">Search</div>
+        <div class="search"><svg width="11" height="12" viewBox="0 0 7 7" shape-rendering="crispEdges"><path fill="currentColor" fill-opacity=".8" d="M1,0h4v1H1zM0,1h2v1H0zM5,1h1v1H5zM0,2h2v1H0zM5,2h1v1H5zM0,3h2v1H0zM5,3h1v1H5zM1,4h4v1H1zM4,5h2v1H4zM5,6h2v1H5z"/></svg>Search</div>
       </div></div>
 <div class="theme"><div class="caption">Gold</div>
       <div class="glass" style="--panel:#3a2a14;--border:#a58c5b;--top:#4e3f2c;--bot:#322411">
-        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#4e3f2c,#322411);border-color:#a58c5b;--accent:#ffca5c;--text:#fff4e0;--muted:#bea884;--row:#564835;--rowStroke:#6d6151;--on:#a6823c;--glow:#ffbe46">
+        <div class="panels"><div class="panel" style="background:linear-gradient(180deg,#4e3f2c,#322411);border-color:#a58c5b;--accent:#ffca5c;--text:#fff4e0;--muted:#bea884;--row:#564835;--hover:#564835;--rowStroke:#6d6151;--on:#a6823c;--glow:#ffbe46">
 <div class="ptitle">Combat</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Anti Bot</span><span class="dots">•••</span></div>
 <div class="row"><span>Attack Aura</span><span class="dots">•••</span></div>
@@ -290,7 +293,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row"><span>No Velocity</span><span class="dots">•••</span></div>
 <div class="row"><span>Trigger Bot</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="background:linear-gradient(180deg,#4e3f2c,#322411);border-color:#a58c5b;--accent:#ffca5c;--text:#fff4e0;--muted:#bea884;--row:#564835;--rowStroke:#6d6151;--on:#a6823c;--glow:#ffbe46">
+<div class="panel" style="background:linear-gradient(180deg,#4e3f2c,#322411);border-color:#a58c5b;--accent:#ffca5c;--text:#fff4e0;--muted:#bea884;--row:#564835;--hover:#564835;--rowStroke:#6d6151;--on:#a6823c;--glow:#ffbe46">
 <div class="ptitle">Movement</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Air Jump</span><span class="dots">•••</span></div>
 <div class="row"><span>Dragon Flight</span><span class="dots">•••</span></div>
@@ -305,7 +308,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row on"><span>Speed</span><span class="dots">•••</span></div>
 <div class="row"><span>Phase</span><span class="dots">•••</span></div>
 </div></div>
-<div class="panel" style="background:linear-gradient(180deg,#4e3f2c,#322411);border-color:#a58c5b;--accent:#ffca5c;--text:#fff4e0;--muted:#bea884;--row:#564835;--rowStroke:#6d6151;--on:#a6823c;--glow:#ffbe46">
+<div class="panel" style="background:linear-gradient(180deg,#4e3f2c,#322411);border-color:#a58c5b;--accent:#ffca5c;--text:#fff4e0;--muted:#bea884;--row:#564835;--hover:#564835;--rowStroke:#6d6151;--on:#a6823c;--glow:#ffbe46">
 <div class="ptitle">Visuals</div><div class="pline"></div><div class="rows">
 <div class="row"><span>Ambience</span><span class="dots">•••</span></div>
 <div class="row"><span>Arrows</span><span class="dots">•••</span></div>
@@ -319,7 +322,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
 <div class="row"><span>Item Physics</span><span class="dots">•••</span></div>
 <div class="row"><span>Jump Circles</span><span class="dots">•••</span></div>
 </div></div></div>
-        <div class="search">Search</div>
+        <div class="search"><svg width="11" height="12" viewBox="0 0 7 7" shape-rendering="crispEdges"><path fill="currentColor" fill-opacity=".8" d="M1,0h4v1H1zM0,1h2v1H0zM5,1h1v1H5zM0,2h2v1H0zM5,2h1v1H5zM0,3h2v1H0zM5,3h1v1H5zM1,4h4v1H1zM4,5h2v1H4zM5,6h2v1H5z"/></svg>Search</div>
       </div></div>
 
 <div class="caption" style="margin-top:6px">Колорпикер: белый угол, hue, альфа-бар на шахматке, hex</div>
@@ -341,7 +344,7 @@ body::after { content:""; position:fixed; inset:0; background:rgba(0,0,0,.55); z
     <div class="dtitle">Ball ESP</div>
     <div class="dblock">
       <div class="dlabel"><span>Range</span><b>128</b></div>
-      <div class="track"><u></u></div>
+      <div class="track"><u></u><b></b></div>
       <div class="drow"><span>Fill colour</span><span class="cbox" style="background:rgba(86,114,128,.8);width:22px;border-radius:4px"></span></div>
       <div class="drow"><span>Through walls</span><span class="cbox"><i></i></span></div>
       <div class="drow"><span>Rotate</span><span class="cbox" style="background:transparent"></span></div>

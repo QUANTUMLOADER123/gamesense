@@ -1,10 +1,13 @@
 -- Minecraft :: a Roblox UI library that recreates the classic Minecraft cheat
--- menu: a row of equal-size panels, bordered option rows with a hover state and
--- animated per-row settings that slide open underneath the option.
--- UI only -- gameplay logic lives in the callbacks.
+-- menu: a row of equal-size panels, option rows with a hover state and animated
+-- per-row settings that slide open underneath the option.
+--
+--   * real frosted glass behind the panels (Fluent-style 3D acrylic, optional)
+--   * six neon themes, one shared motion vocabulary, no outlines anywhere
+--   * UI only -- gameplay logic lives in the callbacks
 --
 --   local Minecraft = loadstring(game:HttpGet(".../minecraft.lua"))()
---   local window = Minecraft.new({Title = "Minecraft", Theme = 1})
+--   local window = Minecraft.new({Theme = 1})
 --   local combat = window:AddTab("Combat")
 --   combat:AddToggle({Name = "Attack Aura", Settings = function(s)
 --       s:Slider({Name = "Range", Min = 1, Max = 8, Default = 4})
@@ -17,8 +20,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.9.0"
-Minecraft.Build = 19 -- incremented on every visible change, used by examples to detect stale caches
+Minecraft.Version = "1.10.0"
+Minecraft.Build = 20 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -32,29 +35,41 @@ Settings.__index = Settings
 -- Layout metrics. Every panel uses the same width and height, so the menu always
 -- reads as one even row of columns no matter how many tabs are added.
 local M = {
-    PanelWidth = 226,
-    PanelHeight = 520,
-    Gap = 9,
-    Title = 42,
-    RowHeight = 30,
-    RowGap = 4,
-    Inset = 10,
-    Search = 32,
-    SearchWidth = 280,
+    PanelWidth = 236,
+    PanelHeight = 536,
+    Gap = 10,
+    Title = 46,
+    RowHeight = 32,
+    RowGap = 5,
+    Inset = 12,
+    Search = 34,
+    SearchWidth = 300,
+    -- Shared vertical rhythm. Every control in a settings block uses these, so
+    -- the column reads as one evenly-spaced list instead of a pile of boxes.
+    BlockPadding = 9,
+    BlockGap = 7,
+    -- Acrylic backdrop inset: the glass plate is pulled in a hair so the
+    -- rounded corners of the panel still get their own edge shading.
+    AcrylicInset = 2,
 }
 -- One place to tune the whole look: panel 6px, rows 5px, small controls 3-4px.
-Minecraft.Radius = {Panel = 9, Row = 7, Control = 5, Small = 4}
+Minecraft.Radius = {Panel = 11, Row = 8, Control = 6, Small = 5}
 Minecraft.Metrics = M
 
+-- Motion tokens. One family of curves for the whole menu: Quint for movement
+-- (fast start, long settle), Back for "pop" moments (checkboxes, popups),
+-- Sine for colour so theme swaps never look like a hard cut.
 local T = {
-    Layout = TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-    Expand = TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+    Layout = TweenInfo.new(0.34, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+    Expand = TweenInfo.new(0.36, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
     Collapse = TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
     Quick = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-    Pop = TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-    Color = TweenInfo.new(0.24, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-    Fade = TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    Pop = TweenInfo.new(0.36, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+    PopSoft = TweenInfo.new(0.26, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+    Color = TweenInfo.new(0.26, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+    Fade = TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
     FadeFast = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    Hover = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 }
 
 local function rgb(r, g, b)
@@ -253,6 +268,249 @@ local function applyFade(list, alpha, instant, delay)
     end
 end
 
+-- Pixel icons ---------------------------------------------------------------
+-- Same technique as the checkbox tick: rows of "#" are merged into 1px-tall
+-- frames. No image assets, no blurring at fractional scale, and every icon can
+-- be recoloured per theme.
+local function pixelIcon(parent, pattern, color, zIndex)
+    local width = 0
+    for _, row in ipairs(pattern) do
+        width = math.max(width, #row)
+    end
+    local holder = create("Frame", {
+        Name = "Icon",
+        BackgroundTransparency = 1,
+        Size = UDim2.fromOffset(width, #pattern),
+        ZIndex = zIndex or 4,
+    }, parent)
+    local pixels = {}
+    for rowIndex, row in ipairs(pattern) do
+        local column = 1
+        while column <= #row do
+            if row:sub(column, column) == "#" then
+                local first = column
+                while column <= #row and row:sub(column, column) == "#" do
+                    column = column + 1
+                end
+                pixels[#pixels + 1] = create("Frame", {
+                    Name = "Pixel",
+                    BackgroundColor3 = color or Color3.new(1, 1, 1),
+                    BorderSizePixel = 0,
+                    Position = UDim2.fromOffset(first - 1, rowIndex - 1),
+                    Size = UDim2.fromOffset(column - first, 1),
+                    ZIndex = zIndex or 4,
+                }, holder)
+            else
+                column = column + 1
+            end
+        end
+    end
+    return holder, pixels
+end
+
+Minecraft.Icons = {
+    -- Hollow chevron: six pixel runs, so it reads as an outline arrow rather
+    -- than a solid triangle at 1x.
+    Chevron = {
+        "##...##",
+        ".##.##.",
+        "..###..",
+        "...#...",
+    },
+    Search = {
+        ".####..",
+        "##..##.",
+        "##..##.",
+        "##..##.",
+        ".####..",
+        "....##.",
+        ".....##",
+    },
+}
+
+--==========================================================================--
+-- Acrylic backdrop
+--==========================================================================--
+-- Roblox has no per-GUI backdrop-filter, so real frosted glass is done the way
+-- Fluent does it: a flat, fully transparent *glass* part is parked a hair in
+-- front of the camera and stretched to cover the panel rectangle. The engine
+-- then samples the scene behind that glass and blurs it, which reads as an
+-- acrylic sheet under the menu while the rest of the screen stays sharp.
+--
+-- Two things matter for it to work:
+--   * GraphicsQualityLevel >= 8 (glass refraction is a high-quality feature)
+--   * the part must be a child of the camera and never collide or cast shadows
+-- Everything is pcall-guarded: on clients where glass parts are unsupported the
+-- menu simply keeps its normal translucent panels.
+
+local Acrylic = {}
+Minecraft.Acrylic = Acrylic
+
+local function quality()
+    local ok, value = pcall(function()
+        return settings().Rendering.QualityLevel
+    end)
+    if ok and type(value) == "number" then
+        return value
+    end
+    -- UserGameSettings has the numeric level on most clients.
+    local ok2, level = pcall(function()
+        return UserSettings():GetService("UserGameSettings").SavedQualityLevel.Value
+    end)
+    if ok2 and type(level) == "number" then
+        return level
+    end
+    return 10
+end
+
+local function screenToWorld(camera, point, distance)
+    local ray = camera:ScreenPointToRay(point.X, point.Y)
+    return ray.Origin + ray.Direction * distance, ray
+end
+
+-- A single acrylic sheet anchored to a Frame. Returns a handle with :Refresh
+-- (re-fit), :SetVisible, :Destroy and the underlying Model.
+local function createAcrylic(camera, frame, options)
+    options = options or {}
+    if not camera or not frame then
+        return nil
+    end
+
+    local distance = options.Distance or 0.001
+    local folder
+    local okFolder = pcall(function()
+        folder = Instance.new("Folder")
+        folder.Name = "MinecraftUIAcrylic"
+        folder.Parent = camera
+    end)
+    if not okFolder or not folder then
+        return nil
+    end
+
+    local model = create("Part", {
+        Name = "Acrylic",
+        Color = Color3.new(0, 0, 0),
+        Material = Enum.Material.Glass,
+        Size = Vector3.new(1, 1, 0),
+        Anchored = true,
+        CanCollide = false,
+        Locked = true,
+        CastShadow = false,
+        CanTouch = false,
+        CanQuery = false,
+        Massless = true,
+        Transparency = 1,
+    }, folder)
+    local mesh = create("SpecialMesh", {
+        MeshType = Enum.MeshType.Brick,
+        Offset = Vector3.new(0, 0, -0.000001),
+    }, model)
+    model.CFrame = CFrame.new(0, 0, -100)
+
+    local handle = {
+        Model = model,
+        Folder = folder,
+        Visible = false,
+        Enabled = options.Enabled ~= false,
+    }
+
+    -- Absolute position/size of the frame, in viewport pixels. Roblox reports
+    -- AbsolutePosition excluding the top inset when IgnoreGuiInset is off; the
+    -- ScreenGui here sets IgnoreGuiInset = true, so no correction is needed.
+    local function measure()
+        local ok, position = pcall(function()
+            return frame.AbsolutePosition
+        end)
+        local ok2, size = pcall(function()
+            return frame.AbsoluteSize
+        end)
+        if not ok or not ok2 or not position or not size or size.X <= 0 or size.Y <= 0 then
+            return nil
+        end
+        local inset = M.AcrylicInset
+        return {
+            topLeft = Vector2.new(position.X + inset, position.Y + inset),
+            topRight = Vector2.new(position.X + size.X - inset, position.Y + inset),
+            bottomRight = Vector2.new(position.X + size.X - inset, position.Y + size.Y - inset),
+        }
+    end
+
+    function handle:Refresh()
+        if not isAlive(model) then
+            return
+        end
+        if not self.Enabled or not self.Visible then
+            return
+        end
+        local points = measure()
+        if not points then
+            return
+        end
+        local current = workspace.CurrentCamera
+        if not current then
+            return
+        end
+        local topLeft, topRight, bottomRight
+        local ok = pcall(function()
+            topLeft = screenToWorld(current, points.topLeft, distance)
+            topRight = screenToWorld(current, points.topRight, distance)
+            bottomRight = screenToWorld(current, points.bottomRight, distance)
+        end)
+        if not ok or not topLeft or not topRight or not bottomRight then
+            return
+        end
+        local width = (topRight - topLeft).Magnitude
+        local height = (topRight - bottomRight).Magnitude
+        if width <= 0 or height <= 0 then
+            return
+        end
+        pcall(function()
+            model.CFrame = CFrame.fromMatrix((topLeft + bottomRight) / 2, current.CFrame.XVector, current.CFrame.YVector, current.CFrame.ZVector)
+            mesh.Scale = Vector3.new(width, height, 0)
+        end)
+    end
+
+    function handle:SetVisible(value)
+        self.Visible = value and true or false
+        if not isAlive(model) then
+            return
+        end
+        -- 0.98 is the sweet spot Fluent uses: visible enough to refract the scene,
+        -- invisible enough that the UI on top stays readable.
+        pcall(function()
+            model.Transparency = (self.Visible and self.Enabled) and 0.98 or 1
+        end)
+        if self.Visible then
+            self:Refresh()
+        end
+    end
+
+    function handle:Destroy()
+        self.Visible = false
+        if isAlive(model) then
+            pcall(function()
+                model:Destroy()
+            end)
+        end
+        if folder and folder.Parent then
+            pcall(function()
+                folder:Destroy()
+            end)
+        end
+        self.Destroyed = true
+    end
+
+    handle:SetVisible(false)
+    return handle
+end
+
+Acrylic.create = createAcrylic
+
+-- True when this client can actually render glass refraction.
+function Acrylic.Supported()
+    return quality() >= 8
+end
+
 --==========================================================================--
 -- Window
 --==========================================================================--
@@ -394,6 +652,17 @@ function Minecraft.new(options)
         create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel + 6)}, window.Dim)
     end
 
+    -- Acrylic (real frosted glass behind the panels) --------------------------
+    -- "auto" -> on when the client's graphics quality can render glass
+    -- "on"   -> force it, "off" -> never create glass parts.
+    window.AcrylicMode = options.Acrylic or "auto"
+    if window.AcrylicMode == nil or window.AcrylicMode == false then
+        window.AcrylicMode = "off"
+    end
+    window.Acrylics = {}
+    window.AcrylicSupported = Acrylic.Supported()
+    window.AcrylicEnabled = window.AcrylicMode ~= "off" and (window.AcrylicMode == "on" or window.AcrylicSupported)
+
     window.PopupLayer = create("Frame", {
         Name = "PopupLayer",
         BackgroundTransparency = 1,
@@ -418,13 +687,36 @@ function Minecraft.new(options)
 
     window:SetupSearch()
     window:SetupInput()
+    window:_SetupAcrylic()
 
-    -- Fade the menu in once it is built.
-    if window.Root.ClassName == "CanvasGroup" then
-        window.Root.GroupTransparency = 1
-        window.ScaleObject.Scale = window.Scale * 0.97
-        tween(window.Root, {GroupTransparency = 0}, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
-        tween(window.ScaleObject, {Scale = window.Scale}, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+    -- Fade the menu in once it is built. The acrylic sheets come up slightly
+    -- later so the glass reads as "condensing" under the menu, not as a flash.
+    if not window.Options.NoIntro then
+        if window.Root.ClassName == "CanvasGroup" then
+            window.Root.GroupTransparency = 1
+            window.ScaleObject.Scale = window.Scale * 0.96
+            tween(window.Root, {GroupTransparency = 0}, TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out))
+            tween(window.ScaleObject, {Scale = window.Scale}, TweenInfo.new(0.36, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
+        end
+        if window.AcrylicEnabled then
+            task.delay(0.06, function()
+                if window.Open then
+                    window:_SetAcrylicVisible(true)
+                end
+            end)
+        end
+    else
+        if window.Root.ClassName == "CanvasGroup" then
+            window.Root.GroupTransparency = 0
+            window.ScaleObject.Scale = window.Scale
+        end
+        if window.AcrylicEnabled then
+            task.defer(function()
+                if window.Open then
+                    window:_SetAcrylicVisible(true)
+                end
+            end)
+        end
     end
 
     return window
@@ -546,6 +838,50 @@ function Minecraft:SetupSearch()
         Rotation = 90,
         Color = ColorSequence.new(window.Theme.PanelTop, window.Theme.PanelBottom),
     }, window.SearchFrame)
+    -- Pixel magnifier: drawn from 1px frames like the checkbox tick, so it has
+    -- no image dependency and stays crisp at every scale.
+    local GLASS_ICON = {
+        ".####..",
+        "##..##.",
+        "##..##.",
+        "##..##.",
+        ".####..",
+        "....##.",
+        ".....##",
+    }
+    local icon = create("Frame", {
+        Name = "SearchIcon",
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, M.Inset + 1, 0.5, -3),
+        Size = UDim2.fromOffset(#GLASS_ICON[1], #GLASS_ICON),
+        ZIndex = 2,
+    }, window.SearchFrame)
+    window.SearchIcon = icon
+    window.SearchIconPixels = {}
+    for rowIndex, pattern in ipairs(GLASS_ICON) do
+        local column = 1
+        while column <= #pattern do
+            if pattern:sub(column, column) == "#" then
+                local first = column
+                while column <= #pattern and pattern:sub(column, column) == "#" do
+                    column = column + 1
+                end
+                local pixel = create("Frame", {
+                    Name = "Pixel",
+                    BackgroundColor3 = window.Theme.Muted,
+                    BackgroundTransparency = 0.25,
+                    BorderSizePixel = 0,
+                    Position = UDim2.fromOffset(first - 1, rowIndex - 1),
+                    Size = UDim2.fromOffset(column - first, 1),
+                    ZIndex = 2,
+                }, icon)
+                window.SearchIconPixels[#window.SearchIconPixels + 1] = pixel
+            else
+                column = column + 1
+            end
+        end
+    end
+
     window.SearchBox = create("TextBox", {
         Name = "SearchBox",
         BackgroundTransparency = 1,
@@ -553,16 +889,31 @@ function Minecraft:SetupSearch()
         Text = "",
         PlaceholderText = window.Options.SearchPlaceholder or "Search",
         PlaceholderColor3 = window.Theme.Muted,
-        TextSize = 12,
+        TextSize = 13,
         TextColor3 = window.Theme.Text,
         TextXAlignment = Enum.TextXAlignment.Left,
         ClearTextOnFocus = false,
-        Position = UDim2.fromOffset(8, 0),
-        Size = UDim2.new(1, -16, 1, 0),
+        Position = UDim2.fromOffset(M.Inset + 15, 0),
+        Size = UDim2.new(1, -(M.Inset * 2 + 15), 1, 0),
         ZIndex = 2,
     }, window.SearchFrame)
     window.SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
         window:Filter(window.SearchBox.Text)
+    end)
+    -- Focus pulls the bar forward: brighter text, accent icon.
+    window.SearchBox.Focused:Connect(function()
+        window.SearchFocused = true
+        for _, pixel in ipairs(window.SearchIconPixels) do
+            applyColor(pixel, "BackgroundColor3", window.Theme.Accent, false, 0.16)
+        end
+        tween(window.SearchFrame, {BackgroundTransparency = 0.18}, T.Hover)
+    end)
+    window.SearchBox.FocusLost:Connect(function()
+        window.SearchFocused = false
+        for _, pixel in ipairs(window.SearchIconPixels) do
+            applyColor(pixel, "BackgroundColor3", window.Theme.Muted, false, 0.16)
+        end
+        tween(window.SearchFrame, {BackgroundTransparency = 0.32}, T.Hover)
     end)
     window:_Bind(window.SearchFrame, function(theme, instant)
         applyColor(window.SearchFrame, "BackgroundColor3", theme.Panel, instant, 0.26)
@@ -571,6 +922,11 @@ function Minecraft:SetupSearch()
         end
         applyColor(window.SearchBox, "PlaceholderColor3", theme.Muted, instant, 0.26)
         applyColor(window.SearchBox, "TextColor3", theme.Text, instant, 0.26)
+        if not window.SearchFocused then
+            for _, pixel in ipairs(window.SearchIconPixels or {}) do
+                applyColor(pixel, "BackgroundColor3", theme.Muted, instant, 0.26)
+            end
+        end
     end)
 end
 
@@ -578,6 +934,147 @@ function Minecraft:Filter(query)
     query = (query or ""):lower()
     for _, tab in ipairs(self.Tabs) do
         tab:Filter(query)
+    end
+end
+
+--==========================================================================--
+-- Acrylic wiring
+--==========================================================================--
+-- Attach an acrylic sheet to a frame (a panel, the search bar, a popup), sized
+-- from that frame's on-screen rectangle. Sheets are re-fitted whenever the
+-- camera moves or the frame is resized/repositioned, so the glass sticks to the
+-- UI instead of drifting when the player looks around.
+function Minecraft:_AttachAcrylic(frame, options)
+    if not self.AcrylicEnabled or not frame then
+        return nil
+    end
+    local camera
+    local ok = pcall(function()
+        camera = workspace.CurrentCamera
+    end)
+    if not ok or not camera then
+        return nil
+    end
+    local handle = createAcrylic(camera, frame, options)
+    if not handle then
+        return nil
+    end
+    self.Acrylics[#self.Acrylics + 1] = handle
+
+    -- Frame geometry changes (layout animation, tab count change, scale fit).
+    local function connect(object)
+        if not object then
+            return
+        end
+        pcall(function()
+            self.Connections[#self.Connections + 1] = object:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+                handle:Refresh()
+            end)
+            self.Connections[#self.Connections + 1] = object:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+                handle:Refresh()
+            end)
+        end)
+    end
+    connect(frame)
+    connect(frame.Parent)
+
+    -- Camera changes: every sheet needs re-fitting.
+    if not self._AcrylicCameraBound and camera then
+        self._AcrylicCameraBound = true
+        local refresh = function()
+            for _, item in ipairs(self.Acrylics) do
+                if item.Visible then
+                    item:Refresh()
+                end
+            end
+        end
+        pcall(function()
+            self.Connections[#self.Connections + 1] = camera:GetPropertyChangedSignal("CFrame"):Connect(refresh)
+            self.Connections[#self.Connections + 1] = camera:GetPropertyChangedSignal("ViewportSize"):Connect(refresh)
+            self.Connections[#self.Connections + 1] = camera:GetPropertyChangedSignal("FieldOfView"):Connect(refresh)
+        end)
+        self._AcrylicRefresh = refresh
+    end
+
+    -- Respawn swaps workspace.CurrentCamera; the glass must move to the new one.
+    if not self._AcrylicWorkspaceBound then
+        self._AcrylicWorkspaceBound = true
+        pcall(function()
+            self.Connections[#self.Connections + 1] = workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+                self:_RebindAcrylic()
+            end)
+        end)
+    end
+
+    return handle
+end
+
+-- Rebuild every sheet against the camera that is current right now.
+function Minecraft:_RebindAcrylic()
+    if not self.AcrylicEnabled then
+        return
+    end
+    for _, sheet in ipairs(self.Acrylics) do
+        pcall(function()
+            sheet:Destroy()
+        end)
+    end
+    self.Acrylics = {}
+    self.BodyAcrylic = nil
+    self.SearchAcrylic = nil
+    self:_SetupAcrylic()
+    self:_SetAcrylicVisible(self.Open)
+end
+
+function Minecraft:_SetupAcrylic()
+    if not self.AcrylicEnabled then
+        return
+    end
+    -- One sheet under the whole panel cluster: it covers the gaps between
+    -- columns too, which looks like a single sheet of glass instead of strips.
+    self.BodyAcrylic = self:_AttachAcrylic(self.Body, {Distance = 0.001})
+    self.SearchAcrylic = self:_AttachAcrylic(self.SearchFrame, {Distance = 0.0012})
+
+    -- Start hidden; the intro reveals the sheets after the first frame so the
+    -- glass never snaps on before the menu has settled.
+    if self.BodyAcrylic then
+        self.BodyAcrylic:SetVisible(false)
+    end
+    if self.SearchAcrylic then
+        self.SearchAcrylic:SetVisible(false)
+    end
+end
+
+function Minecraft:_SetAcrylicVisible(value)
+    if self.BodyAcrylic then
+        self.BodyAcrylic:SetVisible(value)
+    end
+    if self.SearchAcrylic then
+        self.SearchAcrylic:SetVisible(value)
+    end
+end
+
+function Minecraft:SetAcrylic(mode)
+    if mode == "auto" then
+        mode = self.AcrylicSupported and "on" or "off"
+    end
+    self.AcrylicMode = mode
+    if mode == "off" then
+        if self.BodyAcrylic then
+            self.BodyAcrylic:Destroy()
+            self.BodyAcrylic = nil
+        end
+        if self.SearchAcrylic then
+            self.SearchAcrylic:Destroy()
+            self.SearchAcrylic = nil
+        end
+        self.AcrylicEnabled = false
+        return
+    end
+    if not self.AcrylicEnabled then
+        self.AcrylicEnabled = true
+        self:_SetupAcrylic()
+        self:_SetAcrylicVisible(self.Open)
     end
 end
 
@@ -633,15 +1130,28 @@ function Minecraft:Toggle(value)
     if self.Popup then
         self:ClosePopup(true)
     end
+    -- Acrylic follows the menu: it appears with the intro (after the first
+    -- frame, when the root has real AbsolutePosition) and vanishes with it.
+    if self.AcrylicEnabled then
+        if self.Open then
+            task.defer(function()
+                if self.Open then
+                    self:_SetAcrylicVisible(true)
+                end
+            end)
+        else
+            self:_SetAcrylicVisible(false)
+        end
+    end
     if self.Root.ClassName == "CanvasGroup" then
         if self.Open then
             self.Gui.Enabled = true
-            tween(self.Root, {GroupTransparency = 0}, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+            tween(self.Root, {GroupTransparency = 0}, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
             tween(self.ScaleObject, {Scale = self.Scale}, T.Pop)
         else
-            local animation = tween(self.Root, {GroupTransparency = 1}, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
-            tween(self.ScaleObject, {Scale = self.Scale * 0.97}, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
-            task.delay(0.2, function()
+            local animation = tween(self.Root, {GroupTransparency = 1}, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+            tween(self.ScaleObject, {Scale = self.Scale * 0.96}, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+            task.delay(0.18, function()
                 if not self.Open then
                     self.Gui.Enabled = false
                 end
@@ -680,10 +1190,13 @@ function Minecraft:_UpdateLayout(instant)
 
     if self.SearchFrame then
         local target = UDim2.new(0.5, 0, 0, M.PanelHeight + M.Gap)
+        -- With a single panel the search bar must not stick out past it.
+        local searchWidth = math.min(M.SearchWidth, bodyWidth)
         if instant then
             self.SearchFrame.Position = target
+            self.SearchFrame.Size = UDim2.fromOffset(searchWidth, M.Search)
         else
-            tween(self.SearchFrame, {Position = target}, T.Layout)
+            tween(self.SearchFrame, {Position = target, Size = UDim2.fromOffset(searchWidth, M.Search)}, T.Layout)
         end
     end
 
@@ -694,6 +1207,19 @@ function Minecraft:_UpdateLayout(instant)
         else
             tween(tab.Panel, {Position = target}, T.Layout)
         end
+    end
+
+    -- The layout tween may finish after the last AbsoluteSize signal; refresh
+    -- once more so the glass lands exactly on the settled rectangle.
+    if self.AcrylicEnabled then
+        task.delay(0.36, function()
+            if self.BodyAcrylic then
+                self.BodyAcrylic:Refresh()
+            end
+            if self.SearchAcrylic then
+                self.SearchAcrylic:Refresh()
+            end
+        end)
     end
 end
 
@@ -741,24 +1267,16 @@ function Minecraft:AddTab(name, options)
         Color = ColorSequence.new(theme.PanelTop, theme.PanelBottom),
     }, tab.Panel)
     -- Outer neon ring (the "glow").
-    -- Inner 1px highlight along the top edge, like frosted glass.
-    tab.TopShine = create("Frame", {
-        Name = "TopShine",
-        BackgroundColor3 = theme.Text,
-        BackgroundTransparency = 0.86,
-        BorderSizePixel = 0,
-        Position = UDim2.new(0, 10, 0, 1),
-        Size = UDim2.new(1, -20, 0, 1),
-        ZIndex = 3,
-    }, tab.Panel)
-    create("UICorner", {CornerRadius = UDim.new(1, 0)}, tab.TopShine)
+    -- No edge highlight: a 1px line along the top read as an outline, and
+    -- transparency gradients render flat on some clients. The panel's own
+    -- PanelTop -> PanelBottom gradient already gives the glass its depth.
 
     tab.Title = create("TextLabel", {
         Name = "Title",
         BackgroundTransparency = 1,
         Font = window.Font,
         Text = tab.Name,
-        TextSize = 16,
+        TextSize = 17,
         TextColor3 = theme.Text,
         TextXAlignment = Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Center,
@@ -766,13 +1284,16 @@ function Minecraft:AddTab(name, options)
         ZIndex = 2,
     }, tab.Panel)
 
+    -- Short accent pill under the title instead of a full-width rule: it reads
+    -- as a tab indicator, not a divider, and keeps the header airy.
     tab.TitleLine = create("Frame", {
         Name = "TitleLine",
         BackgroundColor3 = theme.Accent,
-        BackgroundTransparency = 0.55,
+        BackgroundTransparency = 0.25,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(8, M.Title - 1),
-        Size = UDim2.new(1, -16, 0, 1),
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, M.Title - 12),
+        Size = UDim2.fromOffset(26, 2),
         ZIndex = 3,
     }, tab.Panel)
     create("UICorner", {CornerRadius = UDim.new(1, 0)}, tab.TitleLine)
@@ -785,19 +1306,24 @@ function Minecraft:AddTab(name, options)
         Size = UDim2.new(1, 0, 1, -M.Title),
         CanvasSize = UDim2.new(0, 0, 0, 0),
         ScrollingDirection = Enum.ScrollingDirection.Y,
-        ScrollBarThickness = 2,
-        ScrollBarImageColor3 = theme.Muted,
-        ScrollBarImageTransparency = 0.55,
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = theme.Accent,
+        ScrollBarImageTransparency = 0.45,
+        ScrollBarFadeDelay = 0.5,
+        ScrollingEnabled = true,
+        Elastisity = 0.1,
         ClipsDescendants = true,
         ZIndex = 2,
     }, tab.Panel)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel)}, tab.Scroll)
+    -- Right padding leaves room for the scrollbar so rows never sit under it.
     create("UIPadding", {
-        PaddingTop = UDim.new(0, M.Inset),
-        PaddingBottom = UDim.new(0, M.Inset),
+        PaddingTop = UDim.new(0, M.Inset + 2),
+        PaddingBottom = UDim.new(0, M.Inset + 4),
         PaddingLeft = UDim.new(0, M.Inset),
-        PaddingRight = UDim.new(0, M.Inset + 2),
+        PaddingRight = UDim.new(0, M.Inset + 4),
     }, tab.Scroll)
+
 
     tab.Content = create("Frame", {
         Name = "Content",
@@ -842,18 +1368,24 @@ function Minecraft:AddTab(name, options)
         if tab.Gradient and isAlive(tab.Gradient) then
             tab.Gradient.Color = ColorSequence.new(themeNow.PanelTop, themeNow.PanelBottom)
         end
-        if tab.TopShine and isAlive(tab.TopShine) then
-            applyColor(tab.TopShine, "BackgroundColor3", themeNow.Text, instant, 0.26)
-        end
-        applyColor(tab.Scroll, "ScrollBarImageColor3", themeNow.Muted, instant, 0.26)
+        applyColor(tab.Scroll, "ScrollBarImageColor3", themeNow.Accent, instant, 0.26)
         applyColor(tab.EmptyLabel, "TextColor3", themeNow.Muted, instant, 0.26)
     end)
 
     window:_UpdateLayout(false)
+    local resting = UDim2.fromOffset((#window.Tabs - 1) * (M.PanelWidth + M.Gap), 0)
     if not window.Options.NoIntro then
-        tween(tab.Panel, {Position = UDim2.fromOffset((#window.Tabs - 1) * (M.PanelWidth + M.Gap), 0)}, T.Layout)
+        -- Each new column rises into place a beat after the previous one, so
+        -- adding three tabs looks like the menu unfolding sideways.
+        local index = #window.Tabs
+        tab.Panel.Position = UDim2.fromOffset(resting.X.Offset, -12)
+        task.delay(math.min(index - 1, 5) * 0.035, function()
+            if isAlive(tab.Panel) then
+                tween(tab.Panel, {Position = resting}, T.Layout)
+            end
+        end)
     else
-        tab.Panel.Position = UDim2.fromOffset((#window.Tabs - 1) * (M.PanelWidth + M.Gap), 0)
+        tab.Panel.Position = resting
     end
     return tab
 end
@@ -881,6 +1413,14 @@ function Minecraft:Destroy()
         end)
         self.BlurEffect = nil
     end
+    for _, sheet in ipairs(self.Acrylics or {}) do
+        pcall(function()
+            sheet:Destroy()
+        end)
+    end
+    self.Acrylics = {}
+    self.BodyAcrylic = nil
+    self.SearchAcrylic = nil
     if self.Gui then
         self.Gui:Destroy()
     end
@@ -937,7 +1477,14 @@ local function newRow(tab, name, options)
         ZIndex = 2,
     }, row.Slot)
     if not window.Options.NoIntro then
-        tween(row.Frame, {Position = UDim2.fromOffset(0, 0), Size = UDim2.new(1, 0, 0, M.RowHeight)}, T.Layout)
+        -- Rows of a freshly built panel unfurl one after another instead of all
+        -- sliding sideways at once. The cap keeps long lists quick.
+        local index = #tab.Rows
+        task.delay(math.min(index, 14) * 0.012, function()
+            if isAlive(row.Frame) then
+                tween(row.Frame, {Position = UDim2.fromOffset(0, 0), Size = UDim2.new(1, 0, 0, M.RowHeight)}, T.Layout)
+            end
+        end)
     end
 
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Row)}, row.Frame)
@@ -950,6 +1497,12 @@ local function newRow(tab, name, options)
         ZIndex = 2,
     }, row.Frame)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Row)}, row.Box)
+    -- A hair of vertical shading inside the plate: flat fills read as stickers,
+    -- this reads as a raised key. It is an opaque gradient, not an outline.
+    row.BoxShade = create("UIGradient", {
+        Rotation = 90,
+        Color = ColorSequence.new(theme.Row:Lerp(Color3.new(1, 1, 1), 0.045), theme.Row),
+    }, row.Box)
 
     row.Label = create("TextLabel", {
         Name = "Label",
@@ -998,20 +1551,25 @@ local function newRow(tab, name, options)
         ZIndex = 3,
     }, row.Frame)
 
+    -- Premium badge: a small accent pill, not bare text floating in the row.
+    local badgeWidth = math.max(34, 10 + #(options.Badge or "PREMIUM") * 5)
     row.Badge = create("TextLabel", {
         Name = "Badge",
-        BackgroundTransparency = 1,
+        BackgroundColor3 = theme.Accent,
+        BackgroundTransparency = 0.82,
         Font = window.Font,
         Text = options.Badge or "PREMIUM",
         TextSize = 9,
         TextColor3 = theme.Accent,
-        TextXAlignment = Enum.TextXAlignment.Right,
+        TextXAlignment = Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Center,
-        Position = UDim2.new(1, -M.Inset - 62, 0, 1),
-        Size = UDim2.fromOffset(40, M.RowHeight),
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -M.Inset - 24, 0.5, 0),
+        Size = UDim2.fromOffset(badgeWidth, 15),
         Visible = options.Premium == true,
         ZIndex = 3,
     }, row.Frame)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, row.Badge)
 
     row.Holder = create("Frame", {
         Name = "SettingsHolder",
@@ -1040,16 +1598,22 @@ local function newRow(tab, name, options)
     window:_Bind(row.Box, function(themeNow, instant)
         applyColor(row.ValueLabel, "TextColor3", themeNow.Muted, instant, 0.2)
         applyColor(row.Badge, "TextColor3", themeNow.Accent, instant, 0.2)
+        applyColor(row.Badge, "BackgroundColor3", themeNow.Accent, instant, 0.2)
         row:RefreshVisual(instant)
     end)
 
     row.Frame.MouseEnter:Connect(function()
         row.Hovered = true
         row:RefreshVisual()
+        -- A barely-there lift gives the row depth without moving its hitbox.
+        if not window.Options.Static then
+            tween(row.Box, {Position = UDim2.fromOffset(0, -1)}, T.Hover)
+        end
     end)
     row.Frame.MouseLeave:Connect(function()
         row.Hovered = false
         row:RefreshVisual()
+        tween(row.Box, {Position = UDim2.fromOffset(0, 0)}, T.Hover)
     end)
 
     row.Frame.MouseButton2Down:Connect(function()
@@ -1063,6 +1627,16 @@ local function newRow(tab, name, options)
         row.Frame.Size = UDim2.new(size.X.Scale, size.X.Offset, 0, M.RowHeight - 2)
         tween(row.Frame, {Size = UDim2.new(size.X.Scale, size.X.Offset, 0, M.RowHeight)}, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
         row:OnPrimaryClick()
+        -- A short accent flash on the label confirms the press even for rows
+        -- that do not change their background (buttons, dropdowns).
+        if not row.Locked and not window.Options.Static then
+            row.Label.TextColor3 = window.Theme.Accent
+            task.delay(0.12, function()
+                if isAlive(row.Label) then
+                    row:RefreshVisual()
+                end
+            end)
+        end
     end)
 
     tab.Rows[#tab.Rows + 1] = row
@@ -1098,10 +1672,16 @@ function Row:RefreshVisual(instant)
 
     local labelColor = self.Locked and theme.Muted or theme.Text
 
-    applyColor(self.Box, "BackgroundColor3", fill, instant, 0.16)
-    applyColor(self.Box, "BackgroundTransparency", alpha, instant, 0.16)
-    applyColor(self.Label, "TextColor3", labelColor, instant, 0.16)
-    applyColor(self.Dots, "TextColor3", (self.OnState or open) and theme.Accent or theme.Muted, instant, 0.16)
+    applyColor(self.Box, "BackgroundColor3", fill, instant, 0.20)
+    applyColor(self.Box, "BackgroundTransparency", alpha, instant, 0.20)
+    if self.BoxShade and isAlive(self.BoxShade) then
+        -- Keep the plate's subtle top-to-bottom shading in step with its fill.
+        self.BoxShade.Color = ColorSequence.new(fill:Lerp(Color3.new(1, 1, 1), 0.045), fill)
+    end
+    applyColor(self.Label, "TextColor3", labelColor, instant, 0.20)
+    applyColor(self.Dots, "TextColor3", (self.OnState or open) and theme.Accent or theme.Muted, instant, 0.20)
+    -- The three-dot affordance lifts on hover instead of sitting dead.
+    applyColor(self.Dots, "TextTransparency", (self.Dots.Visible and (self.Hovered or open)) and 0 or 0.35, instant, 0.20)
 
 end
 
@@ -1112,7 +1692,9 @@ function Row:SetValueText(value)
         return
     end
     self.ValueLabel.Visible = true
-    self.ValueLabel.Text = shorten(value, 16)
+    -- A premium pill eats ~44px on the right; give the value less room there.
+    local room = self.Badge.Visible and 13 or 16
+    self.ValueLabel.Text = shorten(value, room)
 end
 
 function Row:OnPrimaryClick()
@@ -1175,15 +1757,15 @@ function Row:EnsureSettings()
     }, self.Holder)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Row)}, panel)
     local padding = create("UIPadding", {
-        PaddingTop = UDim.new(0, 7),
-        PaddingBottom = UDim.new(0, 7),
-        PaddingLeft = UDim.new(0, 8),
-        PaddingRight = UDim.new(0, 8),
+        PaddingTop = UDim.new(0, M.BlockPadding),
+        PaddingBottom = UDim.new(0, M.BlockPadding),
+        PaddingLeft = UDim.new(0, M.BlockPadding + 1),
+        PaddingRight = UDim.new(0, M.BlockPadding + 1),
     }, panel)
     local layout = create("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
         SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 6),
+        Padding = UDim.new(0, M.BlockGap),
         HorizontalAlignment = Enum.HorizontalAlignment.Left,
     }, panel)
     settings.Panel = panel
@@ -1205,7 +1787,7 @@ function Row:EnsureSettings()
     end
 
     settings:_Measure()
-    panel.Size = UDim2.new(1, 0, 0, settings.Height + 12)
+    panel.Size = UDim2.new(1, 0, 0, settings.Height + M.BlockPadding * 2)
     -- Capture the fade list once; it is reused for every open/close so the base
     -- transparencies never get polluted by an in-progress animation.
     settings.Fade = collectFade(panel)
@@ -1225,7 +1807,7 @@ function Row:ToggleSettings(force)
     end
     self:EnsureSettings()
     self.SettingsOpen = target
-    self.SettingsHeight = self.Settings.Height + 12 + M.RowGap
+    self.SettingsHeight = self.Settings.Height + M.BlockPadding * 2 + M.RowGap
     local settings = self.Settings
     if not settings.Fade then
         settings.Fade = collectFade(settings.Panel)
@@ -1235,26 +1817,33 @@ function Row:ToggleSettings(force)
     end
     settings.SetAlpha = setAlpha
     if target then
-        -- Slide the block in from above while the controls fade in with a small
-        -- stagger, so the block unfolds instead of popping.
-        settings.Panel.Position = UDim2.fromOffset(0, -7)
+        -- The block unfolds: the plate slides down from under the row while the
+        -- controls ride up into place one after another. Stagger is capped so a
+        -- very tall settings list still finishes inside a third of a second.
+        settings.Panel.Position = UDim2.fromOffset(0, -8)
         setAlpha(1, true)
         setAlpha(0, false)
-        tween(settings.Panel, {Position = UDim2.fromOffset(0, 0)}, T.Expand)
+        task.defer(function()
+            if self.SettingsOpen then
+                tween(settings.Panel, {Position = UDim2.fromOffset(0, 0)}, T.Expand)
+            end
+        end)
+        local step = math.min(0.026, 0.20 / math.max(#settings.Controls, 1))
         for index, control in ipairs(settings.Controls) do
             local entry = control.Frame
             if entry then
-                entry.Position = UDim2.fromOffset(0, 5)
-                task.delay(0.028 * math.min(index - 1, 10), function()
+                entry.Position = UDim2.fromOffset(0, 6)
+                task.delay(step * (index - 1), function()
                     if isAlive(entry) and self.SettingsOpen then
-                        tween(entry, {Position = UDim2.fromOffset(0, 0)}, T.Layout)
+                        tween(entry, {Position = UDim2.fromOffset(0, 0)}, T.PopSoft)
                     end
                 end)
             end
         end
     else
+        -- Closing is quicker and never bounces: the plate folds up, then fades.
         setAlpha(1, false)
-        tween(settings.Panel, {Position = UDim2.fromOffset(0, -7)}, T.FadeFast)
+        tween(settings.Panel, {Position = UDim2.fromOffset(0, -8)}, T.Collapse)
     end
     self:_ApplyHeight(false, target)
     self:RefreshVisual()
@@ -1275,8 +1864,25 @@ function Row:ApplyFlag(flags)
 end
 
 function Row:SetVisible(value)
-    self.Visible = value and true or false
-    self.Slot.Visible = self.Visible
+    value = value and true or false
+    if self.Visible == value then
+        return
+    end
+    self.Visible = value
+    if not isAlive(self.Slot) then
+        return
+    end
+    if value then
+        -- Filtering brings rows back by sliding them up a hair while the row
+        -- fades in, so the list visibly re-forms instead of snapping.
+        self.Slot.Visible = true
+        if not self.Window.Options.NoIntro then
+            self.Slot.Position = UDim2.fromOffset(0, 4)
+            tween(self.Slot, {Position = UDim2.fromOffset(0, 0)}, T.PopSoft)
+        end
+    else
+        self.Slot.Visible = false
+    end
 end
 
 function Row:SetLocked(value)
@@ -1303,10 +1909,10 @@ function Settings:_Measure()
         end
     end
     if count > 1 then
-        total = total + (count - 1) * 5
+        total = total + (count - 1) * M.BlockGap
     end
     self.Height = total
-    self.Panel.Size = UDim2.new(1, 0, 0, self.Height + 12)
+    self.Panel.Size = UDim2.new(1, 0, 0, self.Height + M.BlockPadding * 2)
     return self.Height
 end
 
@@ -1315,7 +1921,7 @@ function Settings:_Resize()
     local row = self.Row
     if row.SettingsOpen then
         local before = row.SettingsHeight
-        row.SettingsHeight = self.Height + 12 + M.RowGap
+        row.SettingsHeight = self.Height + M.BlockPadding * 2 + M.RowGap
         row:_ApplyHeight(false)
     end
 end
@@ -1366,12 +1972,13 @@ function Settings:Toggle(options)
     local entry, frame = self:_Base("SettingToggle", 16)
     local value = options.Default == true
 
+    -- A slightly larger 15px box: at 13px the pixel tick had no room to breathe.
     local box = create("Frame", {
         Name = "Box",
         BackgroundColor3 = theme.Row,
         BorderSizePixel = 0,
-        Position = UDim2.new(1, -13, 0, 2),
-        Size = UDim2.fromOffset(13, 13),
+        Position = UDim2.new(1, -15, 0, 1),
+        Size = UDim2.fromOffset(15, 15),
         ZIndex = 3,
     }, frame)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, box)
@@ -1429,7 +2036,7 @@ function Settings:Toggle(options)
         TextColor3 = theme.Text,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Center,
-        Size = UDim2.new(1, -20, 1, 0),
+        Size = UDim2.new(1, -22, 1, 0),
         TextTruncate = Enum.TextTruncate.AtEnd,
         ZIndex = 3,
     }, frame)
@@ -1533,12 +2140,15 @@ function Settings:Slider(options)
         Size = UDim2.fromOffset(44, 14),
         ZIndex = 3,
     }, frame)
+    -- 6px rounded rail with a glowing accent fill and a round knob that grows
+    -- while the slider is being dragged. That knob is what makes a slider feel
+    -- "physical" instead of like a progress bar.
     local track = create("Frame", {
         Name = "Track",
         BackgroundColor3 = theme.Track,
         BorderSizePixel = 0,
         Position = UDim2.fromOffset(0, 16),
-        Size = UDim2.new(1, 0, 0, 4),
+        Size = UDim2.new(1, 0, 0, 6),
         ZIndex = 3,
     }, frame)
     create("UICorner", {CornerRadius = UDim.new(1, 0)}, track)
@@ -1550,6 +2160,16 @@ function Settings:Slider(options)
         ZIndex = 4,
     }, track)
     create("UICorner", {CornerRadius = UDim.new(1, 0)}, fill)
+    local knob = create("Frame", {
+        Name = "Knob",
+        BackgroundColor3 = theme.Text,
+        BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0, 0, 0.5, 0),
+        Size = UDim2.fromOffset(9, 9),
+        ZIndex = 6,
+    }, track)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, knob)
     local button = create("TextButton", {
         Name = "Hit",
         Text = "",
@@ -1574,12 +2194,24 @@ function Settings:Slider(options)
 
     local function paint(instant)
         local alpha = (maximum > minimum) and ((value - minimum) / (maximum - minimum)) or 0
+        local fillTarget = UDim2.new(alpha, 0, 1, 0)
+        local knobTarget = UDim2.new(alpha, 0, 0.5, 0)
         if instant then
-            fill.Size = UDim2.new(alpha, 0, 1, 0)
+            fill.Size = fillTarget
+            knob.Position = knobTarget
         else
-            tween(fill, {Size = UDim2.new(alpha, 0, 1, 0)}, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out))
+            tween(fill, {Size = fillTarget}, TweenInfo.new(0.20, Enum.EasingStyle.Quint, Enum.EasingDirection.Out))
+            tween(knob, {Position = knobTarget}, TweenInfo.new(0.20, Enum.EasingStyle.Quint, Enum.EasingDirection.Out))
         end
         readout.Text = format(value) .. (options.Suffix or "")
+    end
+
+    local function setDragging(dragging)
+        tween(knob, {
+            Size = UDim2.fromOffset(dragging and 13 or 9, dragging and 13 or 9),
+            BackgroundTransparency = dragging and 0 or 0.05,
+        }, T.PopSoft)
+        tween(track, {Size = UDim2.new(1, 0, 0, dragging and 7 or 6)}, T.Hover)
     end
 
     window:_Bind(frame, function(themeNow, instant)
@@ -1587,6 +2219,7 @@ function Settings:Slider(options)
         applyColor(readout, "TextColor3", themeNow.Muted, instant, 0.2)
         applyColor(track, "BackgroundColor3", themeNow.Track, instant, 0.2)
         applyColor(fill, "BackgroundColor3", themeNow.Accent, instant, 0.2)
+        applyColor(knob, "BackgroundColor3", themeNow.Text, instant, 0.2)
         paint(instant)
     end)
 
@@ -1619,8 +2252,18 @@ function Settings:Slider(options)
             local alpha = clamp((position.X - absolute.X) / math.max(size.X, 1), 0, 1)
             api:Set(minimum + alpha * (maximum - minimum))
         end
+        setDragging(true)
         move(input.Position)
         beginDrag(input, move)
+        -- beginDrag disconnects its own listeners; the knob deflates on release.
+        local release
+        release = UserInputService.InputEnded:Connect(function(finish)
+            if finish.UserInputType == Enum.UserInputType.MouseButton1 or finish.UserInputType == Enum.UserInputType.Touch then
+                setDragging(false)
+                release:Disconnect()
+            end
+        end)
+
     end)
 
     if options.Flag then
@@ -1732,12 +2375,17 @@ function Settings:Button(options)
         applyColor(label, "TextColor3", themeNow.Text, instant, 0.2)
     end)
     button.MouseEnter:Connect(function()
-        applyColor(button, "BackgroundColor3", window.Theme.Hover, false, 0.14)
+        applyColor(button, "BackgroundColor3", window.Theme.Hover, false, 0.16)
+        tween(label, {TextColor3 = window.Theme.Accent}, T.Hover)
     end)
     button.MouseLeave:Connect(function()
-        applyColor(button, "BackgroundColor3", window.Theme.Row, false, 0.14)
+        applyColor(button, "BackgroundColor3", window.Theme.Row, false, 0.16)
+        tween(label, {TextColor3 = window.Theme.Text}, T.Hover)
     end)
     button.MouseButton1Click:Connect(function()
+        -- Squish on press: the label dips a pixel and springs back.
+        label.Position = UDim2.fromOffset(0, 1)
+        tween(label, {Position = UDim2.fromOffset(0, 0)}, T.PopSoft)
         if options.Callback then
             options.Callback()
         end
@@ -1972,16 +2620,12 @@ function Settings:Dropdown(options)
         TextTruncate = Enum.TextTruncate.AtEnd,
         ZIndex = 4,
     }, header)
-    local arrow = create("TextLabel", {
-        BackgroundTransparency = 1,
-        Font = window.Font,
-        Text = "v",
-        TextSize = 10,
-        TextColor3 = window.Theme.Muted,
-        Position = UDim2.new(1, -13, 0, 0),
-        Size = UDim2.fromOffset(11, 20),
-        ZIndex = 4,
-    }, header)
+    -- A real chevron instead of the letter "v": same pixels as the icon set,
+    -- and it rotates 180 degrees when the list opens.
+    local arrow, arrowPixels = pixelIcon(header, Minecraft.Icons.Chevron, window.Theme.Muted, 4)
+    arrow.Name = "Arrow"
+    arrow.AnchorPoint = Vector2.new(0.5, 0.5)
+    arrow.Position = UDim2.new(1, -10, 0.5, 0)
 
     local list = create("Frame", {
         Name = "Options",
@@ -2077,11 +2721,11 @@ function Settings:Dropdown(options)
         optionButtons[index] = button
         create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, button)
         button.MouseEnter:Connect(function()
-            button.BackgroundTransparency = 0.8
             button.BackgroundColor3 = window.Theme.Hover
+            tween(button, {BackgroundTransparency = 0.68}, T.Hover)
         end)
         button.MouseLeave:Connect(function()
-            button.BackgroundTransparency = 1
+            tween(button, {BackgroundTransparency = 1}, T.Hover)
         end)
         button.MouseButton1Click:Connect(function()
             if options.Multi then
@@ -2114,13 +2758,16 @@ function Settings:Dropdown(options)
     header.MouseButton1Click:Connect(function()
         open = not open
         layoutList(false)
+        tween(arrow, {Rotation = open and 180 or 0}, T.PopSoft)
     end)
 
     window:_Bind(frame, function(themeNow, instant)
         applyColor(header, "BackgroundColor3", themeNow.Row, instant, 0.2)
         applyColor(prefix, "TextColor3", themeNow.Muted, instant, 0.2)
         applyColor(valueLabel, "TextColor3", themeNow.Text, instant, 0.2)
-        applyColor(arrow, "TextColor3", themeNow.Muted, instant, 0.2)
+        for _, pixel in ipairs(arrowPixels) do
+            applyColor(pixel, "BackgroundColor3", themeNow.Muted, instant, 0.2)
+        end
         applyColor(list, "BackgroundColor3", themeNow.Window, instant, 0.2)
         paint(instant)
     end)
@@ -2708,11 +3355,11 @@ function Tab:AddDropdown(options)
         buttons[index] = button
         create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Small)}, button)
         button.MouseEnter:Connect(function()
-            applyColor(button, "BackgroundColor3", theme.Hover, false, 0.1)
-            button.BackgroundTransparency = 0.5
+            applyColor(button, "BackgroundColor3", window.Theme.Hover, false, 0.12)
+            tween(button, {BackgroundTransparency = 0.55}, T.Hover)
         end)
         button.MouseLeave:Connect(function()
-            button.BackgroundTransparency = 1
+            tween(button, {BackgroundTransparency = 1}, T.Hover)
         end)
         button.MouseButton1Click:Connect(function()
             if options.Multi then
@@ -2786,10 +3433,16 @@ function Minecraft:ClosePopup(instant)
     local popup = self.Popup
     self.Popup = nil
     self.PopupLayer.Visible = false
+    if popup.Acrylic then
+        pcall(function()
+            popup.Acrylic:Destroy()
+        end)
+        popup.Acrylic = nil
+    end
     if instant then
         popup.Panel.Visible = false
     else
-        tween(popup.Panel, {Size = UDim2.fromOffset(popup.Width, popup.Height * 0.94), BackgroundTransparency = 1}, T.FadeFast)
+        tween(popup.Panel, {Size = UDim2.fromOffset(popup.Width, popup.Height * 0.92), BackgroundTransparency = 1}, T.FadeFast)
     end
     task.delay(instant and 0 or 0.14, function()
         if not self.Popup and isAlive(popup.Panel) then
@@ -3250,8 +3903,17 @@ function Minecraft:OpenColorPicker(anchor, callback, options)
 
     self:_PlacePopup(panel, anchor, width, height)
     panel.Visible = true
+
+    -- Acrylic under the popup, so the picker is frosted too.
+    state.Acrylic = self:_AttachAcrylic(panel, {Distance = 0.0012})
+    if state.Acrylic then
+        state.Acrylic:SetVisible(true)
+    end
+
+    -- Pop in from the anchor: slightly small + fully transparent -> settled.
     panel.Size = UDim2.fromOffset(width, height * 0.94)
-    tween(panel, {Size = UDim2.fromOffset(width, height)}, T.Pop)
+    panel.BackgroundTransparency = 1
+    tween(panel, {Size = UDim2.fromOffset(width, height), BackgroundTransparency = 0}, T.Pop)
     return state
 end
 

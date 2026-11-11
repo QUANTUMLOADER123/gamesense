@@ -18,7 +18,7 @@
 
 -- Shared libraries cache HTTP results, so the URL carries a version query to
 -- make sure the newest minecraft.lua is fetched. Bump it if you edit the file.
-local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua?v=1.9.0"
+local LIB_URL = "https://raw.githubusercontent.com/QUANTUMLOADER123/gamesense/arena/8d6efc34-gamesense/minecraft.lua?v=1.10.0"
 
 local function httpGet(url)
     -- Several executors cache game:HttpGet; request(url, true) forces a refresh.
@@ -58,6 +58,9 @@ local Player = game:GetService("Players").LocalPlayer
 local window = Minecraft.new({
     Theme = 1,          -- 1..6 (Nebula, Cyber, Bloom, Ember, Mint, Gold)
     ToggleKey = Enum.KeyCode.Insert,
+    -- Acrylic = "auto",    -- "auto" (default) = real frosted glass behind the
+    --                      --   panels when the client supports it (graphics
+    --                      --   quality >= 8), "on" = force, "off" = never
     -- BlurMode = "screen", -- "screen" = blur the whole view (default)
     --                      -- "local"  = keep the game sharp, dim only behind panels
     -- BlurSize = 24,       -- blur strength
@@ -241,8 +244,10 @@ end})
 --==========================================================================--
 -- Themes / config helpers
 --==========================================================================--
--- window:SetTheme(3)        -- Midnight, Slate, Amethyst, Crimson, Emerald, Amber
+-- window:SetTheme(3)        -- Bloom (see the theme table in the README)
 -- window:CycleTheme(1)      -- next theme
+-- window:SetAcrylic("off")  -- drop the frosted-glass backdrop (or "on"/"auto")
+-- window.AcrylicSupported   -- true when this client can render glass blur
 -- window:Filter("aura")     -- programmatic search
 -- The window has no title bar and cannot be dragged: it is a fixed row of panels.
 -- window:Toggle(false)      -- hide, window:Toggle(true) -- show
@@ -256,5 +261,5 @@ window:Toggle(true)
 -- Handy for consoles: announce where the library lives.
 print(("Minecraft UI v%s loaded for %s"):format(Minecraft.Version, Player.Name))
 -- If this fires, your executor served a cached copy of minecraft.lua.
-assert(Minecraft.Build and Minecraft.Build >= 19,
+assert(Minecraft.Build and Minecraft.Build >= 20,
     "stale minecraft.lua in cache -- clear the executor cache or bump LIB_URL")

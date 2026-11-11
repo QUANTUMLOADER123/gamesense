@@ -88,6 +88,32 @@ UDim2 = {new = function(xs, xo, ys, yo) return {X = {Scale = xs, Offset = xo}, Y
 function UDim2.fromOffset(x, y) return UDim2.new(0, x, 0, y) end
 function UDim2.fromScale(x, y) return UDim2.new(x, 0, y, 0) end
 Vector2 = {new = function(x, y) return {X = x, Y = y} end}
+-- Vector3 with the arithmetic the acrylic code relies on (+, -, *, /, Magnitude).
+local vmeta = {
+    __add = function(a, b) return vec3(a.X + b.X, a.Y + b.Y, a.Z + b.Z) end,
+    __sub = function(a, b) return vec3(a.X - b.X, a.Y - b.Y, a.Z - b.Z) end,
+    __mul = function(a, k) return vec3(a.X * k, a.Y * k, a.Z * k) end,
+    __div = function(a, k) return vec3(a.X / k, a.Y / k, a.Z / k) end,
+}
+function vec3(x, y, z)
+    return setmetatable({X = x, Y = y, Z = z}, vmeta)
+end
+function vmeta.__index(t, k)
+    if k == 'Magnitude' then
+        return math.sqrt(t.X * t.X + t.Y * t.Y + t.Z * t.Z)
+    end
+    return nil
+end
+Vector3 = {new = function(x, y, z) return vec3(x, y, z) end}
+
+CFrame = {}
+function CFrame.new(x, y, z)
+    return setmetatable({X = x, Y = y, Z = z, XVector = vec3(1, 0, 0), YVector = vec3(0, 1, 0),
+        ZVector = vec3(0, 0, -1)}, {})
+end
+function CFrame.fromMatrix(position, xv, yv, zv)
+    return setmetatable({Position = position, XVector = xv, YVector = yv, ZVector = zv}, {})
+end
 math.clamp = function(x, a, b) return math.min(b, math.max(a, x)) end
 -- Luau helpers that fengari (Lua 5.3) does not provide.
 table.find = table.find or function(list, value)
@@ -203,6 +229,49 @@ game = {GetService = function(_, name)
     if name == 'RunService' then return {RenderStepped = signal()} end
 end}
 
+-- Camera + workspace: the acrylic sheets are built from ScreenPointToRay.
+local cameraSignals = {}
+local camera = {
+    ClassName = 'Camera',
+    ViewportSize = {X = 1280, Y = 720},
+    CFrame = CFrame.new(0, 0, 0),
+    FieldOfView = 70,
+}
+function camera:GetPropertyChangedSignal(name)
+    cameraSignals[name] = cameraSignals[name] or signal()
+    return cameraSignals[name]
+end
+-- A simple perspective projection: 1 unit in front of the camera spans
+-- viewportPixels / (2 * tan(fov/2)) world units, which is what the real camera
+-- does and what makes the acrylic size assertions meaningful.
+function camera:ScreenPointToRay(x, y)
+    local depth = 1
+    local halfHeight = math.tan(math.rad(self.FieldOfView) / 2) * depth
+    local perPixel = (halfHeight * 2) / self.ViewportSize.Y
+    local origin = vec3(0, 0, 0)
+    local direction = vec3((x - self.ViewportSize.X / 2) * perPixel, -(y - self.ViewportSize.Y / 2) * perPixel, -depth)
+    return {Origin = origin, Direction = direction}
+end
+local cameraFolder = {children = {}, Name = 'CameraFolder'}
+function cameraFolder:FindFirstChild(name)
+    for _, child in ipairs(self.children) do
+        if child.Name == name then return child end
+    end
+    return nil
+end
+workspace = {CurrentCamera = camera}
+Minecraft = nil
+
+-- Glass refraction is a high-quality feature; pretend this client can render it.
+settings = function()
+    return {Rendering = {QualityLevel = 10}}
+end
+UserSettings = function()
+    return {GetService = function()
+        return {SavedQualityLevel = {Value = 10}}
+    end}
+end
+
 local Minecraft = dofile('minecraft.lua')
 
 local function flush()
@@ -243,6 +312,87 @@ assert(window.Dim and window.Dim.Size.X.Scale == 1 and window.Dim.Size.Y.Scale =
 assert(window.Dim.Parent == window.Gui and window.Dim.ZIndex < window.Root.ZIndex,
     "dim sits under the menu")
 
+--==========================================================================--
+-- Acrylic backdrop (Fluent-style glass sheet in front of the camera)
+--==========================================================================--
+assert(window.AcrylicSupported == true, "high quality client supports acrylic")
+assert(window.AcrylicEnabled == true, "acrylic is on by default on capable clients")
+assert(window.BodyAcrylic and window.SearchAcrylic, "glass sheets for panels and search")
+assert(window.BodyAcrylic.Enabled ~= false)
+local glass = window.BodyAcrylic.Model
+assert(glass.ClassName == "Part", "acrylic is a real 3D part")
+assert(glass.Material == Enum.Material.Glass, "glass material does the frosting")
+assert(glass.Anchored == true and glass.CanCollide == false and glass.CastShadow == false,
+    "the sheet never moves, collides or shadows")
+assert(glass.Size.X == 1 and glass.Size.Y == 1 and glass.Size.Z == 0, "flat unit plate scaled by the mesh")
+assert(glass.Size.Z == 0, "zero thickness, like Fluent")
+local mesh = findChild(glass, "SpecialMesh")
+assert(mesh and mesh.MeshType == Enum.MeshType.Brick, "brick special mesh stretches the plate")
+assert(mesh.Offset.Z < 0 and mesh.Offset.Z > -0.001, "mesh offset pushes it off the camera")
+assert(glass.Parent and glass.Parent.Parent == camera, "sheet lives under the camera")
+onAcrylic = nil
+
+-- Hidden until shown: the intro should not flash a black rectangle.
+assert(glass.Transparency == 1, "sheet starts invisible")
+window:Toggle(true)
+flush()
+assert(glass.Transparency == 0.98, "sheet fades in with the menu")
+assert(window.BodyAcrylic.Model.CFrame and window.BodyAcrylic.Model.CFrame.Position, "sheet is positioned in space")
+
+-- The mesh is scaled to the on-screen size of the panel cluster.
+local function approx(a, b, tolerance)
+    return math.abs(a - b) <= (tolerance or 0.001)
+end
+-- Projected size of the panel rectangle at the sheet's distance (0.001).
+local perPixel = (math.tan(math.rad(camera.FieldOfView) / 2) * 2) / camera.ViewportSize.Y
+local expectedHeight = (window.Body.AbsoluteSize.Y - 4) * perPixel * 0.001
+assert(approx(mesh.Scale.Y, expectedHeight, expectedHeight * 0.01),
+    "sheet height follows the panel rectangle: " .. tostring(mesh.Scale.Y) .. " vs " .. tostring(expectedHeight))
+assert(mesh.Scale.X > 0 and mesh.Scale.Y > 0, "sheet has real dimensions")
+assert(mesh.Scale.Z == 0, "sheet stays flat")
+
+-- Camera movement re-fits every sheet (otherwise the glass drifts off the UI).
+cameraSignals["CFrame"]:Fire()
+cameraSignals["ViewportSize"]:Fire()
+cameraSignals["FieldOfView"]:Fire()
+
+-- Hiding the menu hides the glass and destroys nothing mid-animation.
+window:Toggle(false)
+assert(glass.Transparency == 1, "sheet disappears with the menu")
+window:Toggle(true)
+flush()
+assert(glass.Transparency == 0.98, "sheet returns")
+
+-- Disabling acrylic removes the parts entirely.
+window:SetAcrylic("off")
+assert(window.AcrylicEnabled == false and window.Acrylics and #window.Acrylics > 0)
+assert(window.BodyAcrylic == nil and window.SearchAcrylic == nil, "sheets are detached")
+window:SetAcrylic("on")
+flush()
+assert(window.BodyAcrylic and window.BodyAcrylic.Model.Transparency == 0.98, "acrylic can be re-enabled")
+assert(window.AcrylicTint == nil, "no dark plate is laid behind the panels")
+
+-- Acrylic can be switched off explicitly.
+local lowQuality = Minecraft.new({Acrylic = "off"})
+assert(lowQuality.AcrylicEnabled == false and lowQuality.BodyAcrylic == nil, "acrylic can be disabled")
+assert(lowQuality.SearchAcrylic == nil and lowQuality.AcrylicTint == nil, "no glass sheets, no plate")
+lowQuality:Destroy()
+
+-- ...and a client that cannot render glass skips it even on "auto".
+local savedQuality = settings
+settings = function()
+    return {Rendering = {QualityLevel = 5}}
+end
+assert(Minecraft.Acrylic.Supported() == false, "quality below 8 is not supported")
+local weakClient = Minecraft.new({})
+assert(weakClient.AcrylicSupported == false and weakClient.AcrylicEnabled == false,
+    "auto never forces glass on weak clients")
+assert(weakClient.BodyAcrylic == nil and #weakClient.Acrylics == 0, "nothing is created")
+weakClient:Toggle(false)
+weakClient:Toggle(true)
+weakClient:Destroy()
+settings = savedQuality
+
 -- Local mode keeps the game sharp and only dims behind the panels.
 local localWindow = Minecraft.new({BlurMode = "local"})
 assert(localWindow.BlurMode == "local" and localWindow.BlurEffect == nil, "no full-screen blur locally")
@@ -262,29 +412,59 @@ assert(not window.Header and not window.TitleLabel and not window.Shadow, "no ti
 assert(window.Root.BackgroundTransparency == 1, "root itself is transparent")
 
 -- Empty window lays out one panel wide: panels + search underneath.
-assert(window.Root.Size.X.Offset == 226, "single panel width")
-assert(window.Root.Size.Y.Offset == 520 + 9 + 32, "panels + search height")
+assert(window.Root.Size.X.Offset == 236, "single panel width")
+assert(window.Root.Size.Y.Offset == 536 + 10 + 34, "panels + search height")
 
 local combat = window:AddTab("Combat")
 local movement = window:AddTab("Movement")
 local visuals = window:AddTab("Visuals")
 assert(#window.Tabs == 3)
-assert(combat.Panel.Size.X.Offset == 226 and combat.Panel.Size.Y.Offset == 520, "equal panel size")
-assert(movement.Panel.Position.X.Offset == 235 and visuals.Panel.Position.X.Offset == 470, "panel gap")
-assert(window.Root.Size.X.Offset == 3 * 226 + 2 * 9, "root grows with tabs")
+assert(combat.Panel.Size.X.Offset == 236 and combat.Panel.Size.Y.Offset == 536, "equal panel size")
+assert(movement.Panel.Position.X.Offset == 246 and visuals.Panel.Position.X.Offset == 492, "panel gap")
+assert(window.Root.Size.X.Offset == 3 * 236 + 2 * 10, "root grows with tabs")
 assert(combat.Title.Text == "Combat" and combat.Title.TextXAlignment == Enum.TextXAlignment.Center)
 
 --==========================================================================--
 -- Search field lives under the panels
 --==========================================================================--
 local search = window.SearchFrame
-assert(search and search.Position.Y.Offset == 520 + 9, "search sits below the panels")
-assert(search.Size.X.Offset == 280 and search.AnchorPoint.X == 0.5, "search is centered")
+assert(search and search.Position.Y.Offset == 536 + 10, "search sits below the panels")
+assert(search.Size.X.Offset == 300 and search.AnchorPoint.X == 0.5, "search is centered")
 assert(window.SearchBox.PlaceholderText == "Search")
 
 -- Rows must be laid out by a real UIListLayout, otherwise they overlap.
 local contentLayout = findChild(combat.Content, "UIListLayout")
 assert(contentLayout, "content has a UIListLayout")
+
+--==========================================================================--
+-- Spacing / polish: shared metrics, pixel icons, slider knob
+--==========================================================================--
+assert(Minecraft.Metrics.Inset == 12 and Minecraft.Metrics.RowGap == 5, "roomier metrics")
+assert(Minecraft.Metrics.BlockPadding == 9 and Minecraft.Metrics.BlockGap == 7, "settings rhythm")
+assert(Minecraft.Radius.Panel == 11 and Minecraft.Radius.Row == 8, "rounder corners")
+local scrollPad = findChild(combat.Scroll, "UIPadding")
+assert(scrollPad and scrollPad.PaddingTop.Offset == 14 and scrollPad.PaddingLeft.Offset == 12,
+    "scroll padding uses the metrics")
+assert(scrollPad.PaddingRight.Offset >= 14, "right padding keeps rows clear of the scrollbar")
+
+-- The search bar has a pixel magnifier and grows when it is focused.
+assert(window.SearchIcon and window.SearchIconPixels and #window.SearchIconPixels > 8,
+    "pixel search icon exists")
+local focusBefore = window.SearchFrame.BackgroundTransparency
+window.SearchBox.Focused:Fire()
+assert(window.SearchFocused == true, "focus is tracked")
+assert(window.SearchFrame.BackgroundTransparency < focusBefore, "focused search bar lifts")
+window.SearchBox.FocusLost:Fire()
+assert(window.SearchFrame.BackgroundTransparency == 0.32, "blur returns the resting opacity")
+
+-- Faded scrollbar uses the accent colour, not a grey line.
+assert(combat.Scroll.ScrollBarImageColor3 == window.Theme.Accent, "accent scrollbar")
+
+-- The panel header uses a short accent pill instead of a full-width rule.
+assert(combat.TitleLine.Size.X.Offset == 26 and combat.TitleLine.Size.Y.Offset == 2, "header pill")
+assert(combat.TitleLine.Position.X.Scale == 0.5 and combat.TitleLine.AnchorPoint.X == 0.5,
+    "header pill is centred")
+assert(combat.TopShine == nil and combat.Sheen == nil, "no edge highlight line that reads as an outline")
 
 --==========================================================================--
 -- Toggles and settings expansion
@@ -295,7 +475,7 @@ for _, name in ipairs({"Anti Bot", "Attack Aura", "Auto Explosion", "Auto Swap",
 end
 assert(#combat.Rows == 5)
 assert(not toggles[1].Dots.Visible, "no dots without settings")
-assert(combat.Rows[2].Slot.Size.Y.Offset == 30, "collapsed row height")
+assert(combat.Rows[2].Slot.Size.Y.Offset == 32, "collapsed row height")
 
 local aura = combat:AddToggle({Name = "Attack Aura 2", Default = true, Flag = "aura", Settings = function(settings)
     settings:Slider({Name = "Range", Min = 1, Max = 8, Default = 4, Flag = "aura_range"})
@@ -310,15 +490,15 @@ assert(aura:Get() == true)
 assert(aura.Holder.Size.Y.Offset == 0)
 aura.Frame.MouseButton2Down:Fire()
 assert(aura.SettingsOpen)
-assert(aura.SettingsHeight > 0 and aura.Slot.Size.Y.Offset == 30 + aura.SettingsHeight)
+assert(aura.SettingsHeight > 0 and aura.Slot.Size.Y.Offset == 32 + aura.SettingsHeight)
 assert(aura.Settings.Height > 0, "settings measured")
-assert(math.abs(aura.Settings.Height - (22 + 16 + 27 + 2 * 5)) < 0.001, "slider + toggle + input heights")
+assert(math.abs(aura.Settings.Height - (22 + 16 + 27 + 2 * 7)) < 0.001, "slider + toggle + input heights")
 -- The canvas already accounts for the opened block, so the scroll does not jump.
 local contentHeight = combat.Content.Size.Y.Offset
-assert(contentHeight > 6 * 30, "canvas grew with the settings block")
+assert(contentHeight > 6 * 32, "canvas grew with the settings block")
 aura.Frame.MouseButton2Down:Fire()
-assert(not aura.SettingsOpen and aura.Slot.Size.Y.Offset == 30)
-assert(combat.Content.Size.Y.Offset == 6 * 30 + 5 * 4, "canvas shrinks back")
+assert(not aura.SettingsOpen and aura.Slot.Size.Y.Offset == 32)
+assert(combat.Content.Size.Y.Offset == 6 * 32 + 5 * 5, "canvas shrinks back")
 
 -- Every row gets a distinct layout order, so rows are drawn one below another.
 for index, row in ipairs(combat.Rows) do
@@ -374,6 +554,14 @@ innerHit.MouseButton1Click:Fire()
 assert(tickMark.Visible == false and tickMark.Size.X.Offset == 0, "tick disappears when switched off")
 tickRow.Frame.MouseButton2Down:Fire()
 
+-- Every row plate carries a soft top-to-bottom shade that follows its fill.
+local shaded = combat:AddToggle({Name = "Shade check"})
+assert(shaded.BoxShade and shaded.BoxShade.ClassName == "UIGradient", "row plate has shading")
+local shadeOff = shaded.BoxShade.Color
+shaded.Frame.MouseButton1Click:Fire()
+assert(shaded.BoxShade.Color ~= shadeOff, "shading follows the enabled fill")
+shaded.Frame.MouseButton1Click:Fire()
+
 -- Hover must not repaint an enabled row and leaving must restore it exactly.
 local hoverRow = combat:AddToggle({Name = "Hover check", Default = true})
 local enabledFill = hoverRow.Box.BackgroundColor3
@@ -399,10 +587,13 @@ for _, row in ipairs(combat.Rows) do
     end
 end
 
+-- Let the staggered unfurl finish before checking the resting geometry.
+flush()
+
 -- Rows must be clickable: the hit area is the whole row, not a strip.
 for _, row in ipairs(combat.Rows) do
     assert(row.Frame.Size.X.Offset == 0 and row.Frame.Size.X.Scale == 1, "row spans full width")
-    assert(row.Frame.Size.Y.Offset == 30, "row is 30px tall")
+    assert(row.Frame.Size.Y.Offset == 32, "row is 32px tall")
     assert(row.Frame.ZIndex >= row.Box.ZIndex, "hit area sits above the visual")
 end
 
@@ -494,7 +685,7 @@ local choices = findClass(dropdown.ListHolder, "TextButton")
 assert(#choices == 3)
 choices[2].MouseButton1Click:Fire()
 assert(dropdown:Get() == "Rage" and window.Flags.mode == "Rage")
-assert(not dropdown.ListOpen and dropdown.Slot.Size.Y.Offset == 30, "list closes after pick")
+assert(not dropdown.ListOpen and dropdown.Slot.Size.Y.Offset == 32, "list closes after pick")
 assert(dropdown.ValueLabel.Text == "Rage")
 
 local multi = movement:AddDropdown({Name = "Parts", Multi = true, Options = {"Head", "Torso", "Legs"}, Default = {"Head"}})
@@ -520,6 +711,49 @@ window.Capturing = nil
 capture({KeyCode = Enum.KeyCode.K})
 assert(keyRow:Get() == Enum.KeyCode.K and window.Flags.panic == Enum.KeyCode.K)
 assert(keyRow.ValueLabel.Text == "K")
+
+-- Sliders inside settings carry a round knob that tracks the fill.
+local knobRow = movement:AddToggle({Name = "Knob test", Settings = function(st)
+    st:Slider({Name = "Fov", Min = 0, Max = 100, Default = 25})
+end})
+knobRow.Frame.MouseButton2Down:Fire()
+local knobGroup = knobRow.Settings.Controls[1].Frame
+local rail = findChild(knobGroup, "Track")
+assert(rail and rail.Size.Y.Offset == 6, "fat slider rail")
+local fill = findChild(rail, "Fill")
+local knob = findChild(rail, "Knob")
+assert(fill and knob, "fill and knob exist")
+assert(knob.Position.X.Scale == 0.25 and knob.AnchorPoint.X == 0.5, "knob sits at the value")
+assert(knob.Size.X.Offset == 9 and knob.Size.Y.Offset == 9, "knob is a 9px dot")
+knobRow.Frame.MouseButton2Down:Fire()
+
+-- Dropdowns inside settings use a real chevron that rotates when opened.
+local chevronRow = movement:AddToggle({Name = "Chevron", Settings = function(st)
+    st:Dropdown({Name = "Mode", Options = {"A", "B"}})
+end})
+chevronRow.Frame.MouseButton2Down:Fire()
+local chevronFrame = chevronRow.Settings.Controls[1].Frame
+local header = findChild(chevronFrame, "Header")
+assert(header, "dropdown header exists")
+local arrow = findChild(header, "Arrow")
+assert(arrow, "dropdown has a pixel chevron")
+local chevronPixels = findClass(arrow, "Frame")
+assert(#chevronPixels >= 6, "chevron is drawn from pixels")
+header.MouseButton1Click:Fire()
+assert(arrow.Rotation == 180, "chevron flips when open")
+header.MouseButton1Click:Fire()
+assert(arrow.Rotation == 0, "chevron returns when closed")
+chevronRow.Frame.MouseButton2Down:Fire()
+
+-- Buttons inside settings dip their label on click.
+local buttonRow2 = movement:AddToggle({Name = "Button test", Settings = function(st)
+    st:Button({Name = "Apply"})
+end})
+buttonRow2.Frame.MouseButton2Down:Fire()
+local innerButton = findChild(buttonRow2.Settings.Controls[1].Frame, "Button")
+assert(innerButton, "inner button exists")
+innerButton.MouseButton1Click:Fire()
+buttonRow2.Frame.MouseButton2Down:Fire()
 
 local section = visuals:AddSection("ESP")
 assert(section.Label.Text == "ESP" and not section.Box.Visible)
