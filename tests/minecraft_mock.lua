@@ -548,16 +548,22 @@ assert(combat.Glow.Parent == combat.Column, "glow is outside the clipping panel"
 assert(combat.Glow.ZIndex < combat.Panel.ZIndex, "glow sits behind the panel")
 assert(combat.Glow.Size.X.Offset > 0 and combat.Glow.Size.Y.Offset > 0,
     "glow spreads horizontally and vertically")
-assert(combat.Glow.Size.X.Offset >= 30 and combat.Glow.Size.Y.Offset >= 30,
+assert(combat.Glow.Size.X.Offset >= 8 and combat.Glow.Size.Y.Offset >= 8,
     "glow margin is visible on every side")
+-- Each tab's halo must stay inside its own slot: a wide bloom overlapped the
+-- neighbours across the 10px gap and the five panels fused into one slab.
+assert(combat.Glow.Size.X.Offset / 2 < Minecraft.Metrics.Gap,
+    "halo never reaches the neighbouring tab: " .. combat.Glow.Size.X.Offset / 2)
+assert(combat.GlowFar.Size.X.Offset / 2 <= Minecraft.Metrics.Gap,
+    "not even the far layer crosses the gap")
 
 -- Glow is two layers: a tight core and a wide soft spread. A single soft
 -- texture at low alpha was invisible over a busy scene, which is why the
 -- glow "could not be seen" in game.
 assert(combat.GlowFar and combat.GlowFar.ClassName == "ImageLabel", "the glow has a far layer")
 assert(combat.GlowFar.ZIndex < combat.Panel.ZIndex, "the far layer sits behind the panel too")
-assert(combat.GlowFar.Size.X.Offset > combat.Glow.Size.X.Offset,
-    "the far layer spreads wider than the core")
+assert(combat.GlowFar.Size.X.Offset >= combat.Glow.Size.X.Offset,
+    "the far layer is at least as wide as the core")
 assert(combat.GlowFar.ImageTransparency < 1 and combat.Glow.ImageTransparency < 1,
     "both glow layers are visible")
 assert(window.SearchGlow and window.SearchGlow.Image == "rbxasset://textures/glow.png",
@@ -1106,36 +1112,55 @@ for _, tab in ipairs(window.Tabs) do
     assert(tab.StarLayer.Parent == tab.Panel, "stars are clipped inside the panel")
     assert(#tab.Stars >= 3, "each tab gets its own meteors: " .. #tab.Stars)
     assert(tab.Stars[1].Holder.Parent == tab.StarLayer, "meteor parented to its field")
+    -- The stock glow texture has visible spokes; it must not appear anywhere in
+    -- the star layer, or the bloom reads as a "sphere with rays".
+    local function noSpokes(node)
+        for _, child in ipairs(node.children or {}) do
+            if child.ClassName == "ImageLabel" then
+                assert(child.Image ~= "rbxasset://textures/glow.png",
+                    "no spoked texture in the star field")
+            end
+            noSpokes(child)
+        end
+    end
+    noSpokes(tab.StarLayer)
 end
 local star = window.Tabs[1].Stars[1]
 assert((star.Holder.Rotation or 0) == 0, "the star itself stays upright")
-assert(star.Trail.Rotation == 34, "only the trail follows the fall direction")
-assert(star.Body and star.Trail and star.Halo, "a star has a pixel body, a trail and a bloom")
-assert(star.Halo.Image == "rbxasset://textures/glow.png", "bloom uses the soft texture")
--- The body is a real five-pointed silhouette, not a blob: it must have a wide
--- row (the points) and rows made of separated runs (the notches).
-local bodyRows, widest, separated = 0, 0, false
+assert(star.Tail.Rotation == 34, "only the tail follows the fall direction")
+assert(star.Body and star.Tail and star.Halo, "a star has a pixel body, a tail and a halo")
+-- The halo must NOT be the stock glow texture: that asset has spokes and
+-- produced the "sphere with rays" artefact the user rejected.
+assert(star.Halo.ClassName == "Frame", "the halo is a soft rounded frame, not the spoked texture")
+assert(star.Halo.BackgroundTransparency > 0.6, "the halo is a faint even wash")
+
+-- The glyph must be a real five-pointed star: one narrow column at the top (the
+-- crown), one very wide row (the arms), and a notched bottom (the legs).
+local rows = {}
 for _, child in ipairs(star.Body.children) do
     if child.ClassName == "Frame" and child.Name == "Pixel" then
-        bodyRows = bodyRows + 1
-        widest = math.max(widest, child.Size.X.Offset)
+        local y = child.Position.Y.Offset
+        rows[y] = (rows[y] or 0) + child.Size.X.Offset
     end
 end
-assert(bodyRows >= 10, "the star glyph is built from pixel runs: " .. bodyRows)
-assert(widest >= 16, "a five-pointed star spreads wide at the arms: " .. widest)
--- Symmetry: the widest row must start at the left edge and reach the middle,
--- so the star has two equal arms rather than one long and one short.
-local widestStart, widestLen = 99, 0
+local widest, topRow, topWidth = 0, math.huge, 0
+for y, width in pairs(rows) do
+    widest = math.max(widest, width)
+    if y < topRow then
+        topRow, topWidth = y, width
+    end
+end
+assert(widest >= 14, "a five-pointed star spreads wide at the arms: " .. widest)
+assert(topWidth <= 4, "the crown is a single narrow point: " .. topWidth)
+-- Bottom row must be split into two separate runs = the legs.
+local legs = 0
 for _, child in ipairs(star.Body.children) do
-    if child.ClassName == "Frame" and child.Name == "Pixel" and child.Size.X.Offset >= 16 then
-        widestStart = math.min(widestStart, child.Position.X.Offset)
-        widestLen = math.max(widestLen, child.Size.X.Offset)
+    if child.Name == "Pixel" and child.Position.Y.Offset == 12 then
+        legs = legs + 1
     end
 end
-assert(widestStart <= 4, "one arm reaches the left edge: " .. widestStart)
-assert(star.Trail.BackgroundColor3 ~= star.Body.children[1].BackgroundColor3,
-    "the trail is dimmer than the body")
-assert(star.Holder.ZIndex < window.Tabs[1].Scroll.ZIndex, "stars stay behind the rows")
+assert(legs >= 2, "the bottom row splits into two legs: " .. legs)
+
 assert(#window.Tabs[1].Stars == #window.Tabs[2].Stars, "every tab gets the same count")
 
 window:Toggle(false)

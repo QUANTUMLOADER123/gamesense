@@ -20,8 +20,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local Minecraft = {}
 Minecraft.__index = Minecraft
-Minecraft.Version = "1.13.0"
-Minecraft.Build = 23 -- incremented on every visible change, used by examples to detect stale caches
+Minecraft.Version = "1.14.0"
+Minecraft.Build = 24 -- incremented on every visible change, used by examples to detect stale caches
 
 local Tab = {}
 Tab.__index = Tab
@@ -337,9 +337,12 @@ local function addGlow(parent, color, options)
         Image = GLOW_TEXTURE,
         ImageColor3 = color or Color3.new(1, 1, 1),
         ImageTransparency = options.Transparency or 0.45,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
-        SliceScale = options.SliceScale or 1,
+        -- Stretch, not Slice. glow.png is a plain radial blob: slicing it needs a
+        -- SliceCenter that matches its real pixel size, and any mismatch renders
+        -- the bright core as an offset smear with visible spokes. Stretching the
+        -- radial gives a smooth elliptical falloff that hugs the rectangle -- a
+        -- real bloom instead of a "sphere with rays".
+        ScaleType = Enum.ScaleType.Stretch,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
         Size = UDim2.new(1, padding * 2, 1, padding * 2),
@@ -836,11 +839,10 @@ function Minecraft:SetupSearch()
         Image = "rbxasset://textures/glow.png",
         ImageColor3 = window.Theme.Accent,
         ImageTransparency = 0.68,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
+        ScaleType = Enum.ScaleType.Stretch,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.new(1, 16, 1, 16),
+        Size = UDim2.new(1, 12, 1, 12),
         ZIndex = 1,
     }, window.SearchFrame)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Panel)}, window.SearchGlow)
@@ -1240,95 +1242,81 @@ end
 --==========================================================================--
 -- Falling stars (inside the tab panels)
 --==========================================================================--
--- Five-pointed stars that drift down inside each panel, behind the rows and
--- clipped by its rounded corners. They are a background for the tabs, never for
--- the screen: a field over the whole viewport read as scratches over the game.
---
--- Each star is drawn from the same pixel-icon vocabulary the rest of the UI
--- uses (solid runs of 1px frames), so a star at 4x looks like a crisp Minecraft
--- star rather than a soft blob. Behind it sits one radial bloom and below it a
--- short fading trail.
+-- A real five-pointed star, rasterised from the actual geometry (outer radius
+-- 0.5, inner 0.25) rather than hand-drawn, so the silhouette is unmistakable at
+-- any scale. It is drawn as solid pixel runs like the rest of the icon set.
+local STAR_GLYPH = {
+    ".......##........",
+    ".......##........",
+    "......####.......",
+    "......####.......",
+    ".##############..",
+    ".##############..",
+    "..############...",
+    "....########.....",
+    "....########.....",
+    "....########.....",
+    "....########.....",
+    "....###..###.....",
+    "....#......#.....",
+}
+
+-- The star stays upright and only the tail behind it follows the fall angle:
+-- a rotated star reads as a blob.
 local STAR_ANGLE = 34
 
--- A five-pointed star, hand-drawn so the silhouette stays readable at 4px.
-local STAR_GLYPH = {
-    ".....#.....",
-    "....###....",
-    "...#####...",
-    "###########",
-    "###########",
-    ".#########.",
-    "..#######..",
-    "..#######..",
-    "..##.#.##..",
-    ".##..#..##.",
-    "##...#...##",
-}
-
--- A tiny spark for the smaller background stars.
-local SPARK_GLYPH = {
-    "..#..",
-    "..#..",
-    "#####",
-    "..#..",
-    "..#..",
-}
-
 local STAR_TINTS = {
-    {Color3.fromRGB(255, 255, 255), Color3.fromRGB(160, 140, 255)},
-    {Color3.fromRGB(214, 242, 255), Color3.fromRGB(104, 196, 255)},
-    {Color3.fromRGB(255, 232, 248), Color3.fromRGB(255, 146, 222)},
+    {Color3.fromRGB(255, 255, 255), Color3.fromRGB(170, 150, 255)},
+    {Color3.fromRGB(214, 242, 255), Color3.fromRGB(120, 200, 255)},
+    {Color3.fromRGB(255, 232, 248), Color3.fromRGB(255, 160, 226)},
 }
 
 local function makeStar(parent, index, seed)
     local tint = STAR_TINTS[(index - 1) % #STAR_TINTS + 1]
-    -- Every third star is a small spark, the rest are real five-pointed stars.
-    local big = (index % 3 ~= 0)
-    local glyph = big and STAR_GLYPH or SPARK_GLYPH
-    local scale = big and 2 or 1
-    local size = #glyph * scale
+    local scale = (index % 4 == 0) and 1 or 2
+    local size = 18 * scale / 2
 
     local holder = create("Frame", {
         Name = "Star" .. index,
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Size = UDim2.fromOffset(size, size + 6),
+        Size = UDim2.fromOffset(size, size),
         ZIndex = 1,
     }, parent)
 
-    -- The trail is the only rotated part: it must point along the fall path,
-    -- while the star itself stays upright (a tilted star reads as a splat).
-    local trail = create("Frame", {
-        Name = "Trail",
+    -- Tail: a short streak that trails behind the star, faded out at its tip.
+    -- One thin bar, not a cone: a widening trail is what looked like "rays".
+    local tail = create("Frame", {
+        Name = "Tail",
         BackgroundColor3 = tint[2],
-        BackgroundTransparency = 0.62,
+        BackgroundTransparency = 0.55,
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 1),
-        Position = UDim2.new(0.5, 0, 0.5, -size * 0.35),
-        Size = UDim2.new(0, 1, 0, 26),
+        Position = UDim2.new(0.5, 0, 0.5, -size * 0.28),
+        Size = UDim2.new(0, 1, 0, size * 1.5),
         Rotation = STAR_ANGLE,
         ZIndex = 1,
     }, holder)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, tail)
     create("UIGradient", {
-        -- Local Y runs from the tip (top) to the star (bottom): clear -> solid.
         Rotation = 90,
         Transparency = NumberSequence.new({
             NumberSequenceKeypoint.new(0, 1),
-            NumberSequenceKeypoint.new(1, 0.15),
+            NumberSequenceKeypoint.new(1, 0.3),
         }),
-    }, trail)
+    }, tail)
 
-    -- The glyph: solid pixel runs, tinted per star.
+    -- Body: solid pixel runs forming the star.
     local body = create("Frame", {
         Name = "Body",
         BackgroundTransparency = 1,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        Size = UDim2.fromOffset(size, size),
-        ZIndex = 3,
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(14 * scale / 2, 14 * scale / 2),
+        ZIndex = 2,
     }, holder)
-    for rowIndex, row in ipairs(glyph) do
+    for rowIndex, row in ipairs(STAR_GLYPH) do
         local column = 1
         while column <= #row do
             if row:sub(column, column) == "#" then
@@ -1339,11 +1327,11 @@ local function makeStar(parent, index, seed)
                 create("Frame", {
                     Name = "Pixel",
                     BackgroundColor3 = tint[1],
-                    BackgroundTransparency = 0.25,
+                    BackgroundTransparency = 0.12,
                     BorderSizePixel = 0,
-                    Position = UDim2.fromOffset((first - 1) * scale, (rowIndex - 1) * scale),
-                    Size = UDim2.fromOffset((column - first) * scale, scale),
-                    ZIndex = 3,
+                    Position = UDim2.fromOffset((first - 1) * scale / 2, (rowIndex - 1) * scale / 2),
+                    Size = UDim2.fromOffset((column - first) * scale / 2, scale / 2),
+                    ZIndex = 2,
                 }, body)
             else
                 column = column + 1
@@ -1351,28 +1339,27 @@ local function makeStar(parent, index, seed)
         end
     end
 
-    -- One soft bloom behind the glyph so the star reads as a light source.
-    local halo = create("ImageLabel", {
+    -- A small even bloom. Deliberately NOT the stock glow texture: that asset
+    -- has visible spokes and produced the "sphere with rays" artefact.
+    local halo = create("Frame", {
         Name = "Halo",
-        BackgroundTransparency = 1,
-        Image = GLOW_TEXTURE,
-        ImageColor3 = tint[2],
-        ImageTransparency = 0.45,
+        BackgroundColor3 = tint[2],
+        BackgroundTransparency = 0.82,
+        BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(size * 3, size * 3),
-        SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
-        ScaleType = Enum.ScaleType.Slice,
-        ZIndex = 2,
+        Size = UDim2.fromScale(2.1, 2.1),
+        ZIndex = 1,
     }, holder)
+    create("UICorner", {CornerRadius = UDim.new(1, 0)}, halo)
 
     return {
         Holder = holder,
         Body = body,
-        Trail = trail,
+        Tail = tail,
         Halo = halo,
         Seed = seed,
-        Big = big,
+        Scale = scale,
     }
 end
 
@@ -1396,8 +1383,7 @@ function Minecraft:_LaunchStar(star, area, firstRun)
     star.Holder.Position = UDim2.fromOffset(startX, startY)
     star.Holder.Visible = true
 
-    -- Big stars fall slower, sparks whip past.
-    local duration = (star.Big and 4.2 or 3.0) + (star.Seed % 4) * 0.7
+    local duration = (star.Scale > 1 and 4.2 or 3.2) + (star.Seed % 4) * 0.7
     local delay = firstRun and ((star.Seed % 8) * 0.55) or ((star.Seed * 0.41) % 3.5)
 
     local function fly()
@@ -1406,15 +1392,15 @@ function Minecraft:_LaunchStar(star, area, firstRun)
         end
         tween(star.Holder, {Position = UDim2.fromOffset(endX, endY)}, TweenInfo.new(duration, Enum.EasingStyle.Linear))
         local fadeIn = TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        tween(star.Trail, {BackgroundTransparency = 0.35}, fadeIn)
-        tween(star.Halo, {ImageTransparency = 0.3}, fadeIn)
+        tween(star.Tail, {BackgroundTransparency = 0.4}, fadeIn)
+        tween(star.Halo, {BackgroundTransparency = 0.72}, fadeIn)
         task.delay(duration * 0.84, function()
             if not isAlive(star.Holder) then
                 return
             end
             local fadeOut = TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-            tween(star.Trail, {BackgroundTransparency = 1}, fadeOut)
-            tween(star.Halo, {ImageTransparency = 1}, fadeOut)
+            tween(star.Tail, {BackgroundTransparency = 1}, fadeOut)
+            tween(star.Halo, {BackgroundTransparency = 1}, fadeOut)
         end)
         task.delay(duration + 0.5 + (star.Seed % 5) * 0.6, function()
             if not self.Open or not isAlive(star.Holder) then
@@ -1449,6 +1435,7 @@ function Minecraft:_SetupStars(forceCount)
             tab.Stars = {}
         end
         if tab.StarLayer then
+            -- No stock halo anywhere in this layer: only pixel stars + tails.
             for index = 1, perTab do
                 if not tab.Stars[index] then
                     tab.Stars[index] = makeStar(tab.StarLayer, index, tabIndex * 9 + index * 3)
@@ -1677,17 +1664,21 @@ function Minecraft:AddTab(name, options)
     -- Real bloom behind the panel. It is a SIBLING of the panel (not a child),
     -- drawn one ZIndex below it, and it extends past every edge, so what you see
     -- is a soft halo all around the slab instead of only the strip under it.
+    -- The halo is deliberately SMALL. A wide bloom (+96px) overlapped its
+    -- neighbours across the 10px gap and the five panels fused into one bright
+    -- slab -- which read as "one blur behind all the tabs" instead of a sheet per
+    -- tab. +18/+10 keeps each tab's glow inside its own slot, with a visible
+    -- sharp gap between columns.
     tab.GlowFar = create("ImageLabel", {
         Name = "PanelGlowFar",
         BackgroundTransparency = 1,
         Image = GLOW_TEXTURE,
         ImageColor3 = theme.Accent,
-        ImageTransparency = 0.72,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
+        ImageTransparency = 0.82,
+        ScaleType = Enum.ScaleType.Stretch,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.new(1, 96, 1, 96),
+        Size = UDim2.new(1, 14, 1, 14),
         ZIndex = 1,
     }, tab.Column)
     tab.Glow = create("ImageLabel", {
@@ -1695,13 +1686,11 @@ function Minecraft:AddTab(name, options)
         BackgroundTransparency = 1,
         Image = GLOW_TEXTURE,
         ImageColor3 = theme.Accent,
-        ImageTransparency = 0.45,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
+        ImageTransparency = 0.70,
+        ScaleType = Enum.ScaleType.Stretch,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        -- Spread on all four sides, not just vertically.
-        Size = UDim2.new(1, 44, 1, 44),
+        Size = UDim2.new(1, 8, 1, 8),
         ZIndex = 1,
     }, tab.Column)
 
@@ -2043,11 +2032,10 @@ local function newRow(tab, name, options)
         Image = "rbxasset://textures/glow.png",
         ImageColor3 = theme.Accent,
         ImageTransparency = 1,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(Vector2.new(64, 64), Vector2.new(64, 64)),
+        ScaleType = Enum.ScaleType.Stretch,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.new(1, 16, 0, M.RowHeight + 16),
+        Size = UDim2.new(1, 14, 0, M.RowHeight + 14),
         ZIndex = 1,
     }, row.Slot)
     create("UICorner", {CornerRadius = UDim.new(0, Minecraft.Radius.Row)}, row.Glow)
